@@ -1,0 +1,33 @@
+[package]
+name = "dao-pre-propose-base"
+authors = ["ekez ekez@withoutdoing.com"]
+description = "A package for implementing pre-propose modules."
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all instantiate/execute/query WASM exports
+library = []
+
+[dependencies]
+cosmwasm-std ={workspace=true}
+cosmwasm-schema = { version = "1.2" }
+secret-cw2 = { git = "https://github.com/securesecrets/secret-plus-utils" }
+cw-denom = { workspace = true }
+secret-storage-plus = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4",features=["iterator"] }
+secret-utils = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4" }
+cw-hooks = { workspace = true }
+dao-interface = { workspace = true }
+dao-voting = { workspace = true }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0" }
+
+[dev-dependencies]
+secret-multi-test = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4"}
