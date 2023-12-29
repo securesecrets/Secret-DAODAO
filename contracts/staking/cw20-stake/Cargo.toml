@@ -30,7 +30,7 @@ dao-voting = { workspace = true }
 
 secret-utils = { workspace = true }
 cosmwasm-std ={ workspace = true }
-secret-cosmwasm-storage={ workspace = true }
+cosmwasm-storage = { version = "1.0.0", package = "secret-cosmwasm-storage",features = ["iterator"]}
 secret-toolkit = { workspace = true }
 secret-storage-plus = { workspace = true }
 secret-cw-controllers = { workspace = true }

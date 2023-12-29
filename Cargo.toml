@@ -132,7 +132,7 @@ dao-voting = { path = "./packages/dao-voting", version = "2.4.0" }
 # voting-v1 = { package = "dao-voting", version = "0.1.0" }
 
 
-secret-cosmwasm-storage={version="1.1.11",features = ["iterator"]}
+# cosmwasm-storage = { version = "1.1.11", package = "secret-cosmwasm-storage",features = ["iterator"] }
 secret-utils = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4"}
 cosmwasm-std = { version = "1.1.11", package = "secret-cosmwasm-std"}
 secret-toolkit = {version="0.10.0",features = ["viewing-key"]}
