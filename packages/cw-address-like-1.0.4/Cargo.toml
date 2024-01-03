@@ -17,10 +17,7 @@ authors = ["larry <gm@larry.engineer>"]
 description = "A trait that marks unchecked or checked CosmWasm address strings"
 homepage = "https://larry.engineer"
 readme = "README.md"
-keywords = [
-    "cosmos",
-    "cosmwasm",
-]
+keywords = ["cosmos", "cosmwasm"]
 license = "Apache-2.0"
 repository = "https://github.com/steak-enjoyers/cw-plus-plus"
 resolver = "1"
@@ -29,5 +26,5 @@ resolver = "1"
 doctest = false
 
 [dependencies.cosmwasm-std]
-workspace=true
-features=["iterator","ibc3"]
+workspace = true
+features = ["ibc3"]

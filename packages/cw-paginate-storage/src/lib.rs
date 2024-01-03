@@ -1,64 +1,66 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 
-use cosmwasm_std::{Deps, Order, StdResult};
-
-#[allow(unused_imports)]
-use secret_storage_plus::{Bound, Bounder, KeyDeserialize, Map, SnapshotMap, Strategy};
+use cosmwasm_std::{Deps, StdResult};
+use secret_toolkit::storage::{
+    keymap::{KeyItemIter, KeyIter},
+    Keymap,
+};
+use serde::{de::DeserializeOwned, Serialize};
 
 /// Generic function for paginating a list of (K, V) pairs in a
 /// CosmWasm Map.
-pub fn paginate_map<'a, 'b, K, V, R: 'static>(
+pub fn paginate_map<'a, 'b, K, V>(
     deps: Deps,
-    map: &Map<'a, K, V>,
-    start_after: Option<K>,
-    limit: Option<u32>,
-    order: Order,
-) -> StdResult<Vec<(R, V)>>
+    map: &Keymap<'a, K, V>,
+    start: u32,
+    end: u32,
+) -> StdResult<Vec<(K, V)>>
 where
-    K: Bounder<'a> + KeyDeserialize<Output = R> + 'b,
+    K: Serialize + DeserializeOwned,
     V: serde::de::DeserializeOwned + serde::Serialize,
 {
-    let (range_min, range_max) = match order {
-        Order::Ascending => (start_after.map(Bound::exclusive), None),
-        Order::Descending => (None, start_after.map(Bound::exclusive)),
-    };
-
-    let items = map.range(deps.storage, range_min, range_max, order);
-    match limit {
-        Some(limit) => Ok(items
-            .take(limit.try_into().unwrap())
-            .collect::<StdResult<_>>()?),
-        None => Ok(items.collect::<StdResult<_>>()?),
-    }
+    let items = KeyItemIter::new(map, deps.storage, start, end)
+        .flatten()
+        .collect();
+    Ok(items)
 }
 
 /// Same as `paginate_map` but only returns the keys.
-pub fn paginate_map_keys<'a, 'b, K, V, R: 'static>(
+pub fn paginate_map_keys<'a, 'b, K, V>(
     deps: Deps,
-    map: &Map<'a, K, V>,
-    start_after: Option<K>,
-    limit: Option<u32>,
-    order: Order,
-) -> StdResult<Vec<R>>
+    map: &Keymap<'a, K, V>,
+    start: u32,
+    end: u32,
+) -> StdResult<Vec<K>>
 where
-    K: Bounder<'a> + KeyDeserialize<Output = R> + 'b,
+    K: Serialize + DeserializeOwned,
     V: serde::de::DeserializeOwned + serde::Serialize,
 {
-    let (range_min, range_max) = match order {
-        Order::Ascending => (start_after.map(Bound::exclusive), None),
-        Order::Descending => (None, start_after.map(Bound::exclusive)),
-    };
+    let items = KeyIter::new(map, deps.storage, start, end)
+        .flatten()
+        .collect();
+    Ok(items)
+}
 
-    let items = map.keys(deps.storage, range_min, range_max, order);
-    match limit {
-        Some(limit) => Ok(items
-            .take(limit.try_into().unwrap())
-            .collect::<StdResult<_>>()?),
-        None => Ok(items.collect::<StdResult<_>>()?),
-    }
+/// Same as `paginate_map` but only returns the values.
+pub fn paginate_map_values<'a, K, V>(
+    deps: Deps,
+    map: &Keymap<'a, K, V>,
+    start: u32,
+    end: u32,
+) -> StdResult<Vec<V>>
+where
+    K: Serialize + DeserializeOwned,
+    V: serde::de::DeserializeOwned + serde::Serialize,
+{
+    let items = KeyItemIter::new(map, deps.storage, start, end)
+        .map(|a| a.unwrap().1)
+        .collect();
+    Ok(items)
 }
 
 /// Same as `paginate_map` but for use with `SnapshotMap`.
+#[cfg(feature = "iterator")]
 pub fn paginate_snapshot_map<'a, 'b, K, V, R: 'static>(
     deps: Deps,
     map: &SnapshotMap<'a, K, V>,
@@ -84,37 +86,9 @@ where
     }
 }
 
-/// Same as `paginate_map` but only returns the values.
-pub fn paginate_map_values<'a, K, V>(
-    deps: Deps,
-    map: &Map<'a, K, V>,
-    start_after: Option<K>,
-    limit: Option<u32>,
-    order: Order,
-) -> StdResult<Vec<V>>
-where
-    K: Bounder<'a> + KeyDeserialize<Output = K> + 'static,
-    V: serde::de::DeserializeOwned + serde::Serialize,
-{
-    let (range_min, range_max) = match order {
-        Order::Ascending => (start_after.map(Bound::exclusive), None),
-        Order::Descending => (None, start_after.map(Bound::exclusive)),
-    };
-
-    let items = map
-        .range(deps.storage, range_min, range_max, order)
-        .map(|kv| Ok(kv?.1));
-
-    match limit {
-        Some(limit) => Ok(items
-            .take(limit.try_into().unwrap())
-            .collect::<StdResult<_>>()?),
-        None => Ok(items.collect::<StdResult<_>>()?),
-    }
-}
-
 /// Same as `paginate_map` but only returns the keys. For use with
 /// `SnaphotMap`.
+#[cfg(feature = "iterator")]
 pub fn paginate_snapshot_map_keys<'a, 'b, K, V, R: 'static>(
     deps: Deps,
     map: &SnapshotMap<'a, K, V>,
@@ -156,32 +130,16 @@ mod tests {
                 .unwrap();
         }
 
-        let items = paginate_map(deps.as_ref(), &map, None, None, Order::Descending).unwrap();
-        assert_eq!(
-            items,
-            vec![
-                ("2".to_string(), "4".to_string()),
-                ("1".to_string(), "2".to_string())
-            ]
-        );
-
-        let items = paginate_map(deps.as_ref(), &map, None, None, Order::Ascending).unwrap();
+        let items = paginate_map(deps.as_ref(), &map, 0, 1).unwrap();
         assert_eq!(
             items,
             vec![
                 ("1".to_string(), "2".to_string()),
-                ("2".to_string(), "4".to_string())
+                ("2".to_string(), "4".to_string()),
             ]
         );
 
-        let items = paginate_map(
-            deps.as_ref(),
-            &map,
-            Some("1".to_string()),
-            None,
-            Order::Ascending,
-        )
-        .unwrap();
+        let items = paginate_map(deps.as_ref(), &map, 1, 1).unwrap();
         assert_eq!(items, vec![("2".to_string(), "4".to_string())]);
 
         let items = paginate_map(deps.as_ref(), &map, None, Some(1), Order::Ascending).unwrap();

@@ -10,7 +10,8 @@ version = { workspace = true }
 [dependencies]
 cosmwasm-std ={ workspace = true }
 # cosmwasm-storage = { workspace = true }
-secret-storage-plus = { workspace = true }
+secret-storage-plus = { workspace = true, default-features = false}
+secret-toolkit = { workspace = true, default-features = false}
 serde = { workspace = true }
 
 [dev-dependencies]

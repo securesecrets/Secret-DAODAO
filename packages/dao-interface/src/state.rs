@@ -69,12 +69,12 @@ pub struct ModuleInstantiateInfo {
 }
 
 impl ModuleInstantiateInfo {
-    pub fn into_wasm_msg(self, dao: Addr) -> WasmMsg {
+    pub fn into_wasm_msg(self, _dao: Addr) -> WasmMsg {
         WasmMsg::Instantiate {
-            admin: self.admin.map(|admin| match admin {
-                Admin::Address { addr } => addr,
-                Admin::CoreModule {} => dao.into_string(),
-            }),
+            // admin: self.admin.map(|admin| match admin {
+            //     Admin::Address { addr } => addr,
+            //     Admin::CoreModule {} => dao.into_string(),
+            // }),
             code_id: self.code_id,
             code_hash: self.code_hash,
             msg: self.msg,
@@ -109,7 +109,7 @@ mod tests {
         assert_eq!(
             no_admin.into_wasm_msg(Addr::unchecked("ekez")),
             WasmMsg::Instantiate {
-                admin: None,
+                // admin: None,
                 code_id: 42,
                 code_hash: "code_hash".into(),
                 msg: to_binary("foo").unwrap(),
@@ -134,7 +134,7 @@ mod tests {
         assert_eq!(
             no_admin.into_wasm_msg(Addr::unchecked("ekez")),
             WasmMsg::Instantiate {
-                admin: Some("core".to_string()),
+                // admin: Some("core".to_string()),
                 code_id: 42,
                 code_hash: "code_hash".into(),
                 msg: to_binary("foo").unwrap(),
@@ -157,7 +157,7 @@ mod tests {
         assert_eq!(
             no_admin.into_wasm_msg(Addr::unchecked("ekez")),
             WasmMsg::Instantiate {
-                admin: Some("ekez".to_string()),
+                // admin: Some("ekez".to_string()),
                 code_id: 42,
                 code_hash: "code_hash".into(),
                 msg: to_binary("foo").unwrap(),

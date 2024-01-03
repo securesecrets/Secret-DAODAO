@@ -17,12 +17,12 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmwasm-std ={workspace=true}
-cosmwasm-schema = { version = "1.2" }
-secret-cw2 = { git = "https://github.com/securesecrets/secret-plus-utils" }
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+secret-cw2 ={ workspace = true }
 cw-denom = { workspace = true }
-secret-storage-plus = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4",features=["iterator"] }
-secret-utils = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4" }
+secret-storage-plus = { workspace = true }
+secret-utils = { workspace = true }
 cw-hooks = { workspace = true }
 dao-interface = { workspace = true }
 dao-voting = { workspace = true }
@@ -30,4 +30,4 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0" }
 
 [dev-dependencies]
-secret-multi-test = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4"}
+secret-multi-test = { workspace = true }

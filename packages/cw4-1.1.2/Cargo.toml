@@ -21,15 +21,13 @@ license = "Apache-2.0"
 repository = "https://github.com/CosmWasm/cw-plus"
 
 [dependencies.cosmwasm-schema]
-version = "1.4.0"
+workspoace = true
 
 [dependencies.cosmwasm-std]
-workspace=true
+workspace = true
 
 [dependencies.secret-storage-plus]
-git = "https://github.com/securesecrets/secret-plus-utils"
-version = "0.13.4"
-features=["iterator"]
+workspace = true
 
 [dependencies.schemars]
 version = "0.8.15"

@@ -1,22 +1,21 @@
 use crate::math;
 use crate::msg::{ExecuteAnswer, Snip20ReceiveMsg};
 use crate::msg::{
-    ExecuteMsg, GetHooksResponse, InstantiateMsg, ListStakersResponse, QueryMsg, ReceiveMsg,
-    ResponseStatus::Success, StakedBalanceAtHeightResponse, StakedValueResponse,
-    StakerBalanceResponse, TotalStakedAtHeightResponse, TotalValueResponse,
+    ExecuteMsg,  InstantiateMsg , ReceiveMsg,
+    ResponseStatus::Success,
 };
 use crate::state::{
     Config, BALANCE, CLAIMS, CONFIG, HOOKS, MAX_CLAIMS, STAKED_BALANCES, STAKED_TOTAL,
 };
 use crate::ContractError;
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo,
+    entry_point, from_binary, to_binary, Addr, DepsMut, Empty, Env, MessageInfo,
     Response, StdError, StdResult, Uint128,
 };
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_voting::duration::validate_duration;
 use secret_cw2::set_contract_version;
-use secret_cw_controllers::ClaimsResponse;
+
 pub use secret_toolkit::snip20::handle::{
     burn_from_msg, burn_msg, decrease_allowance_msg, increase_allowance_msg, mint_msg,
     send_from_msg, send_msg, transfer_from_msg, transfer_msg,
@@ -64,7 +63,7 @@ pub fn instantiate(
     // `unwrap_or_default` where this is used as it protects us
     // against a scenerio where state is cleared by a bad actor and
     // `unwrap_or_default` carries on.
-    STAKED_TOTAL.save(deps.storage, &Uint128::zero(), env.block.height)?;
+    STAKED_TOTAL.save(deps.storage, &Uint128::zero())?;
     BALANCE.save(deps.storage, &Uint128::zero())?;
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -146,20 +145,19 @@ pub fn execute_stake(
     let balance = BALANCE.load(deps.storage)?;
     let staked_total = STAKED_TOTAL.load(deps.storage)?;
     let amount_to_stake = math::amount_to_stake(staked_total, balance, amount);
-    STAKED_BALANCES.update(
+    let prev_balance = STAKED_BALANCES.get(deps.storage, &sender);
+    STAKED_BALANCES.insert(
         deps.storage,
         &sender,
-        env.block.height,
-        |bal| -> StdResult<Uint128> { Ok(bal.unwrap_or_default().checked_add(amount_to_stake)?) },
+        &prev_balance
+            .unwrap_or_default()
+            .checked_add(amount_to_stake)
+            .unwrap(),
     )?;
-    STAKED_TOTAL.update(
-        deps.storage,
-        env.block.height,
-        |total| -> StdResult<Uint128> {
-            // Initialized during instantiate - OK to unwrap.
-            Ok(total.unwrap().checked_add(amount_to_stake)?)
-        },
-    )?;
+    STAKED_TOTAL.update(deps.storage, |total| -> StdResult<Uint128> {
+        // Initialized during instantiate - OK to unwrap.
+        Ok(total.checked_add(amount_to_stake)?)
+    })?;
     BALANCE.save(
         deps.storage,
         &balance.checked_add(amount).map_err(StdError::overflow)?,
@@ -198,20 +196,19 @@ pub fn execute_unstake(
         return Err(ContractError::ImpossibleUnstake {});
     }
     let amount_to_claim = math::amount_to_claim(staked_total, balance, amount);
-    STAKED_BALANCES.update(
+    let prev_balance = STAKED_BALANCES.get(deps.storage, &info.sender);
+    STAKED_BALANCES.insert(
         deps.storage,
         &info.sender,
-        env.block.height,
-        |bal| -> StdResult<Uint128> { Ok(bal.unwrap_or_default().checked_sub(amount)?) },
+        &prev_balance
+            .unwrap_or_default()
+            .checked_sub(amount)
+            .unwrap(),
     )?;
-    STAKED_TOTAL.update(
-        deps.storage,
-        env.block.height,
-        |total| -> StdResult<Uint128> {
-            // Initialized during instantiate - OK to unwrap.
-            Ok(total.unwrap().checked_sub(amount)?)
-        },
-    )?;
+    STAKED_TOTAL.update(deps.storage, |total| -> StdResult<Uint128> {
+        // Initialized during instantiate - OK to unwrap.
+        Ok(total.checked_sub(amount)?)
+    })?;
     BALANCE.save(
         deps.storage,
         &balance
@@ -380,171 +377,169 @@ pub fn try_set_key(
         })?),
     )
 }
-#[entry_point]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    match msg {
-        QueryMsg::GetConfig { key, address } => to_binary(&query_config(deps, address, key)?),
-        QueryMsg::StakedBalanceAtHeight {
-            key,
-            address,
-            height,
-        } => to_binary(&query_staked_balance_at_height(
-            deps, env, key, address, height,
-        )?),
-        QueryMsg::TotalStakedAtHeight {
-            key,
-            address,
-            height,
-        } => to_binary(&query_total_staked_at_height(
-            deps, env, key, address, height,
-        )?),
-        QueryMsg::StakedValue { key, address } => {
-            to_binary(&query_staked_value(deps, env, key, address)?)
-        }
-        QueryMsg::TotalValue { key, address } => {
-            to_binary(&query_total_value(deps, env, address, key)?)
-        }
-        QueryMsg::Claims { key, address } => to_binary(&query_claims(deps, key, address)?),
-        QueryMsg::GetHooks { key, address } => to_binary(&query_hooks(deps, address, key)?),
-        QueryMsg::ListStakers {
-            key,
-            address,
-            start_after,
-            limit,
-        } => query_list_stakers(deps, key, address, start_after, limit),
-        QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
-    }
-}
+// #[entry_point]
+// pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+//     match msg {
+//         QueryMsg::GetConfig { key, address } => to_binary(&query_config(deps, address, key)?),
+//         #[cfg(feature = "iterator")]
+//         QueryMsg::StakedBalanceAtHeight {
+//             key,
+//             address,
+//             height,
+//         } => to_binary(&query_staked_balance_at_height(
+//             deps, env, key, address, height,
+//         )?),
+//         #[cfg(feature = "iterator")]
+//         QueryMsg::TotalStakedAtHeight {
+//             key,
+//             address,
+//             height,
+//         } => to_binary(&query_total_staked_at_height(
+//             deps, env, key, address, height,
+//         )?),
+//         QueryMsg::StakedValue { key, address } => {
+//             to_binary(&query_staked_value(deps, env, key, address)?)
+//         }
+//         QueryMsg::TotalValue { key, address } => {
+//             to_binary(&query_total_value(deps, env, address, key)?)
+//         }
+//         QueryMsg::Claims { key, address } => to_binary(&query_claims(deps, key, address)?),
+//         QueryMsg::GetHooks { key, address } => to_binary(&query_hooks(deps, address, key)?),
+//         QueryMsg::ListStakers {
+//             key,
+//             address,
+//         } => query_list_stakers(deps, key, address),
+//         QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
+//     }
+// }
 
-pub fn query_staked_balance_at_height(
-    deps: Deps,
-    env: Env,
-    key: String,
-    address: String,
-    height: Option<u64>,
-) -> StdResult<StakedBalanceAtHeightResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+// #[cfg(feature = "iterator")]
+// pub fn query_staked_balance_at_height(
+//     deps: Deps,
+//     env: Env,
+//     key: String,
+//     address: String,
+//     height: Option<u64>,
+// ) -> StdResult<StakedBalanceAtHeightResponse> {
+//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-    let address = deps.api.addr_validate(&address)?;
-    let height = height.unwrap_or(env.block.height);
-    let balance = STAKED_BALANCES
-        .may_load_at_height(deps.storage, &address, height)?
-        .unwrap_or_default();
-    Ok(StakedBalanceAtHeightResponse { balance, height })
-}
+//     let address = deps.api.addr_validate(&address)?;
+//     let height = height.unwrap_or(env.block.height);
+//     let balance = STAKED_BALANCES
+//         .may_load(deps.storage, &address)?
+//         .unwrap_or_default();
+//     Ok(StakedBalanceAtHeightResponse { balance, height })
+// }
 
-pub fn query_total_staked_at_height(
-    deps: Deps,
-    _env: Env,
-    key: String,
-    address: String,
-    height: Option<u64>,
-) -> StdResult<TotalStakedAtHeightResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+// #[cfg(feature = "iterator")]
+// pub fn query_total_staked_at_height(
+//     deps: Deps,
+//     _env: Env,
+//     key: String,
+//     address: String,
+//     height: Option<u64>,
+// ) -> StdResult<TotalStakedAtHeightResponse> {
+//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-    let height = height.unwrap_or(_env.block.height);
-    let total = STAKED_TOTAL
-        .may_load_at_height(deps.storage, height)?
-        .unwrap_or_default();
-    Ok(TotalStakedAtHeightResponse { total, height })
-}
+//     let height = height.unwrap_or(_env.block.height);
+//     let total = STAKED_TOTAL
+//         .may_load_at_height(deps.storage, height)?
+//         .unwrap_or_default();
+//     Ok(TotalStakedAtHeightResponse { total, height })
+// }
 
-pub fn query_staked_value(
-    deps: Deps,
-    _env: Env,
-    key: String,
-    address: String,
-) -> StdResult<StakedValueResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+// pub fn query_staked_value(
+//     deps: Deps,
+//     _env: Env,
+//     key: String,
+//     address: String,
+// ) -> StdResult<StakedValueResponse> {
+//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-    let address = deps.api.addr_validate(&address)?;
-    let balance = BALANCE.load(deps.storage).unwrap_or_default();
-    let staked = STAKED_BALANCES
-        .load(deps.storage, &address)
-        .unwrap_or_default();
-    let total = STAKED_TOTAL.load(deps.storage)?;
-    if balance == Uint128::zero() || staked == Uint128::zero() || total == Uint128::zero() {
-        Ok(StakedValueResponse {
-            value: Uint128::zero(),
-        })
-    } else {
-        let value = staked
-            .checked_mul(balance)
-            .map_err(StdError::overflow)?
-            .checked_div(total)
-            .map_err(StdError::divide_by_zero)?;
-        Ok(StakedValueResponse { value })
-    }
-}
+//     let address = deps.api.addr_validate(&address)?;
+//     let balance = BALANCE.load(deps.storage).unwrap_or_default();
+//     let staked = STAKED_BALANCES
+//         .get(deps.storage, &address)
+//         .unwrap_or_default();
+//     let total = STAKED_TOTAL.load(deps.storage)?;
+//     if balance == Uint128::zero() || staked == Uint128::zero() || total == Uint128::zero() {
+//         Ok(StakedValueResponse {
+//             value: Uint128::zero(),
+//         })
+//     } else {
+//         let value = staked
+//             .checked_mul(balance)
+//             .map_err(StdError::overflow)?
+//             .checked_div(total)
+//             .map_err(StdError::divide_by_zero)?;
+//         Ok(StakedValueResponse { value })
+//     }
+// }
 
-pub fn query_total_value(
-    deps: Deps,
-    _env: Env,
-    address: String,
-    key: String,
-) -> StdResult<TotalValueResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+// pub fn query_total_value(
+//     deps: Deps,
+//     _env: Env,
+//     address: String,
+//     key: String,
+// ) -> StdResult<TotalValueResponse> {
+//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-    let balance = BALANCE.load(deps.storage)?;
-    Ok(TotalValueResponse { total: balance })
-}
+//     let balance = BALANCE.load(deps.storage)?;
+//     Ok(TotalValueResponse { total: balance })
+// }
 
-pub fn query_config(deps: Deps, address: String, key: String) -> StdResult<Config> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+// pub fn query_config(deps: Deps, address: String, key: String) -> StdResult<Config> {
+//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-    let config = CONFIG.load(deps.storage)?;
-    Ok(config)
-}
+//     let config = CONFIG.load(deps.storage)?;
+//     Ok(config)
+// }
 
-pub fn query_claims(deps: Deps, key: String, address: String) -> StdResult<ClaimsResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+// pub fn query_claims(deps: Deps, key: String, address: String) -> StdResult<ClaimsResponse> {
+//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-    CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)
-}
+//     CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)
+// }
 
-pub fn query_hooks(deps: Deps, address: String, key: String) -> StdResult<GetHooksResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+// pub fn query_hooks(deps: Deps, address: String, key: String) -> StdResult<GetHooksResponse> {
+//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-    Ok(GetHooksResponse {
-        hooks: HOOKS.query_hooks(deps)?.hooks,
-    })
-}
+//     Ok(GetHooksResponse {
+//         hooks: HOOKS.query_hooks(deps)?.hooks,
+//     })
+// }
 
-pub fn query_list_stakers(
-    deps: Deps,
-    key: String,
-    address: String,
-    start_after: Option<String>,
-    limit: Option<u32>,
-) -> StdResult<Binary> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
-    let start_at = start_after
-        .map(|addr| deps.api.addr_validate(&addr))
-        .transpose()?;
+// pub fn query_list_stakers(
+//     deps: Deps,
+//     key: String,
+//     address: String,
+// ) -> StdResult<Binary> {
+//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+//     // let start_at = start_after
+//     //     .map(|addr| deps.api.addr_validate(&addr))
+//     //     .transpose()?;
+//     let stakers = cw_paginate_storage::paginate_map(
+//         deps,
+//         &STAKED_BALANCES,
+//         0,
+//         STAKED_BALANCES.get_len(deps.storage).unwrap_or_default(),
+//     )?;
 
-    let stakers = cw_paginate_storage::paginate_snapshot_map(
-        deps,
-        &STAKED_BALANCES,
-        start_at.as_ref(),
-        limit,
-        cosmwasm_std::Order::Ascending,
-    )?;
+//     let stakers = stakers
+//         .into_iter()
+//         .map(|(address, balance)| StakerBalanceResponse {
+//             address: address.into_string(),
+//             balance,
+//         })
+//         .collect();
 
-    let stakers = stakers
-        .into_iter()
-        .map(|(address, balance)| StakerBalanceResponse {
-            address: address.into_string(),
-            balance,
-        })
-        .collect();
+//     to_binary(&ListStakersResponse { stakers })
+// }
 
-    to_binary(&ListStakersResponse { stakers })
-}
-
-// Helper Functions
-fn authenticate(deps: Deps, addr: Addr, key: String) -> StdResult<()> {
-    ViewingKey::check(deps.storage, addr.as_ref(), &key)
-}
+// // Helper Functions
+// fn authenticate(deps: Deps, addr: Addr, key: String) -> StdResult<()> {
+//     ViewingKey::check(deps.storage, addr.as_ref(), &key)
+// }
 
 // #[entry_point]
 // pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
