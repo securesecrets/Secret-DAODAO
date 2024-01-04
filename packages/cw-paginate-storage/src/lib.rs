@@ -1,11 +1,43 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 
-use cosmwasm_std::{Deps, StdResult};
+use cosmwasm_std::{Deps, StdResult,StdError};
 use secret_toolkit::storage::{
     keymap::{KeyItemIter, KeyIter},
     Keymap,
 };
 use serde::{de::DeserializeOwned, Serialize};
+
+/// A record of a key-value storage that is created through an iterator API.
+/// The first element (key) is always raw binary data. The second element
+/// (value) is binary by default but can be changed to a custom type. This
+/// allows contracts to reuse the type when deserializing database records.
+pub type Record<V = Vec<u8>> = (Vec<u8>, V);
+
+#[derive(Copy, Clone)]
+// We assign these to integers to provide a stable API for passing over FFI (to wasm and Go)
+pub enum Order {
+    Ascending = 1,
+    Descending = 2,
+}
+
+impl TryFrom<i32> for Order {
+    type Error = StdError;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Order::Ascending),
+            2 => Ok(Order::Descending),
+            _ => Err(StdError::generic_err("Order must be 1 or 2")),
+        }
+    }
+}
+
+impl From<Order> for i32 {
+    fn from(original: Order) -> i32 {
+        original as _
+    }
+}
+
 
 /// Generic function for paginating a list of (K, V) pairs in a
 /// CosmWasm Map.
@@ -22,6 +54,8 @@ where
     let items = KeyItemIter::new(map, deps.storage, start, end)
         .flatten()
         .collect();
+
+
     Ok(items)
 }
 
@@ -142,7 +176,7 @@ mod tests {
         let items = paginate_map(deps.as_ref(), &map, 1, 1).unwrap();
         assert_eq!(items, vec![("2".to_string(), "4".to_string())]);
 
-        let items = paginate_map(deps.as_ref(), &map, None, Some(1), Order::Ascending).unwrap();
+        let items = paginate_map(deps.as_ref(), &map, None, Some(1)).unwrap();
         assert_eq!(items, vec![("1".to_string(), "2".to_string())]);
     }
 
@@ -156,10 +190,10 @@ mod tests {
                 .unwrap();
         }
 
-        let items = paginate_map_keys(deps.as_ref(), &map, None, None, Order::Descending).unwrap();
+        let items = paginate_map_keys(deps.as_ref(), &map, None, None).unwrap();
         assert_eq!(items, vec!["2".to_string(), "1".to_string()]);
 
-        let items = paginate_map_keys(deps.as_ref(), &map, None, None, Order::Ascending).unwrap();
+        let items = paginate_map_keys(deps.as_ref(), &map, None, None).unwrap();
         assert_eq!(items, vec!["1".to_string(), "2".to_string()]);
 
         let items = paginate_map_keys(
@@ -167,13 +201,13 @@ mod tests {
             &map,
             Some("1".to_string()),
             None,
-            Order::Ascending,
+           
         )
         .unwrap();
         assert_eq!(items, vec!["2"]);
 
         let items =
-            paginate_map_keys(deps.as_ref(), &map, None, Some(1), Order::Ascending).unwrap();
+            paginate_map_keys(deps.as_ref(), &map, None, Some(1), ).unwrap();
         assert_eq!(items, vec!["1".to_string()]);
     }
 
@@ -188,18 +222,18 @@ mod tests {
                 .unwrap();
         }
 
-        let items = paginate_map_keys(deps.as_ref(), &map, None, None, Order::Descending).unwrap();
+        let items = paginate_map_keys(deps.as_ref(), &map, None, None, ).unwrap();
         assert_eq!(items, vec![10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
 
-        let items = paginate_map_keys(deps.as_ref(), &map, None, None, Order::Ascending).unwrap();
+        let items = paginate_map_keys(deps.as_ref(), &map, None, None, ).unwrap();
         assert_eq!(items, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
         let items =
-            paginate_map_keys(deps.as_ref(), &map, Some(3), Some(3), Order::Ascending).unwrap();
+            paginate_map_keys(deps.as_ref(), &map, Some(3), Some(3), ).unwrap();
         assert_eq!(items, vec![4, 5, 6]);
 
         let items =
-            paginate_map_keys(deps.as_ref(), &map, Some(7), Some(4), Order::Descending).unwrap();
+            paginate_map_keys(deps.as_ref(), &map, Some(7), Some(4)).unwrap();
         assert_eq!(items, vec![6, 5, 4, 3]);
     }
 
@@ -375,13 +409,13 @@ mod tests {
         map.save(&mut deps.storage, 4, &66).unwrap();
         map.save(&mut deps.storage, 5, &0).unwrap();
 
-        let items = paginate_map(deps.as_ref(), &map, None, None, Order::Descending).unwrap();
+        let items = paginate_map(deps.as_ref(), &map, None, None,).unwrap();
         assert_eq!(items, vec![(5, 0), (4, 66), (3, 77), (2, 22), (1, 40)]);
 
-        let items = paginate_map(deps.as_ref(), &map, Some(3), None, Order::Descending).unwrap();
+        let items = paginate_map(deps.as_ref(), &map, Some(3), None, ).unwrap();
         assert_eq!(items, vec![(2, 22), (1, 40)]);
 
-        let items = paginate_map(deps.as_ref(), &map, Some(1), None, Order::Descending).unwrap();
+        let items = paginate_map(deps.as_ref(), &map, Some(1), None,).unwrap();
         assert_eq!(items, vec![]);
     }
 
@@ -424,13 +458,13 @@ mod tests {
         )
         .unwrap();
 
-        let items = paginate_map_keys(deps.as_ref(), &map, None, None, Order::Descending).unwrap();
+        let items = paginate_map_keys(deps.as_ref(), &map, None, None, ).unwrap();
         assert_eq!(items[1], Addr::unchecked(format!("test_addr{:0>3}", 4)));
         assert_eq!(items[4], Addr::unchecked(format!("test_addr{:0>3}", 1)));
 
         let addr: Addr = Addr::unchecked(format!("test_addr{:0>3}", 3));
         let items =
-            paginate_map_keys(deps.as_ref(), &map, Some(&addr), None, Order::Ascending).unwrap();
+            paginate_map_keys(deps.as_ref(), &map, Some(&addr), None, ).unwrap();
         assert_eq!(items[0], Addr::unchecked(format!("test_addr{:0>3}", 4)));
     }
 
@@ -473,7 +507,7 @@ mod tests {
         )
         .unwrap();
 
-        let items = paginate_map(deps.as_ref(), &map, None, None, Order::Descending).unwrap();
+        let items = paginate_map(deps.as_ref(), &map, None, None, ).unwrap();
         assert_eq!(
             items[1],
             (Addr::unchecked(format!("test_addr{:0>3}", 4)), 66)
@@ -485,7 +519,7 @@ mod tests {
 
         let addr: Addr = Addr::unchecked(format!("test_addr{:0>3}", 3));
         let items =
-            paginate_map(deps.as_ref(), &map, Some(&addr), Some(2), Order::Ascending).unwrap();
+            paginate_map(deps.as_ref(), &map, Some(&addr), Some(2), ).unwrap();
         let test_vec: Vec<(Addr, u32)> = vec![
             (Addr::unchecked(format!("test_addr{:0>3}", 4)), 66),
             (Addr::unchecked(format!("test_addr{:0>3}", 6)), 0),

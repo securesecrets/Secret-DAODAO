@@ -932,6 +932,7 @@ dependencies = [
  "cosmwasm-schema 1.5.0",
  "cosmwasm-std 1.1.9",
  "secret-storage-plus",
+ "secret-toolkit",
  "thiserror",
 ]
 
@@ -4246,6 +4247,7 @@ dependencies = [
  "schemars",
  "secret-cw-controllers",
  "secret-cw2",
+ "secret-storage-plus",
  "secret-toolkit",
  "secret-utils",
  "serde",

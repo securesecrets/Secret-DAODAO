@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 use dao_voting::duration::validate_duration;
 use crate::msg::{CountResponse, ExecuteMsg, InstantiateMsg, QueryMsg,ReceiveMsg,Snip20ReceiveMsg};
-use crate::state::{Config,BALANCE, CONFIG, STAKED_TOTAL,STAKED_BALANCES,HOOKS,CLAIMS,MAX_CLAIMS};
+use crate::state::{Config,BALANCE, CONFIG, STAKED_TOTAL,STAKED_BALANCES,MAX_CLAIMS,HOOKS,CLAIMS};
 use secret_cw2::set_contract_version;
 use crate::error::ContractError;
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
@@ -141,21 +141,20 @@ pub fn execute_unstake(
     if staked_total.is_zero() {
         return Err(ContractError::NothingStaked {});
     }
-    if amount.saturating_add(balance) == Uint128::MAX {
+    if amount.checked_add(balance).unwrap() == Uint128::MAX {
         return Err(ContractError::Cw20InvaraintViolation {});
     }
     if amount > staked_total {
         return Err(ContractError::ImpossibleUnstake {});
     }
     let amount_to_claim = math::amount_to_claim(staked_total, balance, amount);
-    let prev_balance = STAKED_BALANCES.get(deps.storage, &info.sender);
-    STAKED_BALANCES.insert(
+    let mut prev_balance = STAKED_BALANCES.load(deps.storage, info.sender.clone())?;
+    prev_balance=prev_balance-amount;
+
+    STAKED_BALANCES.save(
         deps.storage,
-        &info.sender,
+        info.sender.clone(),
         &prev_balance
-            .unwrap_or_default()
-            .checked_sub(amount)
-            .unwrap(),
     )?;
     STAKED_TOTAL.update(deps.storage, |total| -> StdResult<Uint128> {
         // Initialized during instantiate - OK to unwrap.
@@ -218,15 +217,15 @@ pub fn execute_unstake(
     }
 }
 
-pub fn execute_update_owner(
-    deps: DepsMut,
-    info: MessageInfo,
-    env: Env,
-    action: cw_ownable::Action,
-) -> Result<Response, ContractError> {
-    let ownership = cw_ownable::update_ownership(deps, &env.block, &info.sender, action)?;
-    Ok(Response::default().add_attributes(ownership.into_attributes()))
-}
+// pub fn execute_update_owner(
+//     deps: DepsMut,
+//     info: MessageInfo,
+//     env: Env,
+//     action: cw_ownable::Action,
+// ) -> Result<Response, ContractError> {
+//     let ownership = cw_ownable::update_ownership(deps, &env.block, &info.sender, action)?;
+//     Ok(Response::default().add_attributes(ownership.into_attributes()))
+// }
 
 
 #[entry_point]

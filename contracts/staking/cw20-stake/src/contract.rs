@@ -1,5 +1,5 @@
 use crate::math;
-use crate::msg::{ExecuteAnswer, Snip20ReceiveMsg};
+use crate::msg::{ExecuteAnswer, Snip20ReceiveMsg, ListStakersResponse, StakerBalanceResponse, GetHooksResponse, TotalValueResponse, StakedValueResponse, QueryMsg};
 use crate::msg::{
     ExecuteMsg,  InstantiateMsg , ReceiveMsg,
     ResponseStatus::Success,
@@ -10,12 +10,13 @@ use crate::state::{
 use crate::ContractError;
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Addr, DepsMut, Empty, Env, MessageInfo,
-    Response, StdError, StdResult, Uint128,
+    Response, StdError, StdResult, Uint128, Deps, Binary,
 };
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_voting::duration::validate_duration;
 use secret_cw2::set_contract_version;
 
+use secret_cw_controllers::ClaimsResponse;
 pub use secret_toolkit::snip20::handle::{
     burn_from_msg, burn_msg, decrease_allowance_msg, increase_allowance_msg, mint_msg,
     send_from_msg, send_msg, transfer_from_msg, transfer_msg,
@@ -32,7 +33,7 @@ pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response<Empty>, ContractError> {
@@ -43,14 +44,14 @@ pub fn instantiate(
     // though this provides some protection against mistakes where the
     // wrong address is provided.
     let token_address = deps.api.addr_validate(&msg.token_address)?;
-    let _: secret_toolkit::snip20::TokenInfoResponse = deps
-        .querier
-        .query_wasm_smart(
-            env.contract.code_hash,
-            &token_address,
-            &secret_toolkit::snip20::QueryMsg::TokenInfo {},
-        )
-        .map_err(|_| ContractError::InvalidCw20 {})?;
+    // let _: secret_toolkit::snip20::TokenInfoResponse = deps
+    //     .querier
+    //     .query_wasm_smart(
+    //         env.contract.code_hash,
+    //         &token_address,
+    //         &secret_toolkit::snip20::QueryMsg::TokenInfo {},
+    //     )
+    //     .map_err(|_| ContractError::InvalidCw20 {})?;
 
     validate_duration(msg.unstaking_duration)?;
     let config = Config {
@@ -189,7 +190,7 @@ pub fn execute_unstake(
     if staked_total.is_zero() {
         return Err(ContractError::NothingStaked {});
     }
-    if amount.saturating_add(balance) == Uint128::MAX {
+    if amount.checked_add(balance).unwrap() == Uint128::MAX {
         return Err(ContractError::Cw20InvaraintViolation {});
     }
     if amount > staked_total {
@@ -377,169 +378,168 @@ pub fn try_set_key(
         })?),
     )
 }
-// #[entry_point]
-// pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-//     match msg {
-//         QueryMsg::GetConfig { key, address } => to_binary(&query_config(deps, address, key)?),
-//         #[cfg(feature = "iterator")]
-//         QueryMsg::StakedBalanceAtHeight {
-//             key,
-//             address,
-//             height,
-//         } => to_binary(&query_staked_balance_at_height(
-//             deps, env, key, address, height,
-//         )?),
-//         #[cfg(feature = "iterator")]
-//         QueryMsg::TotalStakedAtHeight {
-//             key,
-//             address,
-//             height,
-//         } => to_binary(&query_total_staked_at_height(
-//             deps, env, key, address, height,
-//         )?),
-//         QueryMsg::StakedValue { key, address } => {
-//             to_binary(&query_staked_value(deps, env, key, address)?)
-//         }
-//         QueryMsg::TotalValue { key, address } => {
-//             to_binary(&query_total_value(deps, env, address, key)?)
-//         }
-//         QueryMsg::Claims { key, address } => to_binary(&query_claims(deps, key, address)?),
-//         QueryMsg::GetHooks { key, address } => to_binary(&query_hooks(deps, address, key)?),
-//         QueryMsg::ListStakers {
-//             key,
-//             address,
-//         } => query_list_stakers(deps, key, address),
-//         QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
-//     }
-// }
+#[entry_point]
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::GetConfig { key, address } => to_binary(&query_config(deps, address, key)?),
+        #[cfg(feature = "iterator")]
+        QueryMsg::StakedBalanceAtHeight {
+            key,
+            address,
+            height,
+        } => to_binary(&query_staked_balance_at_height(
+            deps, env, key, address, height,
+        )?),
+        #[cfg(feature = "iterator")]
+        QueryMsg::TotalStakedAtHeight {
+            key,
+            address,
+            height,
+        } => to_binary(&query_total_staked_at_height(
+            deps, env, key, address, height,
+        )?),
+        QueryMsg::StakedValue { key, address } => {
+            to_binary(&query_staked_value(deps, env, key, address)?)
+        }
+        QueryMsg::TotalValue { key, address } => {
+            to_binary(&query_total_value(deps, env, address, key)?)
+        }
+        QueryMsg::Claims { key, address } => to_binary(&query_claims(deps, key, address)?),
+        QueryMsg::GetHooks { key, address } => to_binary(&query_hooks(deps, address, key)?),
+        QueryMsg::ListStakers {
+            key,
+            address,
+        } => query_list_stakers(deps, key, address),
+        QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
+    }
+}
 
-// #[cfg(feature = "iterator")]
-// pub fn query_staked_balance_at_height(
-//     deps: Deps,
-//     env: Env,
-//     key: String,
-//     address: String,
-//     height: Option<u64>,
-// ) -> StdResult<StakedBalanceAtHeightResponse> {
-//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+#[cfg(feature = "iterator")]
+pub fn query_staked_balance_at_height(
+    deps: Deps,
+    env: Env,
+    key: String,
+    address: String,
+    height: Option<u64>,
+) -> StdResult<StakedBalanceAtHeightResponse> {
+    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-//     let address = deps.api.addr_validate(&address)?;
-//     let height = height.unwrap_or(env.block.height);
-//     let balance = STAKED_BALANCES
-//         .may_load(deps.storage, &address)?
-//         .unwrap_or_default();
-//     Ok(StakedBalanceAtHeightResponse { balance, height })
-// }
+    let address = deps.api.addr_validate(&address)?;
+    let height = height.unwrap_or(env.block.height);
+    let balance = STAKED_BALANCES
+        .may_load(deps.storage, &address)?
+        .unwrap_or_default();
+    Ok(StakedBalanceAtHeightResponse { balance, height })
+}
 
-// #[cfg(feature = "iterator")]
-// pub fn query_total_staked_at_height(
-//     deps: Deps,
-//     _env: Env,
-//     key: String,
-//     address: String,
-//     height: Option<u64>,
-// ) -> StdResult<TotalStakedAtHeightResponse> {
-//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+#[cfg(feature = "iterator")]
+pub fn query_total_staked_at_height(
+    deps: Deps,
+    _env: Env,
+    key: String,
+    address: String,
+    height: Option<u64>,
+) -> StdResult<TotalStakedAtHeightResponse> {
+    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-//     let height = height.unwrap_or(_env.block.height);
-//     let total = STAKED_TOTAL
-//         .may_load_at_height(deps.storage, height)?
-//         .unwrap_or_default();
-//     Ok(TotalStakedAtHeightResponse { total, height })
-// }
+    let height = height.unwrap_or(_env.block.height);
+    let total = STAKED_TOTAL
+        .may_load_at_height(deps.storage, height)?
+        .unwrap_or_default();
+    Ok(TotalStakedAtHeightResponse { total, height })
+}
 
-// pub fn query_staked_value(
-//     deps: Deps,
-//     _env: Env,
-//     key: String,
-//     address: String,
-// ) -> StdResult<StakedValueResponse> {
-//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+pub fn query_staked_value(
+    deps: Deps,
+    _env: Env,
+    key: String,
+    address: String,
+) -> StdResult<StakedValueResponse> {
+    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-//     let address = deps.api.addr_validate(&address)?;
-//     let balance = BALANCE.load(deps.storage).unwrap_or_default();
-//     let staked = STAKED_BALANCES
-//         .get(deps.storage, &address)
-//         .unwrap_or_default();
-//     let total = STAKED_TOTAL.load(deps.storage)?;
-//     if balance == Uint128::zero() || staked == Uint128::zero() || total == Uint128::zero() {
-//         Ok(StakedValueResponse {
-//             value: Uint128::zero(),
-//         })
-//     } else {
-//         let value = staked
-//             .checked_mul(balance)
-//             .map_err(StdError::overflow)?
-//             .checked_div(total)
-//             .map_err(StdError::divide_by_zero)?;
-//         Ok(StakedValueResponse { value })
-//     }
-// }
+    let address = deps.api.addr_validate(&address)?;
+    let balance = BALANCE.load(deps.storage).unwrap_or_default();
+    let staked = STAKED_BALANCES
+        .get(deps.storage, &address).unwrap_or_default();
+    let total = STAKED_TOTAL.load(deps.storage).unwrap_or_default();
+    if balance == Uint128::zero() || staked == Uint128::zero() || total == Uint128::zero() {
+        Ok(StakedValueResponse {
+            value: Uint128::zero(),
+        })
+    } else {
+        let value = staked
+            .checked_mul(balance)
+            .map_err(StdError::overflow)?
+            .checked_div(total)
+            .map_err(StdError::divide_by_zero)?;
+        Ok(StakedValueResponse { value })
+    }
+}
 
-// pub fn query_total_value(
-//     deps: Deps,
-//     _env: Env,
-//     address: String,
-//     key: String,
-// ) -> StdResult<TotalValueResponse> {
-//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+pub fn query_total_value(
+    deps: Deps,
+    _env: Env,
+    address: String,
+    key: String,
+) -> StdResult<TotalValueResponse> {
+    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-//     let balance = BALANCE.load(deps.storage)?;
-//     Ok(TotalValueResponse { total: balance })
-// }
+    let balance = BALANCE.load(deps.storage)?;
+    Ok(TotalValueResponse { total: balance })
+}
 
-// pub fn query_config(deps: Deps, address: String, key: String) -> StdResult<Config> {
-//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+pub fn query_config(deps: Deps, address: String, key: String) -> StdResult<Config> {
+    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-//     let config = CONFIG.load(deps.storage)?;
-//     Ok(config)
-// }
+    let config = CONFIG.load(deps.storage)?;
+    Ok(config)
+}
 
-// pub fn query_claims(deps: Deps, key: String, address: String) -> StdResult<ClaimsResponse> {
-//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+pub fn query_claims(deps: Deps, key: String, address: String) -> StdResult<ClaimsResponse> {
+    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-//     CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)
-// }
+    CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)
+}
 
-// pub fn query_hooks(deps: Deps, address: String, key: String) -> StdResult<GetHooksResponse> {
-//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+pub fn query_hooks(deps: Deps, address: String, key: String) -> StdResult<GetHooksResponse> {
+    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-//     Ok(GetHooksResponse {
-//         hooks: HOOKS.query_hooks(deps)?.hooks,
-//     })
-// }
+    Ok(GetHooksResponse {
+        hooks: HOOKS.query_hooks(deps)?.hooks,
+    })
+}
 
-// pub fn query_list_stakers(
-//     deps: Deps,
-//     key: String,
-//     address: String,
-// ) -> StdResult<Binary> {
-//     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
-//     // let start_at = start_after
-//     //     .map(|addr| deps.api.addr_validate(&addr))
-//     //     .transpose()?;
-//     let stakers = cw_paginate_storage::paginate_map(
-//         deps,
-//         &STAKED_BALANCES,
-//         0,
-//         STAKED_BALANCES.get_len(deps.storage).unwrap_or_default(),
-//     )?;
+pub fn query_list_stakers(
+    deps: Deps,
+    key: String,
+    address: String,
+) -> StdResult<Binary> {
+    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+    // let start_at = start_after
+    //     .map(|addr| deps.api.addr_validate(&addr))
+    //     .transpose()?;
+    let stakers = cw_paginate_storage::paginate_map(
+        deps,
+        &STAKED_BALANCES,
+        0,
+        STAKED_BALANCES.get_len(deps.storage).unwrap_or_default(),
+    )?;
 
-//     let stakers = stakers
-//         .into_iter()
-//         .map(|(address, balance)| StakerBalanceResponse {
-//             address: address.into_string(),
-//             balance,
-//         })
-//         .collect();
+    let stakers = stakers
+        .into_iter()
+        .map(|(address, balance)| StakerBalanceResponse {
+            address: address.into_string(),
+            balance,
+        })
+        .collect();
 
-//     to_binary(&ListStakersResponse { stakers })
-// }
+    to_binary(&ListStakersResponse { stakers })
+}
 
-// // Helper Functions
-// fn authenticate(deps: Deps, addr: Addr, key: String) -> StdResult<()> {
-//     ViewingKey::check(deps.storage, addr.as_ref(), &key)
-// }
+// Helper Functions
+fn authenticate(deps: Deps, addr: Addr, key: String) -> StdResult<()> {
+    ViewingKey::check(deps.storage, addr.as_ref(), &key)
+}
 
 // #[entry_point]
 // pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {

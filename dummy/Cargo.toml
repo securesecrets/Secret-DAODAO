@@ -42,6 +42,7 @@ secret-cw2={ workspace = true }
 cw-hooks ={ workspace = true }
 dao-hooks ={ workspace=true }
 secret-cw-controllers ={ workspace=true }
+secret-storage-plus ={ workspace=true }
 # [patch.crates-io]
 # uncomment this if you use cw-storage-plus
 # cosmwasm-std = { git = "https://github.com/scrtlabs/cosmwasm", tag = "v1.1.9-secret" }

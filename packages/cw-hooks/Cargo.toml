@@ -13,3 +13,4 @@ cosmwasm-schema = { workspace = true }
 # cw-storage-plus = { workspace = true }
 cosmwasm-std ={ workspace = true }
 secret-storage-plus = { workspace = true }
+secret-toolkit ={ workspace  = true }

@@ -68,20 +68,13 @@ pub enum ReceiveMsg {
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[cfg(feature = "iterator")]
-    #[returns(StakedBalanceAtHeightResponse)]
-    StakedBalanceAtHeight {
-        key: String,
-        address: String,
-        height: Option<u64>,
-    },
-    #[cfg(feature = "iterator")]
-    #[returns(TotalStakedAtHeightResponse)]
-    TotalStakedAtHeight {
-        key: String,
-        address: String,
-        height: Option<u64>,
-    },
+    // #[returns(StakedBalanceAtHeightResponse)]
+    // StakedBalanceAtHeight {
+    //     address: String,
+    //     height: Option<u64>,
+    // },
+    // #[returns(TotalStakedAtHeightResponse)]
+    // TotalStakedAtHeight { height: Option<u64> },
     #[returns(StakedValueResponse)]
     StakedValue { key: String, address: String },
     #[returns(TotalValueResponse)]

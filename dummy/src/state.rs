@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use cw_hooks::Hooks;
 use cosmwasm_std::{Addr, Storage,Uint128};
-use secret_toolkit::storage::{Item,Keymap};
+use secret_storage_plus::{Item,Map};
 use secret_utils::Duration;
 use secret_cw_controllers::Claims;
 
@@ -13,10 +13,10 @@ pub struct Config {
 }
 
 
-pub const CONFIG: Item<Config> = Item::new(b"config_v2");
-pub const STAKED_TOTAL: Item<Uint128> = Item::new(b"total_staked");
-pub const BALANCE: Item<Uint128> = Item::new(b"balance");
-pub const STAKED_BALANCES: Keymap<Addr, Uint128> = Keymap::new(b"staked_balances");
+pub const CONFIG: Item<Config> = Item::new("config_v2");
+pub const STAKED_TOTAL: Item<Uint128> = Item::new("total_staked");
+pub const BALANCE: Item<Uint128> = Item::new("balance");
+pub const STAKED_BALANCES: Map<Addr, Uint128> = Map::new("staked_balances");
 
 
 // Hooks to contracts that will receive staking and unstaking messages
