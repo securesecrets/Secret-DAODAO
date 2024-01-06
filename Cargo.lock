@@ -921,7 +921,7 @@ dependencies = [
  "cosmwasm-std 1.1.9",
  "cosmwasm-storage 1.1.9",
  "secret-multi-test",
- "secret-toolkit",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
  "thiserror",
 ]
 
@@ -932,7 +932,7 @@ dependencies = [
  "cosmwasm-schema 1.5.0",
  "cosmwasm-std 1.1.9",
  "secret-storage-plus",
- "secret-toolkit",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
  "thiserror",
 ]
 
@@ -1022,7 +1022,7 @@ dependencies = [
  "cosmwasm-std 1.1.9",
  "secret-multi-test",
  "secret-storage-plus",
- "secret-toolkit",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
  "serde",
 ]
 
@@ -1416,37 +1416,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw20-stake"
-version = "2.4.0"
-dependencies = [
- "anyhow",
- "base64 0.12.3",
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.1.9",
- "cosmwasm-storage 1.1.9",
- "cw-hooks",
- "cw-ownable 0.5.1",
- "cw-paginate-storage 2.4.0",
- "cw-utils 0.13.4",
- "cw20-stake 0.2.6",
- "dao-hooks",
- "dao-voting 2.4.0",
- "hex",
- "schemars",
- "secret-cw-controllers",
- "secret-cw2",
- "secret-multi-test",
- "secret-storage-plus",
- "secret-toolkit",
- "secret-utils",
- "serde",
- "sha2 0.9.9",
- "snafu",
- "subtle",
- "thiserror",
-]
-
-[[package]]
 name = "cw20-stake-external-rewards"
 version = "2.4.0"
 dependencies = [
@@ -1463,8 +1432,8 @@ dependencies = [
  "cw20 0.13.4",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
- "cw20-stake 2.4.0",
  "dao-hooks",
+ "snip20-stake",
  "stake-cw20-external-rewards",
  "thiserror",
 ]
@@ -1482,7 +1451,7 @@ dependencies = [
  "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
- "cw20-stake 2.4.0",
+ "snip20-stake",
  "stake-cw20-reward-distributor",
  "thiserror",
 ]
@@ -1731,7 +1700,7 @@ dependencies = [
  "cw-hooks",
  "osmosis-std 0.21.0",
  "secret-cw2",
- "secret-toolkit",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
  "secret-utils",
 ]
 
@@ -1862,7 +1831,6 @@ dependencies = [
  "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
- "cw20-stake 2.4.0",
  "cw3 1.1.2",
  "cw4 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cw4-group",
@@ -1881,6 +1849,7 @@ dependencies = [
  "dao-voting-cw721-staked",
  "dao-voting-token-staked",
  "rand",
+ "snip20-stake",
  "thiserror",
 ]
 
@@ -1903,7 +1872,6 @@ dependencies = [
  "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
- "cw20-stake 2.4.0",
  "cw3 1.1.2",
  "cw4 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cw4-group",
@@ -1922,6 +1890,7 @@ dependencies = [
  "dao-voting-cw4",
  "dao-voting-cw721-staked",
  "dao-voting-token-staked",
+ "snip20-stake",
  "thiserror",
 ]
 
@@ -1976,7 +1945,6 @@ dependencies = [
  "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
- "cw20-stake 2.4.0",
  "cw4 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cw4-group",
  "cw721-base 0.18.0",
@@ -2001,6 +1969,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
+ "snip20-stake",
  "stake-cw20",
 ]
 
@@ -2026,7 +1995,7 @@ dependencies = [
  "dao-dao-macros",
  "dao-interface",
  "secret-storage-plus",
- "secret-toolkit",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
  "secret-utils",
  "thiserror",
 ]
@@ -2061,10 +2030,10 @@ dependencies = [
  "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
- "cw20-stake 2.4.0",
  "dao-dao-macros",
  "dao-interface",
  "dao-voting 2.4.0",
+ "snip20-stake",
  "thiserror",
 ]
 
@@ -3558,6 +3527,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
+name = "remain"
+version = "0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ad5e011230cad274d0532460c5ab69828ea47ae75681b42a841663efffaf794"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.46",
+]
+
+[[package]]
 name = "rfc6979"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3903,12 +3883,27 @@ name = "secret-toolkit"
 version = "0.8.0"
 source = "git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0#dfbcc26e6ffb29e19b8f67ef67cf80657f669492"
 dependencies = [
- "secret-toolkit-serialization",
- "secret-toolkit-snip20",
- "secret-toolkit-snip721",
- "secret-toolkit-storage",
- "secret-toolkit-utils",
- "secret-toolkit-viewing-key",
+ "secret-toolkit-serialization 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-toolkit-snip20 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-toolkit-snip721 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-toolkit-storage 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-toolkit-utils 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-toolkit-viewing-key 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+]
+
+[[package]]
+name = "secret-toolkit"
+version = "0.8.0"
+source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
+dependencies = [
+ "secret-toolkit-crypto 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
+ "secret-toolkit-permit",
+ "secret-toolkit-serialization 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
+ "secret-toolkit-snip20 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
+ "secret-toolkit-snip721 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
+ "secret-toolkit-storage 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
+ "secret-toolkit-utils 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
+ "secret-toolkit-viewing-key 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
 ]
 
 [[package]]
@@ -3923,9 +3918,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "secret-toolkit-crypto"
+version = "0.8.0"
+source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
+dependencies = [
+ "cosmwasm-std 1.1.9",
+ "rand_chacha",
+ "rand_core 0.6.4",
+ "sha2 0.10.8",
+]
+
+[[package]]
+name = "secret-toolkit-permit"
+version = "0.8.0"
+source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
+dependencies = [
+ "bech32",
+ "cosmwasm-std 1.1.9",
+ "remain",
+ "ripemd",
+ "schemars",
+ "secret-toolkit-crypto 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
+ "serde",
+]
+
+[[package]]
 name = "secret-toolkit-serialization"
 version = "0.8.0"
 source = "git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0#dfbcc26e6ffb29e19b8f67ef67cf80657f669492"
+dependencies = [
+ "bincode2",
+ "cosmwasm-std 1.1.9",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "secret-toolkit-serialization"
+version = "0.8.0"
+source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
 dependencies = [
  "bincode2",
  "cosmwasm-std 1.1.9",
@@ -3940,7 +3971,18 @@ source = "git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0#dfbcc26e6ffb
 dependencies = [
  "cosmwasm-std 1.1.9",
  "schemars",
- "secret-toolkit-utils",
+ "secret-toolkit-utils 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "serde",
+]
+
+[[package]]
+name = "secret-toolkit-snip20"
+version = "0.8.0"
+source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
+dependencies = [
+ "cosmwasm-std 1.1.9",
+ "schemars",
+ "secret-toolkit-utils 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
  "serde",
 ]
 
@@ -3951,7 +3993,18 @@ source = "git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0#dfbcc26e6ffb
 dependencies = [
  "cosmwasm-std 1.1.9",
  "schemars",
- "secret-toolkit-utils",
+ "secret-toolkit-utils 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "serde",
+]
+
+[[package]]
+name = "secret-toolkit-snip721"
+version = "0.8.0"
+source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
+dependencies = [
+ "cosmwasm-std 1.1.9",
+ "schemars",
+ "secret-toolkit-utils 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
  "serde",
 ]
 
@@ -3962,7 +4015,18 @@ source = "git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0#dfbcc26e6ffb
 dependencies = [
  "cosmwasm-std 1.1.9",
  "cosmwasm-storage 1.1.9",
- "secret-toolkit-serialization",
+ "secret-toolkit-serialization 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "serde",
+]
+
+[[package]]
+name = "secret-toolkit-storage"
+version = "0.8.0"
+source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
+dependencies = [
+ "cosmwasm-std 1.1.9",
+ "cosmwasm-storage 1.1.9",
+ "secret-toolkit-serialization 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
  "serde",
 ]
 
@@ -3970,6 +4034,17 @@ dependencies = [
 name = "secret-toolkit-utils"
 version = "0.8.0"
 source = "git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0#dfbcc26e6ffb29e19b8f67ef67cf80657f669492"
+dependencies = [
+ "cosmwasm-std 1.1.9",
+ "cosmwasm-storage 1.1.9",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "secret-toolkit-utils"
+version = "0.8.0"
+source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
 dependencies = [
  "cosmwasm-std 1.1.9",
  "cosmwasm-storage 1.1.9",
@@ -3986,8 +4061,23 @@ dependencies = [
  "cosmwasm-std 1.1.9",
  "cosmwasm-storage 1.1.9",
  "schemars",
- "secret-toolkit-crypto",
- "secret-toolkit-utils",
+ "secret-toolkit-crypto 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-toolkit-utils 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "serde",
+ "subtle",
+]
+
+[[package]]
+name = "secret-toolkit-viewing-key"
+version = "0.8.0"
+source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
+dependencies = [
+ "base64 0.21.5",
+ "cosmwasm-std 1.1.9",
+ "cosmwasm-storage 1.1.9",
+ "schemars",
+ "secret-toolkit-crypto 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
+ "secret-toolkit-utils 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
  "serde",
  "subtle",
 ]
@@ -4234,6 +4324,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "snip20-reference-impl"
+version = "1.0.0"
+dependencies = [
+ "base64 0.21.5",
+ "cosmwasm-schema 1.5.0",
+ "cosmwasm-std 1.1.9",
+ "cosmwasm-storage 1.1.9",
+ "rand",
+ "schemars",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
+ "secret-toolkit-crypto 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
+ "serde",
+]
+
+[[package]]
+name = "snip20-stake"
+version = "2.4.0"
+dependencies = [
+ "anyhow",
+ "base64 0.12.3",
+ "cosmwasm-schema 1.5.0",
+ "cosmwasm-std 1.1.9",
+ "cosmwasm-storage 1.1.9",
+ "cw-hooks",
+ "cw-ownable 0.5.1",
+ "cw-paginate-storage 2.4.0",
+ "cw-utils 0.13.4",
+ "cw20-stake",
+ "dao-hooks",
+ "dao-voting 2.4.0",
+ "hex",
+ "schemars",
+ "secret-cw-controllers",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-utils",
+ "serde",
+ "sha2 0.9.9",
+ "snafu",
+ "snip20-reference-impl",
+ "subtle",
+ "thiserror",
+]
+
+[[package]]
 name = "snip20_stake"
 version = "0.1.0"
 dependencies = [
@@ -4248,7 +4385,7 @@ dependencies = [
  "secret-cw-controllers",
  "secret-cw2",
  "secret-storage-plus",
- "secret-toolkit",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
  "secret-utils",
  "serde",
  "thiserror",
@@ -4323,7 +4460,7 @@ dependencies = [
  "cw2 0.13.4",
  "cw20 0.13.4",
  "cw20-base 0.13.4",
- "cw20-stake 0.2.6",
+ "cw20-stake",
  "schemars",
  "serde",
  "thiserror",
@@ -4342,7 +4479,7 @@ dependencies = [
  "cw2 0.13.4",
  "cw20 0.13.4",
  "cw20-base 0.13.4",
- "cw20-stake 0.2.6",
+ "cw20-stake",
  "schemars",
  "serde",
  "thiserror",

@@ -41,9 +41,9 @@ impl From<Order> for i32 {
 
 /// Generic function for paginating a list of (K, V) pairs in a
 /// CosmWasm Map.
-pub fn paginate_map<'a, 'b, K, V>(
+pub fn paginate_map<K, V>(
     deps: Deps,
-    map: &Keymap<'a, K, V>,
+    map: &Keymap<'_, K, V>,
     start: u32,
     end: u32,
 ) -> StdResult<Vec<(K, V)>>
@@ -60,9 +60,9 @@ where
 }
 
 /// Same as `paginate_map` but only returns the keys.
-pub fn paginate_map_keys<'a, 'b, K, V>(
+pub fn paginate_map_keys<K, V>(
     deps: Deps,
-    map: &Keymap<'a, K, V>,
+    map: &Keymap<'_, K, V>,
     start: u32,
     end: u32,
 ) -> StdResult<Vec<K>>
@@ -77,9 +77,9 @@ where
 }
 
 /// Same as `paginate_map` but only returns the values.
-pub fn paginate_map_values<'a, K, V>(
+pub fn paginate_map_values<K, V>(
     deps: Deps,
-    map: &Keymap<'a, K, V>,
+    map: &Keymap<'_, K, V>,
     start: u32,
     end: u32,
 ) -> StdResult<Vec<V>>

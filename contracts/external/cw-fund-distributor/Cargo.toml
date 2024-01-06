@@ -25,7 +25,7 @@ cw20 = { workspace = true }
 thiserror = { workspace = true }
 cw-utils = { workspace = true }
 dao-voting-cw20-staked = { workspace = true }
-cw20-stake = { workspace = true, features = ["library"] }
+snip20-stake = { workspace = true, features = ["library"] }
 dao-interface = { workspace = true }
 cw-paginate-storage = { workspace = true }
 

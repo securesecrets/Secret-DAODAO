@@ -7,7 +7,7 @@ pub enum ContractError {
     Std(#[from] StdError),
 
     #[error(transparent)]
-    Cw20Error(#[from] Snip20ContractError),
+    Snip20Error(#[from] Snip20ContractError),
 
     #[error(transparent)]
     Ownership(#[from] cw_ownable::OwnershipError),
@@ -21,14 +21,14 @@ pub enum ContractError {
     #[error("can not migrate. current version is up to date")]
     AlreadyMigrated {},
 
-    #[error("Unstaking this amount violates the invariant: (cw20 total_supply <= 2^128)")]
-    Cw20InvaraintViolation {},
+    #[error("Unstaking this amount violates the invariant: (snip20 total_supply <= 2^128)")]
+    Snip20InvaraintViolation {},
 
     #[error("Can not unstake more than has been staked")]
     ImpossibleUnstake {},
 
-    #[error("Provided cw20 errored in response to TokenInfo query")]
-    InvalidCw20 {},
+    #[error("Provided snip20 errored in response to TokenInfo query")]
+    InvalidSnip20 {},
 
     #[error("Invalid token")]
     InvalidToken { received: Addr, expected: Addr },

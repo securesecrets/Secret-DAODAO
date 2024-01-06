@@ -25,7 +25,7 @@ cw2 = { workspace = true }
 cw20 = { workspace = true }
 cw-utils = { workspace = true }
 cw20-base = {  workspace = true, features = ["library"] }
-cw20-stake = { workspace = true, features = ["library"]}
+snip20-stake = { workspace = true, features = ["library"]}
 thiserror = { workspace = true }
 cw-ownable = { workspace = true }
 cw20-stake-reward-distributor-v1 = { workspace = true, features = ["library"] }

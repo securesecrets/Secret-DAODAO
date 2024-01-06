@@ -1,17 +1,18 @@
 use crate::math;
-use crate::msg::{ExecuteAnswer, Snip20ReceiveMsg, ListStakersResponse, StakerBalanceResponse, GetHooksResponse, TotalValueResponse, StakedValueResponse, QueryMsg};
 use crate::msg::{
-    ExecuteMsg,  InstantiateMsg , ReceiveMsg,
-    ResponseStatus::Success,
+    ExecuteAnswer, GetHooksResponse, InstantiateAnswer, ListStakersResponse, QueryMsg,
+    Snip20ReceiveMsg, StakedValueResponse, StakerBalanceResponse, TotalValueResponse,
 };
+use crate::msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg, ResponseStatus::Success};
 use crate::state::{
     Config, BALANCE, CLAIMS, CONFIG, HOOKS, MAX_CLAIMS, STAKED_BALANCES, STAKED_TOTAL,
 };
 use crate::ContractError;
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, Addr, DepsMut, Empty, Env, MessageInfo,
-    Response, StdError, StdResult, Uint128, Deps, Binary,
+    entry_point, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo,
+    Response, StdError, StdResult, Uint128,
 };
+use snip20_reference_impl::msg::ExecuteMsg::Transfer;
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_voting::duration::validate_duration;
 use secret_cw2::set_contract_version;
@@ -27,31 +28,31 @@ pub use secret_toolkit::snip20::query::{
 use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use secret_utils::Duration;
 
-pub(crate) const CONTRACT_NAME: &str = "crates.io:cw20-stake";
+pub(crate) const CONTRACT_NAME: &str = "crates.io:snip20-stake";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response<Empty>, ContractError> {
     cw_ownable::initialize_owner(deps.storage, deps.api, msg.owner.as_deref())?;
-    // Smoke test that the provided cw20 contract responds to a
+    // Smoke test that the provided snip20 contract responds to a
     // token_info query. It is not possible to determine if the
-    // contract implements the entire cw20 standard and runtime,
+    // contract implements the entire snip20 standard and runtime,
     // though this provides some protection against mistakes where the
     // wrong address is provided.
     let token_address = deps.api.addr_validate(&msg.token_address)?;
     // let _: secret_toolkit::snip20::TokenInfoResponse = deps
     //     .querier
     //     .query_wasm_smart(
-    //         env.contract.code_hash,
+    //         env.contract.code_hash.clone(),
     //         &token_address,
     //         &secret_toolkit::snip20::QueryMsg::TokenInfo {},
     //     )
-    //     .map_err(|_| ContractError::InvalidCw20 {})?;
+    //     .map_err(|_| ContractError::InvalidSnip20 {})?;
 
     validate_duration(msg.unstaking_duration)?;
     let config = Config {
@@ -69,7 +70,9 @@ pub fn instantiate(
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    Ok(Response::new())
+    Ok(Response::new().set_data(to_binary(&InstantiateAnswer {
+        code_hash: env.contract.code_hash,
+    })?))
 }
 
 #[entry_point]
@@ -129,8 +132,8 @@ pub fn execute_receive(
             expected: config.token_address,
         });
     }
-    let msg: ReceiveMsg = from_binary(&wrapper.msg)?;
-    let sender = deps.api.addr_validate(&wrapper.sender)?;
+    let msg: ReceiveMsg = from_binary(&wrapper.msg.unwrap())?;
+    let sender: Addr = deps.api.addr_validate(wrapper.sender.as_ref())?;
     match msg {
         ReceiveMsg::Stake {} => execute_stake(deps, env, sender, wrapper.amount),
         ReceiveMsg::Fund {} => execute_fund(deps, env, &sender, wrapper.amount),
@@ -143,26 +146,28 @@ pub fn execute_stake(
     sender: Addr,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
-    let balance = BALANCE.load(deps.storage)?;
-    let staked_total = STAKED_TOTAL.load(deps.storage)?;
+    let balance = BALANCE.load(deps.storage).unwrap_or_default();
+    let staked_total = STAKED_TOTAL.load(deps.storage).unwrap_or_default();
     let amount_to_stake = math::amount_to_stake(staked_total, balance, amount);
-    let prev_balance = STAKED_BALANCES.get(deps.storage, &sender);
+    let prev_balance = STAKED_BALANCES.get(deps.storage, &sender).unwrap_or_default();
     STAKED_BALANCES.insert(
         deps.storage,
         &sender,
         &prev_balance
-            .unwrap_or_default()
             .checked_add(amount_to_stake)
-            .unwrap(),
+            .map_err(StdError::overflow)?,
     )?;
-    STAKED_TOTAL.update(deps.storage, |total| -> StdResult<Uint128> {
-        // Initialized during instantiate - OK to unwrap.
-        Ok(total.checked_add(amount_to_stake)?)
-    })?;
     BALANCE.save(
         deps.storage,
         &balance.checked_add(amount).map_err(StdError::overflow)?,
     )?;
+    STAKED_TOTAL.save(
+        deps.storage,
+        &staked_total
+            .checked_add(amount_to_stake)
+            .map_err(StdError::overflow)?,
+    )?;
+    // STAKED_BALANCES.
     let hook_msgs = stake_hook_msgs(
         HOOKS,
         deps.storage,
@@ -184,14 +189,14 @@ pub fn execute_unstake(
     amount: Uint128,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    let balance = BALANCE.load(deps.storage)?;
-    let staked_total = STAKED_TOTAL.load(deps.storage)?;
+    let balance = BALANCE.load(deps.storage).unwrap_or_default();
+    let staked_total = STAKED_TOTAL.load(deps.storage).unwrap_or_default();
     // invariant checks for amount_to_claim
     if staked_total.is_zero() {
         return Err(ContractError::NothingStaked {});
     }
     if amount.checked_add(balance).unwrap() == Uint128::MAX {
-        return Err(ContractError::Cw20InvaraintViolation {});
+        return Err(ContractError::Snip20InvaraintViolation {});
     }
     if amount > staked_total {
         return Err(ContractError::ImpossibleUnstake {});
@@ -225,16 +230,18 @@ pub fn execute_unstake(
     )?;
     match config.unstaking_duration {
         None => {
-            let cw_send_msg = secret_toolkit::snip20::HandleMsg::Transfer {
+            let snip_send_msg = Transfer{
                 recipient: info.sender.to_string(),
                 amount: amount_to_claim,
                 memo: None,
                 padding: None,
+                decoys: None,
+                entropy:None,
             };
             let wasm_msg = cosmwasm_std::WasmMsg::Execute {
                 contract_addr: config.token_address.to_string(),
                 code_hash: env.contract.code_hash,
-                msg: to_binary(&cw_send_msg)?,
+                msg: to_binary(&snip_send_msg)?,
                 funds: vec![],
             };
             Ok(Response::new()
@@ -277,11 +284,13 @@ pub fn execute_claim(
         return Err(ContractError::NothingToClaim {});
     }
     let config = CONFIG.load(deps.storage)?;
-    let cw_send_msg = secret_toolkit::snip20::HandleMsg::Transfer {
+    let cw_send_msg =Transfer {
         recipient: info.sender.to_string(),
         amount: release,
         memo: None,
         padding: None,
+        decoys: None,
+        entropy: None,
     };
     let wasm_msg = cosmwasm_std::WasmMsg::Execute {
         contract_addr: config.token_address.to_string(),
@@ -406,10 +415,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::Claims { key, address } => to_binary(&query_claims(deps, key, address)?),
         QueryMsg::GetHooks { key, address } => to_binary(&query_hooks(deps, address, key)?),
-        QueryMsg::ListStakers {
-            key,
-            address,
-        } => query_list_stakers(deps, key, address),
+        QueryMsg::ListStakers { key, address } => query_list_stakers(deps, key, address),
         QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
     }
 }
@@ -460,7 +466,8 @@ pub fn query_staked_value(
     let address = deps.api.addr_validate(&address)?;
     let balance = BALANCE.load(deps.storage).unwrap_or_default();
     let staked = STAKED_BALANCES
-        .get(deps.storage, &address).unwrap_or_default();
+        .get(deps.storage, &address)
+        .unwrap_or_default();
     let total = STAKED_TOTAL.load(deps.storage).unwrap_or_default();
     if balance == Uint128::zero() || staked == Uint128::zero() || total == Uint128::zero() {
         Ok(StakedValueResponse {
@@ -484,7 +491,7 @@ pub fn query_total_value(
 ) -> StdResult<TotalValueResponse> {
     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
 
-    let balance = BALANCE.load(deps.storage)?;
+    let balance = BALANCE.load(deps.storage).unwrap_or_default();
     Ok(TotalValueResponse { total: balance })
 }
 
@@ -509,11 +516,7 @@ pub fn query_hooks(deps: Deps, address: String, key: String) -> StdResult<GetHoo
     })
 }
 
-pub fn query_list_stakers(
-    deps: Deps,
-    key: String,
-    address: String,
-) -> StdResult<Binary> {
+pub fn query_list_stakers(deps: Deps, key: String, address: String) -> StdResult<Binary> {
     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
     // let start_at = start_after
     //     .map(|addr| deps.api.addr_validate(&addr))
