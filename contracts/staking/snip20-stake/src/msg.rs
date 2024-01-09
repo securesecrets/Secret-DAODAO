@@ -17,6 +17,7 @@ pub struct InstantiateMsg {
     // Owner can update all configs including changing the owner. This will generally be a DAO.
     pub owner: Option<String>,
     pub token_address: String,
+    pub token_code_hash : String,
     pub unstaking_duration: Option<Duration>,
 }
 

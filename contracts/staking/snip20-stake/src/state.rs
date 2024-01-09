@@ -10,13 +10,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct Config {
     pub token_address: Addr,
+    pub token_code_hash: String,
     pub unstaking_duration: Option<Duration>,
 }
 
-pub const CONFIG: Item<Config> = Item::new("config_v2");
+pub const CONFIG: Item<Config> = Item::new("config");
 pub const STAKED_TOTAL: Item<Uint128> = Item::new("total_staked");
 pub const BALANCE: Item<Uint128> = Item::new("balance");
-pub static  STAKED_BALANCES: Keymap<Addr, Uint128> = Keymap::new(b"staked_balances");
+pub static STAKED_BALANCES: Keymap<Addr, Uint128> = Keymap::new(b"staked_balances");
 
 // Hooks to contracts that will receive staking and unstaking messages
 pub const HOOKS: Hooks = Hooks::new("hooks");

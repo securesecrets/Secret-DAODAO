@@ -134,7 +134,8 @@ pub fn instantiate(
 
     ViewingKey::set_seed(deps.storage, &prng_seed_hashed);
 
-    Ok(Response::default())
+    
+    Ok(Response::new().set_data(to_binary(&env.contract.code_hash)?))
 }
 
 fn get_address_position(

@@ -3,7 +3,7 @@ use crate::msg::{
     ExecuteAnswer, GetHooksResponse, InstantiateAnswer, ListStakersResponse, QueryMsg,
     Snip20ReceiveMsg, StakedValueResponse, StakerBalanceResponse, TotalValueResponse,
 };
-use crate::msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg, ResponseStatus::Success};
+use crate::msg::{ExecuteMsg,InstantiateMsg, ReceiveMsg, ResponseStatus::Success};
 use crate::state::{
     Config, BALANCE, CLAIMS, CONFIG, HOOKS, MAX_CLAIMS, STAKED_BALANCES, STAKED_TOTAL,
 };
@@ -45,20 +45,18 @@ pub fn instantiate(
     // though this provides some protection against mistakes where the
     // wrong address is provided.
     let token_address = deps.api.addr_validate(&msg.token_address)?;
-    // let _: secret_toolkit::snip20::TokenInfoResponse = deps
-    //     .querier
-    //     .query_wasm_smart(
-    //         env.contract.code_hash.clone(),
-    //         &token_address,
-    //         &secret_toolkit::snip20::QueryMsg::TokenInfo {},
-    //     )
-    //     .map_err(|_| ContractError::InvalidSnip20 {})?;
+    let _: secret_toolkit::snip20::TokenInfoResponse = deps
+        .querier
+        .query_wasm_smart(
+            msg.token_code_hash.clone(),
+            &token_address,
+            &secret_toolkit::snip20::QueryMsg::TokenInfo {},
+        )
+        .map_err(|_| ContractError::InvalidSnip20 {})?;
 
     validate_duration(msg.unstaking_duration)?;
-    let config = Config {
-        token_address,
-        unstaking_duration: msg.unstaking_duration,
-    };
+
+    let config=Config { token_address, token_code_hash: msg.token_code_hash.clone(), unstaking_duration: msg.unstaking_duration };
     CONFIG.save(deps.storage, &config)?;
 
     // Initialize state to zero. We do this instead of using
@@ -240,7 +238,7 @@ pub fn execute_unstake(
             };
             let wasm_msg = cosmwasm_std::WasmMsg::Execute {
                 contract_addr: config.token_address.to_string(),
-                code_hash: env.contract.code_hash,
+                code_hash: config.token_code_hash,
                 msg: to_binary(&snip_send_msg)?,
                 funds: vec![],
             };
@@ -294,7 +292,7 @@ pub fn execute_claim(
     };
     let wasm_msg = cosmwasm_std::WasmMsg::Execute {
         contract_addr: config.token_address.to_string(),
-        code_hash: env.contract.code_hash,
+        code_hash: config.token_code_hash,
         msg: to_binary(&cw_send_msg)?,
         funds: vec![],
     };
