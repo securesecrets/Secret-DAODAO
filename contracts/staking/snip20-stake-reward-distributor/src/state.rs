@@ -1,12 +1,15 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
-use cw_storage_plus::Item;
+use secret_storage_plus::Item;
 
 #[cw_serde]
 pub struct Config {
     pub staking_addr: Addr,
+    pub staking_code_hash: String,
     pub reward_rate: Uint128,
     pub reward_token: Addr,
+    pub reward_token_code_hash: String,
+    pub reward_distributor_viewing_key: String,
 }
 
 // `"config"` key stores v1 configuration.

@@ -12,8 +12,11 @@ pub use cw_ownable::Ownership;
 pub struct InstantiateMsg {
     pub owner: String,
     pub staking_addr: String,
+    pub staking_code_hash: String,
     pub reward_rate: Uint128,
     pub reward_token: String,
+    pub reward_token_code_hash: String,
+    pub reward_distributor_viewing_key: String,
 }
 
 #[cw_ownable_execute]
@@ -21,8 +24,11 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateConfig {
         staking_addr: String,
+        staking_code_hash: String,
         reward_rate: Uint128,
         reward_token: String,
+        reward_token_code_hash: String,
+        reward_distributor_viewing_key: String,
     },
     Distribute {},
     Withdraw {},

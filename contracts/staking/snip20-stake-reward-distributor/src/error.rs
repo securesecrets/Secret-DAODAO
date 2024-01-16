@@ -10,7 +10,7 @@ pub enum ContractError {
     Ownership(#[from] cw_ownable::OwnershipError),
 
     #[error("Invalid Cw20")]
-    InvalidCw20 {},
+    InvalidSnip20 {},
 
     #[error("Invalid Staking Contract")]
     InvalidStakingContract {},

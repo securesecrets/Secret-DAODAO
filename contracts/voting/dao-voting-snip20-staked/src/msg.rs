@@ -69,7 +69,6 @@ pub enum ExecuteMsg {
     /// instantiator this contract (a DAO most likely) may call this
     /// method.
     UpdateActiveThreshold {
-        token_code_hash: String,
         new_threshold: Option<ActiveThreshold>,
     },
 }

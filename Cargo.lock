@@ -1439,24 +1439,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw20-stake-reward-distributor"
-version = "2.4.0"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.1.9",
- "cw-multi-test",
- "cw-ownable 0.5.1",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
- "cw20 1.1.2",
- "cw20-base 1.1.2",
- "snip20-stake",
- "stake-cw20-reward-distributor",
- "thiserror",
-]
-
-[[package]]
 name = "cw3"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1742,8 +1724,8 @@ dependencies = [
  "dao-proposal-multiple",
  "dao-testing",
  "dao-voting 2.4.0",
- "dao-voting-cw20-staked",
  "dao-voting-cw4",
+ "dao-voting-snip20-staked",
 ]
 
 [[package]]
@@ -1767,8 +1749,8 @@ dependencies = [
  "dao-proposal-single",
  "dao-testing",
  "dao-voting 2.4.0",
- "dao-voting-cw20-staked",
  "dao-voting-cw4",
+ "dao-voting-snip20-staked",
 ]
 
 [[package]]
@@ -1844,9 +1826,9 @@ dependencies = [
  "dao-voting 0.1.0",
  "dao-voting 2.4.0",
  "dao-voting-cw20-balance",
- "dao-voting-cw20-staked",
  "dao-voting-cw4",
  "dao-voting-cw721-staked",
+ "dao-voting-snip20-staked",
  "dao-voting-token-staked",
  "rand",
  "snip20-stake",
@@ -1886,9 +1868,9 @@ dependencies = [
  "dao-voting 0.1.0",
  "dao-voting 2.4.0",
  "dao-voting-cw20-balance",
- "dao-voting-cw20-staked",
  "dao-voting-cw4",
  "dao-voting-cw721-staked",
+ "dao-voting-snip20-staked",
  "dao-voting-token-staked",
  "snip20-stake",
  "thiserror",
@@ -1959,10 +1941,10 @@ dependencies = [
  "dao-voting 0.1.0",
  "dao-voting 2.4.0",
  "dao-voting-cw20-balance",
- "dao-voting-cw20-staked",
  "dao-voting-cw4",
  "dao-voting-cw721-roles",
  "dao-voting-cw721-staked",
+ "dao-voting-snip20-staked",
  "dao-voting-token-staked",
  "osmosis-std 0.21.0",
  "osmosis-test-tube",
@@ -2014,31 +1996,6 @@ dependencies = [
  "cw20-base 1.1.2",
  "dao-dao-macros",
  "dao-interface",
- "thiserror",
-]
-
-[[package]]
-name = "dao-voting-cw20-staked"
-version = "2.4.0"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.1.9",
- "cosmwasm-storage 1.1.9",
- "cw-ownable 0.5.1",
- "cw20-base 1.1.2",
- "dao-dao-macros",
- "dao-interface",
- "dao-voting 2.4.0",
- "schemars",
- "secret-cw-controllers",
- "secret-cw2",
- "secret-multi-test",
- "secret-storage-plus",
- "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
- "secret-utils",
- "serde",
- "snip20-reference-impl",
- "snip20-stake",
  "thiserror",
 ]
 
@@ -2113,6 +2070,31 @@ dependencies = [
  "osmosis-std 0.21.0",
  "osmosis-test-tube",
  "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "dao-voting-snip20-staked"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.5.0",
+ "cosmwasm-std 1.1.9",
+ "cosmwasm-storage 1.1.9",
+ "cw-ownable 0.5.1",
+ "cw20-base 1.1.2",
+ "dao-dao-macros",
+ "dao-interface",
+ "dao-voting 2.4.0",
+ "schemars",
+ "secret-cw-controllers",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-utils",
+ "serde",
+ "snip20-reference-impl",
+ "snip20-stake",
  "thiserror",
 ]
 
@@ -4388,6 +4370,27 @@ dependencies = [
  "snafu",
  "snip20-reference-impl",
  "subtle",
+ "thiserror",
+]
+
+[[package]]
+name = "snip20-stake-reward-distributor"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.5.0",
+ "cosmwasm-std 1.1.9",
+ "cw-ownable 0.5.1",
+ "cw20 1.1.2",
+ "cw20-base 1.1.2",
+ "secret-cw-controllers",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-utils",
+ "snip20-reference-impl",
+ "snip20-stake",
+ "stake-cw20-reward-distributor",
  "thiserror",
 ]
 

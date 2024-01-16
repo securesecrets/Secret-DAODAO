@@ -119,7 +119,7 @@ dao-test-custom-factory = { path = "./contracts/test/dao-test-custom-factory", v
 dao-testing = { path = "./packages/dao-testing", version = "2.4.0" }
 dao-voting = { path = "./packages/dao-voting", version = "2.4.0" }
 dao-voting-cw20-balance = { path = "./contracts/test/dao-voting-cw20-balance", version = "2.4.0" }
-dao-voting-cw20-staked = { path = "./contracts/voting/dao-voting-cw20-staked", version = "2.4.0" }
+dao-voting-snip20-staked = { path = "./contracts/voting/dao-voting-snip20-staked", version = "2.4.0" }
 dao-voting-cw4 = { path = "./contracts/voting/dao-voting-cw4", version = "2.4.0" }
 dao-voting-cw721-roles = { path = "./contracts/voting/dao-voting-cw721-roles", version = "2.4.0" }
 dao-voting-cw721-staked = { path = "./contracts/voting/dao-voting-cw721-staked", version = "2.4.0" }

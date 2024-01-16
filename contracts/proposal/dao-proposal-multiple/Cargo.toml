@@ -47,7 +47,7 @@ anyhow = { workspace = true }
 cw-multi-test = { workspace = true }
 dao-voting-cw4 = { workspace = true }
 dao-voting-cw20-balance = { workspace = true }
-dao-voting-cw20-staked = { workspace = true }
+dao-voting-snip20-staked = { workspace = true }
 dao-voting-token-staked = { workspace = true }
 dao-voting-cw721-staked = { workspace = true }
 cw-denom = { workspace = true }

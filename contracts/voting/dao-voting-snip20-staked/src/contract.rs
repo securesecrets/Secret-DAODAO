@@ -213,9 +213,8 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateActiveThreshold {
-            token_code_hash,
             new_threshold,
-        } => execute_update_active_threshold(deps, env, info, token_code_hash, new_threshold),
+        } => execute_update_active_threshold(deps, env, info, token_code_hash),
     }
 }
 
@@ -223,7 +222,6 @@ pub fn execute_update_active_threshold(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    token_code_hash: String,
     new_active_threshold: Option<ActiveThreshold>,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
@@ -243,7 +241,7 @@ pub fn execute_update_active_threshold(
                 assert_valid_absolute_count_threshold(
                     deps.as_ref(),
                     &deps.api.addr_validate(&token.addr).unwrap(),
-                    token_code_hash,
+                    token.code_hash,
                     count,
                 )?;
             }

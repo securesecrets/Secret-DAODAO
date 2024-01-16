@@ -40,4 +40,4 @@ dao-proposal-single = { workspace = true, features = ["library"] }
 dao-testing = { workspace = true }
 dao-voting = { workspace = true }
 dao-voting-cw4 = { workspace = true }
-dao-voting-cw20-staked = { workspace = true }
+dao-voting-snip20-staked = { workspace = true }
