@@ -3,7 +3,7 @@ use crate::msg::{
     ExecuteAnswer, GetHooksResponse, InstantiateAnswer, ListStakersResponse, QueryMsg,
     Snip20ReceiveMsg, StakedValueResponse, StakerBalanceResponse, TotalValueResponse,
 };
-use crate::msg::{ExecuteMsg,InstantiateMsg, ReceiveMsg, ResponseStatus::Success};
+use crate::msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg, ResponseStatus::Success};
 use crate::state::{
     Config, BALANCE, CLAIMS, CONFIG, HOOKS, MAX_CLAIMS, STAKED_BALANCES, STAKED_TOTAL,
 };
@@ -12,10 +12,10 @@ use cosmwasm_std::{
     entry_point, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo,
     Response, StdError, StdResult, Uint128,
 };
-use snip20_reference_impl::msg::ExecuteMsg::Transfer;
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_voting::duration::validate_duration;
 use secret_cw2::set_contract_version;
+use snip20_reference_impl::msg::ExecuteMsg::Transfer;
 
 use secret_cw_controllers::ClaimsResponse;
 pub use secret_toolkit::snip20::handle::{
@@ -23,7 +23,7 @@ pub use secret_toolkit::snip20::handle::{
     send_from_msg, send_msg, transfer_from_msg, transfer_msg,
 };
 pub use secret_toolkit::snip20::query::{
-    allowance_query, balance_query, minters_query, token_info_query,
+    allowance_query, balance_query, minters_query,
 };
 use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use secret_utils::Duration;
@@ -45,18 +45,22 @@ pub fn instantiate(
     // though this provides some protection against mistakes where the
     // wrong address is provided.
     let token_address = deps.api.addr_validate(&msg.token_address)?;
-    let _: secret_toolkit::snip20::TokenInfoResponse = deps
+    let token_info: snip20_reference_impl::msg::TokenInfo = deps
         .querier
         .query_wasm_smart(
-            msg.token_code_hash.clone(),
+            msg.token_code_hash.clone().unwrap(),
             &token_address,
-            &secret_toolkit::snip20::QueryMsg::TokenInfo {},
-        )
-        .map_err(|_| ContractError::InvalidSnip20 {})?;
+            &snip20_reference_impl::msg::QueryMsg::TokenInfo {  },
+        )?;
+    let _supply =token_info.total_supply.unwrap();
 
     validate_duration(msg.unstaking_duration)?;
 
-    let config=Config { token_address, token_code_hash: msg.token_code_hash.clone(), unstaking_duration: msg.unstaking_duration };
+    let config = Config {
+        token_address,
+        token_code_hash: msg.token_code_hash.clone().unwrap(),
+        unstaking_duration: msg.unstaking_duration,
+    };
     CONFIG.save(deps.storage, &config)?;
 
     // Initialize state to zero. We do this instead of using
@@ -147,7 +151,9 @@ pub fn execute_stake(
     let balance = BALANCE.load(deps.storage).unwrap_or_default();
     let staked_total = STAKED_TOTAL.load(deps.storage).unwrap_or_default();
     let amount_to_stake = math::amount_to_stake(staked_total, balance, amount);
-    let prev_balance = STAKED_BALANCES.get(deps.storage, &sender).unwrap_or_default();
+    let prev_balance = STAKED_BALANCES
+        .get(deps.storage, &sender)
+        .unwrap_or_default();
     STAKED_BALANCES.insert(
         deps.storage,
         &sender,
@@ -228,13 +234,13 @@ pub fn execute_unstake(
     )?;
     match config.unstaking_duration {
         None => {
-            let snip_send_msg = Transfer{
+            let snip_send_msg = Transfer {
                 recipient: info.sender.to_string(),
                 amount: amount_to_claim,
                 memo: None,
                 padding: None,
                 decoys: None,
-                entropy:None,
+                entropy: None,
             };
             let wasm_msg = cosmwasm_std::WasmMsg::Execute {
                 contract_addr: config.token_address.to_string(),
@@ -282,7 +288,7 @@ pub fn execute_claim(
         return Err(ContractError::NothingToClaim {});
     }
     let config = CONFIG.load(deps.storage)?;
-    let cw_send_msg =Transfer {
+    let cw_send_msg = Transfer {
         recipient: info.sender.to_string(),
         amount: release,
         memo: None,
@@ -388,7 +394,7 @@ pub fn try_set_key(
 #[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetConfig { key, address } => to_binary(&query_config(deps, address, key)?),
+        QueryMsg::GetConfig {} => to_binary(&query_config(deps)?),
         #[cfg(feature = "iterator")]
         QueryMsg::StakedBalanceAtHeight {
             key,
@@ -408,12 +414,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::StakedValue { key, address } => {
             to_binary(&query_staked_value(deps, env, key, address)?)
         }
-        QueryMsg::TotalValue { key, address } => {
-            to_binary(&query_total_value(deps, env, address, key)?)
-        }
+        QueryMsg::TotalValue {} => to_binary(&query_total_value(deps, env)?),
         QueryMsg::Claims { key, address } => to_binary(&query_claims(deps, key, address)?),
-        QueryMsg::GetHooks { key, address } => to_binary(&query_hooks(deps, address, key)?),
-        QueryMsg::ListStakers { key, address } => query_list_stakers(deps, key, address),
+        QueryMsg::GetHooks {} => to_binary(&query_hooks(deps)?),
+        QueryMsg::ListStakers {} => query_list_stakers(deps),
         QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
     }
 }
@@ -481,21 +485,12 @@ pub fn query_staked_value(
     }
 }
 
-pub fn query_total_value(
-    deps: Deps,
-    _env: Env,
-    address: String,
-    key: String,
-) -> StdResult<TotalValueResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
-
+pub fn query_total_value(deps: Deps, _env: Env) -> StdResult<TotalValueResponse> {
     let balance = BALANCE.load(deps.storage).unwrap_or_default();
     Ok(TotalValueResponse { total: balance })
 }
 
-pub fn query_config(deps: Deps, address: String, key: String) -> StdResult<Config> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
-
+pub fn query_config(deps: Deps) -> StdResult<Config> {
     let config = CONFIG.load(deps.storage)?;
     Ok(config)
 }
@@ -506,16 +501,13 @@ pub fn query_claims(deps: Deps, key: String, address: String) -> StdResult<Claim
     CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)
 }
 
-pub fn query_hooks(deps: Deps, address: String, key: String) -> StdResult<GetHooksResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
-
+pub fn query_hooks(deps: Deps) -> StdResult<GetHooksResponse> {
     Ok(GetHooksResponse {
         hooks: HOOKS.query_hooks(deps)?.hooks,
     })
 }
 
-pub fn query_list_stakers(deps: Deps, key: String, address: String) -> StdResult<Binary> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+pub fn query_list_stakers(deps: Deps) -> StdResult<Binary> {
     // let start_at = start_after
     //     .map(|addr| deps.api.addr_validate(&addr))
     //     .transpose()?;

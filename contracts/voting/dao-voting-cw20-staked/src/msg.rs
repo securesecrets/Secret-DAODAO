@@ -1,19 +1,21 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema:: QueryResponses;
 use cosmwasm_std::Uint128;
-use cw20::Cw20Coin;
-use cw20_base::msg::InstantiateMarketingInfo;
-use cw_utils::Duration;
-
+use secret_utils::Duration;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use dao_dao_macros::{active_query, cw20_token_query, voting_module_query};
 use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
+use crate::snip20_msg::InitialBalance;
 
 /// Information about the staking contract to be used with this voting
 /// module.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub enum StakingInfo {
     Existing {
         /// Address of an already instantiated staking contract.
         staking_contract_address: String,
+        /// code hash of an already instantiated staking contract.
+        staking_contract_code_hash: String,
     },
     New {
         /// Code ID for staking contract to instantiate.
@@ -25,12 +27,14 @@ pub enum StakingInfo {
     },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, JsonSchema)]
 #[allow(clippy::large_enum_variant)]
-pub enum TokenInfo {
+pub enum Snip20TokenInfo {
     Existing {
         /// Address of an already instantiated cw20 token contract.
         address: String,
+        /// Code hash of an already instantiated cw20 token contract.
+        code_hash: String,
         /// Information about the staking contract to use.
         staking_contract: StakingInfo,
     },
@@ -43,8 +47,7 @@ pub enum TokenInfo {
         name: String,
         symbol: String,
         decimals: u8,
-        initial_balances: Vec<Cw20Coin>,
-        marketing: Option<InstantiateMarketingInfo>,
+        initial_balances: Vec<InitialBalance>,
 
         staking_code_id: u64,
         unstaking_duration: Option<Duration>,
@@ -52,20 +55,21 @@ pub enum TokenInfo {
     },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, JsonSchema)]
 pub struct InstantiateMsg {
-    pub token_info: TokenInfo,
+    pub token_info: Snip20TokenInfo,
     /// The number or percentage of tokens that must be staked
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub enum ExecuteMsg {
     /// Sets the active threshold to a new value. Only the
     /// instantiator this contract (a DAO most likely) may call this
     /// method.
     UpdateActiveThreshold {
+        token_code_hash: String,
         new_threshold: Option<ActiveThreshold>,
     },
 }
@@ -73,7 +77,7 @@ pub enum ExecuteMsg {
 #[voting_module_query]
 #[cw20_token_query]
 #[active_query]
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Gets the address of the cw20-stake contract this voting module
@@ -84,5 +88,5 @@ pub enum QueryMsg {
     ActiveThreshold {},
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct MigrateMsg {}

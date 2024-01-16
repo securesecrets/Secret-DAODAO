@@ -150,3 +150,10 @@ pub enum ResponseStatus {
     Success,
     Failure,
 }
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+pub struct Config {
+    pub token_address: Addr,
+    pub token_code_hash: String,
+    pub unstaking_duration: Option<Duration>,
+}

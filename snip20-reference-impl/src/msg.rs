@@ -553,64 +553,87 @@ pub enum QueryWithPermit {
     },
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
-pub enum QueryAnswer {
-    TokenInfo {
-        name: String,
-        symbol: String,
-        decimals: u8,
-        total_supply: Option<Uint128>,
-    },
-    TokenConfig {
-        public_total_supply: bool,
-        deposit_enabled: bool,
-        redeem_enabled: bool,
-        mint_enabled: bool,
-        burn_enabled: bool,
-        supported_denoms: Vec<String>,
-    },
-    ContractStatus {
-        status: ContractStatusLevel,
-    },
-    ExchangeRate {
-        rate: Uint128,
-        denom: String,
-    },
-    Allowance {
-        spender: Addr,
-        owner: Addr,
-        allowance: Uint128,
-        expiration: Option<u64>,
-    },
-    AllowancesGiven {
-        owner: Addr,
-        allowances: Vec<AllowanceGivenResult>,
-        count: u32,
-    },
-    AllowancesReceived {
-        spender: Addr,
-        allowances: Vec<AllowanceReceivedResult>,
-        count: u32,
-    },
-    Balance {
-        amount: Uint128,
-    },
-    TransferHistory {
-        txs: Vec<Tx>,
-        total: Option<u64>,
-    },
-    TransactionHistory {
-        txs: Vec<ExtendedTx>,
-        total: Option<u64>,
-    },
-    ViewingKeyError {
-        msg: String,
-    },
-    Minters {
-        minters: Vec<Addr>,
-    },
-}
+// #[derive(Serialize, Deserialize, JsonSchema, Debug)]
+// #[serde(rename_all = "snake_case")]
+// pub enum QueryAnswer {
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct TokenInfo {
+        pub name: String,
+        pub symbol: String,
+        pub decimals: u8,
+        pub total_supply: Option<Uint128>,
+    }
+
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct TokenConfig {
+        pub public_total_supply: bool,
+        pub deposit_enabled: bool,
+        pub redeem_enabled: bool,
+        pub mint_enabled: bool,
+        pub burn_enabled: bool,
+        pub supported_denoms: Vec<String>,
+    }
+
+    #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct ContractStatus {
+        pub status: ContractStatusLevel,
+    }
+
+    #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct ExchangeRate {
+        pub rate: Uint128,
+        pub denom: String,
+    }
+
+    #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct Allowance {
+        pub spender: Addr,
+        pub owner: Addr,
+        pub allowance: Uint128,
+        pub expiration: Option<u64>,
+    }
+
+    #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct AllowancesGiven {
+        pub owner: Addr,
+        pub allowances: Vec<AllowanceGivenResult>,
+        pub count: u32,
+    }
+
+    #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct AllowancesReceived {
+        pub spender: Addr,
+        pub allowances: Vec<AllowanceReceivedResult>,
+        pub count: u32,
+    }
+
+    #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct Balance {
+        pub amount: Uint128,
+    }
+    
+    #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct TransferHistory {
+        pub txs: Vec<Tx>,
+        pub total: Option<u64>,
+    } 
+
+    #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct TransactionHistory {
+        pub txs: Vec<ExtendedTx>,
+        pub total: Option<u64>,
+    }
+
+    #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct ViewingKeyError {
+        pub msg: String,
+    }
+
+    #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+    pub struct Minters {
+        pub minters: Vec<Addr>,
+    }
+// }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
 pub struct AllowanceGivenResult {

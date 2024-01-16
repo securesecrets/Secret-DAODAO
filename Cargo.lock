@@ -2024,15 +2024,20 @@ dependencies = [
  "cosmwasm-schema 1.5.0",
  "cosmwasm-std 1.1.9",
  "cosmwasm-storage 1.1.9",
- "cw-multi-test",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
- "cw20 1.1.2",
+ "cw-ownable 0.5.1",
  "cw20-base 1.1.2",
  "dao-dao-macros",
  "dao-interface",
  "dao-voting 2.4.0",
+ "schemars",
+ "secret-cw-controllers",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-utils",
+ "serde",
+ "snip20-reference-impl",
  "snip20-stake",
  "thiserror",
 ]
@@ -3883,6 +3888,8 @@ name = "secret-toolkit"
 version = "0.8.0"
 source = "git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0#dfbcc26e6ffb29e19b8f67ef67cf80657f669492"
 dependencies = [
+ "secret-toolkit-crypto 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-toolkit-permit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
  "secret-toolkit-serialization 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
  "secret-toolkit-snip20 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
  "secret-toolkit-snip721 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
@@ -3897,7 +3904,7 @@ version = "0.8.0"
 source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
 dependencies = [
  "secret-toolkit-crypto 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
- "secret-toolkit-permit",
+ "secret-toolkit-permit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
  "secret-toolkit-serialization 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
  "secret-toolkit-snip20 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
  "secret-toolkit-snip721 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282)",
@@ -3926,6 +3933,20 @@ dependencies = [
  "rand_chacha",
  "rand_core 0.6.4",
  "sha2 0.10.8",
+]
+
+[[package]]
+name = "secret-toolkit-permit"
+version = "0.8.0"
+source = "git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0#dfbcc26e6ffb29e19b8f67ef67cf80657f669492"
+dependencies = [
+ "bech32",
+ "cosmwasm-std 1.1.9",
+ "remain",
+ "ripemd",
+ "schemars",
+ "secret-toolkit-crypto 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "serde",
 ]
 
 [[package]]

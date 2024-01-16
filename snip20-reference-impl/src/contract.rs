@@ -11,9 +11,10 @@ use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use secret_toolkit_crypto::{sha_256, Prng, SHA256_HASH_SIZE};
 
 use crate::batch;
+use crate::msg::{TokenInfo, TokenConfig, ContractStatus, TransferHistory, TransactionHistory, Balance, Minters, Allowance, AllowancesGiven, AllowancesReceived, ViewingKeyError, ExchangeRate};
 use crate::msg::{
     AllowanceGivenResult, AllowanceReceivedResult, ContractStatusLevel, Decoyable, ExecuteAnswer,
-    ExecuteMsg, InstantiateMsg, QueryAnswer, QueryMsg, QueryWithPermit, ResponseStatus::Success,
+    ExecuteMsg, InstantiateMsg, QueryMsg, QueryWithPermit, ResponseStatus::Success,
 };
 use crate::receiver::Snip20ReceiveMsg;
 use crate::state::{
@@ -574,7 +575,7 @@ pub fn viewing_keys_queries(deps: Deps, msg: QueryMsg) -> StdResult<Binary> {
         }
     }
 
-    to_binary(&QueryAnswer::ViewingKeyError {
+    to_binary(&ViewingKeyError {
         msg: "Wrong viewing key for this address or viewing key not set".to_string(),
     })
 }
@@ -594,9 +595,9 @@ fn query_exchange_rate(storage: &dyn Storage) -> StdResult<Binary> {
             rate = Uint128::new(10u128.pow(6 - constants.decimals as u32));
             denom = constants.symbol;
         }
-        return to_binary(&QueryAnswer::ExchangeRate { rate, denom });
+        return to_binary(&ExchangeRate { rate, denom });
     }
-    to_binary(&QueryAnswer::ExchangeRate {
+    to_binary(&ExchangeRate {
         rate: Uint128::zero(),
         denom: String::new(),
     })
@@ -611,7 +612,7 @@ fn query_token_info(storage: &dyn Storage) -> StdResult<Binary> {
         None
     };
 
-    to_binary(&QueryAnswer::TokenInfo {
+    to_binary(&TokenInfo {
         name: constants.name,
         symbol: constants.symbol,
         decimals: constants.decimals,
@@ -622,7 +623,7 @@ fn query_token_info(storage: &dyn Storage) -> StdResult<Binary> {
 fn query_token_config(storage: &dyn Storage) -> StdResult<Binary> {
     let constants = CONFIG.load(storage)?;
 
-    to_binary(&QueryAnswer::TokenConfig {
+    to_binary(&TokenConfig {
         public_total_supply: constants.total_supply_is_public,
         deposit_enabled: constants.deposit_is_enabled,
         redeem_enabled: constants.redeem_is_enabled,
@@ -635,7 +636,7 @@ fn query_token_config(storage: &dyn Storage) -> StdResult<Binary> {
 fn query_contract_status(storage: &dyn Storage) -> StdResult<Binary> {
     let contract_status = CONTRACT_STATUS.load(storage)?;
 
-    to_binary(&QueryAnswer::ContractStatus {
+    to_binary(&ContractStatus {
         status: contract_status,
     })
 }
@@ -661,7 +662,7 @@ pub fn query_transfers(
         should_filter_decoys,
     )?;
 
-    let result = QueryAnswer::TransferHistory {
+    let result = TransferHistory {
         txs,
         total: Some(total),
     };
@@ -684,7 +685,7 @@ pub fn query_transactions(
     let (txs, total) =
         StoredExtendedTx::get_txs(deps.storage, account, page, page_size, should_filter_decoys)?;
 
-    let result = QueryAnswer::TransactionHistory {
+    let result = TransactionHistory {
         txs,
         total: Some(total),
     };
@@ -699,14 +700,14 @@ pub fn query_balance(deps: Deps, account: String) -> StdResult<Binary> {
     let account = Addr::unchecked(account);
 
     let amount = Uint128::new(BalancesStore::load(deps.storage, &account));
-    let response = QueryAnswer::Balance { amount };
+    let response =Balance { amount };
     to_binary(&response)
 }
 
 fn query_minters(deps: Deps) -> StdResult<Binary> {
     let minters = MintersStore::load(deps.storage)?;
 
-    let response = QueryAnswer::Minters { minters };
+    let response = Minters { minters };
     to_binary(&response)
 }
 
@@ -965,7 +966,7 @@ pub fn query_allowance(deps: Deps, owner: String, spender: String) -> StdResult<
 
     let allowance = AllowancesStore::load(deps.storage, &owner, &spender);
 
-    let response = QueryAnswer::Allowance {
+    let response = Allowance {
         owner,
         spender,
         allowance: Uint128::new(allowance.amount),
@@ -998,7 +999,7 @@ pub fn query_allowances_given(
         })
         .collect();
 
-    let response = QueryAnswer::AllowancesGiven {
+    let response = AllowancesGiven {
         owner: owner.clone(),
         allowances: allowances_result,
         count: AllowancesStore::num_allowances(deps.storage, &owner),
@@ -1030,7 +1031,7 @@ pub fn query_allowances_received(
         })
         .collect();
 
-    let response = QueryAnswer::AllowancesReceived {
+    let response = AllowancesReceived {
         spender: spender.clone(),
         allowances,
         count: AllowancesStore::num_allowed(deps.storage, &spender),

@@ -14,6 +14,7 @@ pub struct Config {
     pub unstaking_duration: Option<Duration>,
 }
 
+pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const STAKED_TOTAL: Item<Uint128> = Item::new("total_staked");
 pub const BALANCE: Item<Uint128> = Item::new("balance");

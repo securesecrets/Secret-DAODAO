@@ -4,6 +4,8 @@ pub mod contract;
 mod error;
 pub mod msg;
 pub mod state;
+pub mod snip20_msg;
+pub mod snip20_stake_msg;
 
 #[cfg(test)]
 mod tests;
