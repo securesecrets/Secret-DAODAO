@@ -461,13 +461,13 @@ mod test {
             name: "John".to_string(),
             age: 32,
         };
-        people.save(&mut store, b"john", &data).unwrap();
+        PEOPLE.save(&mut store, b"john", &data).unwrap();
 
         let data2 = Data {
             name: "Jim".to_string(),
             age: 44,
         };
-        people.save(&mut store, b"jim", &data2).unwrap();
+        PEOPLE.save(&mut store, b"jim", &data2).unwrap();
 
         // let's try to iterate!
         let all: StdResult<Vec<_>> = PEOPLE
@@ -523,22 +523,22 @@ mod test {
             name: "John".to_string(),
             age: 32,
         };
-        people.save(&mut store, b"john", &data).unwrap();
+        PEOPLE.save(&mut store, b"john", &data).unwrap();
 
         let data2 = Data {
             name: "Jim".to_string(),
             age: 44,
         };
-        people.save(&mut store, b"jim", &data2).unwrap();
+        PEOPLE.save(&mut store, b"jim", &data2).unwrap();
 
         let data3 = Data {
             name: "Ada".to_string(),
             age: 23,
         };
-        people.save(&mut store, b"ada", &data3).unwrap();
+        PEOPLE.save(&mut store, b"ada", &data3).unwrap();
 
         // let's try to iterate!
-        let all: StdResult<Vec<_>> = people.range(&store, None, None, Order::Ascending).collect();
+        let all: StdResult<Vec<_>> = PEOPLE.range(&store, None, None, Order::Ascending).collect();
         let all = all.unwrap();
         assert_eq!(3, all.len());
         assert_eq!(
@@ -1066,7 +1066,7 @@ mod test {
             .unwrap();
 
         // let's try to iterate!
-        let all: StdResult<Vec<_>> = triple.range(&store, None, None, Order::Ascending).collect();
+        let all: StdResult<Vec<_>> = TRIPLE.range(&store, None, None, Order::Ascending).collect();
         let all = all.unwrap();
         assert_eq!(4, all.len());
         assert_eq!(
@@ -1285,12 +1285,12 @@ mod test {
             name: "John".to_string(),
             age: 32,
         };
-        people.save(&mut store, b"john", &data)?;
+        PEOPLE.save(&mut store, b"john", &data)?;
         let data2 = Data {
             name: "Jim".to_string(),
             age: 44,
         };
-        people.save(&mut store, b"jim", &data2)?;
+        PEOPLE.save(&mut store, b"jim", &data2)?;
 
         // iterate over them all
         let all: StdResult<Vec<_>> = PEOPLE
@@ -1313,9 +1313,9 @@ mod test {
         assert_eq!(all?, vec![(b"john".to_vec(), data)]);
 
         // save and load on three keys, one under different owner
-        allowance.save(&mut store, (b"owner", b"spender"), &1000)?;
-        allowance.save(&mut store, (b"owner", b"spender2"), &3000)?;
-        allowance.save(&mut store, (b"owner2", b"spender"), &5000)?;
+        ALLOWANCE.save(&mut store, (b"owner", b"spender"), &1000)?;
+        ALLOWANCE.save(&mut store, (b"owner", b"spender2"), &3000)?;
+        ALLOWANCE.save(&mut store, (b"owner2", b"spender"), &5000)?;
 
         // get all under one key
         let all: StdResult<Vec<_>> = ALLOWANCE

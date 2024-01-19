@@ -1,11 +1,11 @@
-use cosmwasm_schema:: QueryResponses;
+use crate::snip20_msg::InitialBalance;
+use cosmwasm_schema::QueryResponses;
 use cosmwasm_std::Uint128;
-use secret_utils::Duration;
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 use dao_dao_macros::{active_query, cw20_token_query, voting_module_query};
 use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
-use crate::snip20_msg::InitialBalance;
+use schemars::JsonSchema;
+use secret_utils::Duration;
+use serde::{Deserialize, Serialize};
 
 /// Information about the staking contract to be used with this voting
 /// module.
@@ -71,13 +71,18 @@ pub enum ExecuteMsg {
     UpdateActiveThreshold {
         new_threshold: Option<ActiveThreshold>,
     },
+    CreateViewingKey {
+        entropy: String,
+    },
+    SetViewingKey {
+        key: String,
+    },
 }
 
 #[voting_module_query]
 #[cw20_token_query]
 #[active_query]
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[derive(QueryResponses)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, QueryResponses)]
 pub enum QueryMsg {
     /// Gets the address of the cw20-stake contract this voting module
     /// is wrapping.
@@ -85,6 +90,8 @@ pub enum QueryMsg {
     StakingContract {},
     #[returns(ActiveThresholdResponse)]
     ActiveThreshold {},
+    #[returns(cosmwasm_std::String)]
+    GetViewingKey {},
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

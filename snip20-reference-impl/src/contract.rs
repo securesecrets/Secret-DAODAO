@@ -11,7 +11,7 @@ use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use secret_toolkit_crypto::{sha_256, Prng, SHA256_HASH_SIZE};
 
 use crate::batch;
-use crate::msg::{TokenInfo, TokenConfig, ContractStatus, TransferHistory, TransactionHistory, Balance, Minters, Allowance, AllowancesGiven, AllowancesReceived, ViewingKeyError, ExchangeRate};
+use crate::msg::{TokenInfo, TokenConfig, ContractStatus, TransferHistory, TransactionHistory, Balance, Minters, Allowance, AllowancesGiven, AllowancesReceived, ViewingKeyError, ExchangeRate, CreateViewingKey};
 use crate::msg::{
     AllowanceGivenResult, AllowanceReceivedResult, ContractStatusLevel, Decoyable, ExecuteAnswer,
     ExecuteMsg, InstantiateMsg, QueryMsg, QueryWithPermit, ResponseStatus::Success,
@@ -936,7 +936,7 @@ pub fn try_create_key(
         entropy.as_ref(),
     );
 
-    Ok(Response::new().set_data(to_binary(&ExecuteAnswer::CreateViewingKey { key })?))
+    Ok(Response::new().set_data(to_binary(&CreateViewingKey { key })?))
 }
 
 fn set_contract_status(

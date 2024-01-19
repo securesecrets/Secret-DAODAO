@@ -87,6 +87,8 @@ pub fn execute(
         ExecuteMsg::Distribute {} => execute_distribute(deps, env),
         ExecuteMsg::Withdraw {} => execute_withdraw(deps, info, env),
         ExecuteMsg::UpdateOwnership(action) => execute_update_owner(deps, info, env, action),
+        ExecuteMsg::CreateViewingKey { entropy } => try_create_key(deps, env, info, entropy),
+        ExecuteMsg::SetViewingKey { key } => try_set_key(deps, info, key),
     }
 }
 #[allow(clippy::too_many_arguments)]
@@ -265,6 +267,34 @@ pub fn execute_withdraw(
         .add_attribute("recipient", &info.sender))
 }
 
+pub fn try_create_key(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    entropy: String,
+) -> Result<Response, ContractError> {
+    let key = ViewingKey::create(
+        deps.storage,
+        &info,
+        &env,
+        info.sender.as_str(),
+        entropy.as_ref(),
+    );
+
+    Ok(Response::new().set_data(to_binary(&key)?))
+}
+
+pub fn try_set_key(
+    deps: DepsMut,
+    info: MessageInfo,
+    key: String,
+) -> Result<Response, ContractError> {
+    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
+    Ok(
+        Response::default())
+    
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -320,4 +350,9 @@ fn query_info(deps: Deps, env: Env) -> StdResult<InfoResponse> {
         last_payment_block,
         balance: balance_info.amount,
     })
+}
+
+// Helper Functions
+fn authenticate(deps: Deps, addr: Addr, key: String) -> StdResult<()> {
+    ViewingKey::check(deps.storage, addr.as_ref(), &key)
 }

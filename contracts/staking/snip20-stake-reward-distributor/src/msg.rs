@@ -32,6 +32,8 @@ pub enum ExecuteMsg {
     },
     Distribute {},
     Withdraw {},
+    CreateViewingKey { entropy: String },
+    SetViewingKey { key: String },
 }
 
 #[cw_serde]

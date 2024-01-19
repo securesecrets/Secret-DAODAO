@@ -21,6 +21,9 @@ pub enum ContractError {
     #[error("Error instantiating staking contract")]
     StakingInstantiateError {},
 
+    #[error("Error executing token contract")]
+    TokenExecuteError {},
+
     #[error("Got a submessage reply with unknown id: {id}")]
     UnknownReplyId { id: u64 },
 

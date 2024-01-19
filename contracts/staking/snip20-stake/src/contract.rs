@@ -1,11 +1,13 @@
 use crate::math;
 use crate::msg::{
     ExecuteAnswer, GetHooksResponse, InstantiateAnswer, ListStakersResponse, QueryMsg,
-    Snip20ReceiveMsg, StakedValueResponse, StakerBalanceResponse, TotalValueResponse,
+    Snip20ReceiveMsg, StakedBalanceAtHeightResponse, StakedValueResponse, StakerBalanceResponse,
+    TotalStakedAtHeightResponse, TotalValueResponse,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg, ResponseStatus::Success};
 use crate::state::{
-    Config, BALANCE, CLAIMS, CONFIG, HOOKS, MAX_CLAIMS, STAKED_BALANCES, STAKED_TOTAL,
+    Config, StakedBalancesStore, StakedTotalStore, BALANCE, CLAIMS, CONFIG, HOOKS, MAX_CLAIMS,
+    STAKED_BALANCES,
 };
 use crate::ContractError;
 use cosmwasm_std::{
@@ -22,9 +24,7 @@ pub use secret_toolkit::snip20::handle::{
     burn_from_msg, burn_msg, decrease_allowance_msg, increase_allowance_msg, mint_msg,
     send_from_msg, send_msg, transfer_from_msg, transfer_msg,
 };
-pub use secret_toolkit::snip20::query::{
-    allowance_query, balance_query, minters_query,
-};
+pub use secret_toolkit::snip20::query::{allowance_query, balance_query, minters_query};
 use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use secret_utils::Duration;
 
@@ -45,14 +45,12 @@ pub fn instantiate(
     // though this provides some protection against mistakes where the
     // wrong address is provided.
     let token_address = deps.api.addr_validate(&msg.token_address)?;
-    let token_info: snip20_reference_impl::msg::TokenInfo = deps
-        .querier
-        .query_wasm_smart(
-            msg.token_code_hash.clone().unwrap(),
-            &token_address,
-            &snip20_reference_impl::msg::QueryMsg::TokenInfo {  },
-        )?;
-    let _supply =token_info.total_supply.unwrap();
+    let token_info: snip20_reference_impl::msg::TokenInfo = deps.querier.query_wasm_smart(
+        msg.token_code_hash.clone().unwrap(),
+        &token_address,
+        &snip20_reference_impl::msg::QueryMsg::TokenInfo {},
+    )?;
+    let _supply = token_info.total_supply.unwrap();
 
     validate_duration(msg.unstaking_duration)?;
 
@@ -67,7 +65,11 @@ pub fn instantiate(
     // `unwrap_or_default` where this is used as it protects us
     // against a scenerio where state is cleared by a bad actor and
     // `unwrap_or_default` carries on.
-    STAKED_TOTAL.save(deps.storage, &Uint128::zero())?;
+    StakedTotalStore::store_staked_total_at_blockheight(
+        deps.storage,
+        env.block.height,
+        Uint128::zero(),
+    );
     BALANCE.save(deps.storage, &Uint128::zero())?;
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -149,28 +151,39 @@ pub fn execute_stake(
     amount: Uint128,
 ) -> Result<Response, ContractError> {
     let balance = BALANCE.load(deps.storage).unwrap_or_default();
-    let staked_total = STAKED_TOTAL.load(deps.storage).unwrap_or_default();
+    let staked_total = StakedTotalStore::load_staked_total(deps.storage, None);
     let amount_to_stake = math::amount_to_stake(staked_total, balance, amount);
-    let prev_balance = STAKED_BALANCES
-        .get(deps.storage, &sender)
-        .unwrap_or_default();
-    STAKED_BALANCES.insert(
+    let prev_balance = StakedBalancesStore::load_staked_balance(
         deps.storage,
-        &sender,
-        &prev_balance
+        sender.clone(),
+        Some(env.block.height),
+    );
+    // STAKED_BALANCES.insert(
+    //     deps.storage,
+    //     &sender,
+    //     &prev_balance
+    //         .checked_add(amount_to_stake)
+    //         .map_err(StdError::overflow)?,
+    // )?;
+    StakedBalancesStore::store_staked_balance_at_blockheight(
+        deps.storage,
+        env.block.height,
+        sender.clone(),
+        prev_balance
             .checked_add(amount_to_stake)
             .map_err(StdError::overflow)?,
-    )?;
+    );
     BALANCE.save(
         deps.storage,
         &balance.checked_add(amount).map_err(StdError::overflow)?,
     )?;
-    STAKED_TOTAL.save(
+    StakedTotalStore::store_staked_total_at_blockheight(
         deps.storage,
-        &staked_total
+        env.block.height,
+        staked_total
             .checked_add(amount_to_stake)
             .map_err(StdError::overflow)?,
-    )?;
+    );
     // STAKED_BALANCES.
     let hook_msgs = stake_hook_msgs(
         HOOKS,
@@ -194,7 +207,7 @@ pub fn execute_unstake(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let balance = BALANCE.load(deps.storage).unwrap_or_default();
-    let staked_total = STAKED_TOTAL.load(deps.storage).unwrap_or_default();
+    let staked_total = StakedTotalStore::load_staked_total(deps.storage, None);
     // invariant checks for amount_to_claim
     if staked_total.is_zero() {
         return Err(ContractError::NothingStaked {});
@@ -206,19 +219,26 @@ pub fn execute_unstake(
         return Err(ContractError::ImpossibleUnstake {});
     }
     let amount_to_claim = math::amount_to_claim(staked_total, balance, amount);
-    let prev_balance = STAKED_BALANCES.get(deps.storage, &info.sender);
-    STAKED_BALANCES.insert(
+    let prev_balance = StakedBalancesStore::load_staked_balance(
         deps.storage,
-        &info.sender,
-        &prev_balance
-            .unwrap_or_default()
+        info.sender.clone(),
+        Some(env.block.height),
+    );
+    StakedBalancesStore::store_staked_balance_at_blockheight(
+        deps.storage,
+        env.block.height,
+        info.sender.clone(),
+        prev_balance
             .checked_sub(amount)
-            .unwrap(),
-    )?;
-    STAKED_TOTAL.update(deps.storage, |total| -> StdResult<Uint128> {
-        // Initialized during instantiate - OK to unwrap.
-        Ok(total.checked_sub(amount)?)
-    })?;
+            .map_err(StdError::overflow)?,
+    );
+    StakedTotalStore::store_staked_total_at_blockheight(
+        deps.storage,
+        env.block.height,
+        staked_total
+            .checked_add(amount)
+            .map_err(StdError::overflow)?,
+    );
     BALANCE.save(
         deps.storage,
         &balance
@@ -395,7 +415,6 @@ pub fn try_set_key(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetConfig {} => to_binary(&query_config(deps)?),
-        #[cfg(feature = "iterator")]
         QueryMsg::StakedBalanceAtHeight {
             key,
             address,
@@ -403,14 +422,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         } => to_binary(&query_staked_balance_at_height(
             deps, env, key, address, height,
         )?),
-        #[cfg(feature = "iterator")]
-        QueryMsg::TotalStakedAtHeight {
-            key,
-            address,
-            height,
-        } => to_binary(&query_total_staked_at_height(
-            deps, env, key, address, height,
-        )?),
+        QueryMsg::TotalStakedAtHeight { height } => {
+            to_binary(&query_total_staked_at_height(deps, env, height)?)
+        }
         QueryMsg::StakedValue { key, address } => {
             to_binary(&query_staked_value(deps, env, key, address)?)
         }
@@ -422,7 +436,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-#[cfg(feature = "iterator")]
 pub fn query_staked_balance_at_height(
     deps: Deps,
     env: Env,
@@ -434,26 +447,18 @@ pub fn query_staked_balance_at_height(
 
     let address = deps.api.addr_validate(&address)?;
     let height = height.unwrap_or(env.block.height);
-    let balance = STAKED_BALANCES
-        .may_load(deps.storage, &address)?
-        .unwrap_or_default();
+    let balance = StakedBalancesStore::load_staked_balance(deps.storage, address, Some(height));
     Ok(StakedBalanceAtHeightResponse { balance, height })
 }
 
-#[cfg(feature = "iterator")]
 pub fn query_total_staked_at_height(
     deps: Deps,
     _env: Env,
-    key: String,
-    address: String,
     height: Option<u64>,
 ) -> StdResult<TotalStakedAtHeightResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
-
     let height = height.unwrap_or(_env.block.height);
-    let total = STAKED_TOTAL
-        .may_load_at_height(deps.storage, height)?
-        .unwrap_or_default();
+
+    let total = StakedTotalStore::load_staked_total(deps.storage, Some(height));
     Ok(TotalStakedAtHeightResponse { total, height })
 }
 
@@ -467,10 +472,8 @@ pub fn query_staked_value(
 
     let address = deps.api.addr_validate(&address)?;
     let balance = BALANCE.load(deps.storage).unwrap_or_default();
-    let staked = STAKED_BALANCES
-        .get(deps.storage, &address)
-        .unwrap_or_default();
-    let total = STAKED_TOTAL.load(deps.storage).unwrap_or_default();
+    let staked = StakedBalancesStore::load_staked_balance(deps.storage, address, None);
+    let total = StakedTotalStore::load_staked_total(deps.storage, None);
     if balance == Uint128::zero() || staked == Uint128::zero() || total == Uint128::zero() {
         Ok(StakedValueResponse {
             value: Uint128::zero(),
@@ -519,12 +522,18 @@ pub fn query_list_stakers(deps: Deps) -> StdResult<Binary> {
     )?;
 
     let stakers = stakers
-        .into_iter()
-        .map(|(address, balance)| StakerBalanceResponse {
-            address: address.into_string(),
-            balance,
-        })
-        .collect();
+    .into_iter()
+    .filter_map(|((height, address), balance)| {
+        if height == 0 {
+            Some(StakerBalanceResponse {
+                address: address.into_string(),
+                balance,
+            })
+        } else {
+            None
+        }
+    })
+    .collect();
 
     to_binary(&ListStakersResponse { stakers })
 }

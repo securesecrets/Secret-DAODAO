@@ -93,7 +93,7 @@ pub fn execute(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::TokenContract {} => query_token_contract(deps),
-        QueryMsg::VotingPowerAtHeight { address, height: _ } => {
+        QueryMsg::VotingPowerAtHeight { address, height, key } => {
             query_voting_power_at_height(deps, env, address)
         }
         QueryMsg::TotalPowerAtHeight { height: _ } => query_total_power_at_height(deps, env),

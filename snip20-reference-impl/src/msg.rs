@@ -359,9 +359,9 @@ pub enum ExecuteAnswer {
     RegisterReceive {
         status: ResponseStatus,
     },
-    CreateViewingKey {
-        key: String,
-    },
+    // CreateViewingKey {
+    //     key: String,
+    // },
     SetViewingKey {
         status: ResponseStatus,
     },
@@ -647,6 +647,11 @@ pub struct AllowanceReceivedResult {
     pub owner: Addr,
     pub allowance: Uint128,
     pub expiration: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+pub struct CreateViewingKey {
+    pub key: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, JsonSchema, Debug)]
