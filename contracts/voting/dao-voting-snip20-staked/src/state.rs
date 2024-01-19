@@ -5,15 +5,13 @@ use secret_storage_plus::Item;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct StakingContractInfo {
     pub addr: String,
     pub code_hash: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct TokenContractInfo {
     pub addr: String,
     pub code_hash: String,

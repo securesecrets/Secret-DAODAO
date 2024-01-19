@@ -10,19 +10,19 @@ use crate::{snip20_msg, snip20_stake_msg};
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
-    Reply, Response, StdResult, SubMsg, Uint128, Uint256, WasmMsg,
+    Reply, Response, StdResult, SubMsg, Uint128, Uint256, WasmMsg,SubMsgResult
 };
 use dao_interface::voting::IsActiveResponse;
 use dao_voting::threshold::ActiveThreshold;
 use dao_voting::threshold::ActiveThresholdResponse;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::snip20::TokenInfoResponse;
+use secret_toolkit::utils::InitCallback;
 use secret_toolkit::viewing_key::*;
 use secret_utils::{
     parse_execute_response_data, parse_reply_execute_data, parse_reply_instantiate_data,
     ParseReplyError,
 };
-use secret_toolkit::utils::InitCallback;
 use std::convert::TryInto;
 
 // impl InitCallback for snip20_stake::msg::InstantiateMsg {
@@ -30,7 +30,7 @@ use std::convert::TryInto;
 // }
 
 // impl InitCallback for {
-    
+
 // }
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:dao-voting-snip20-staked";
@@ -128,19 +128,28 @@ pub fn instantiate(
                     staking_code_id,
                     unstaking_duration,
                 } => {
-                    let init_msg= snip20_stake::msg::InstantiateMsg {
+                    let init_msg = snip20_stake::msg::InstantiateMsg {
                         owner: Some(info.sender.to_string()),
                         unstaking_duration,
                         token_address: address.to_string(),
                         token_code_hash: Some(code_hash),
                     };
-                   
-                    let msg = SubMsg::reply_always(init_msg.to_cosmos_msg(env.contract.address.to_string(), staking_code_id, env.contract.code_hash, None)?, INSTANTIATE_STAKING_REPLY_ID);
+
+                    let msg = WasmMsg::Instantiate {
+                        code_id: staking_code_id,
+                        code_hash: env.contract.code_hash.clone(),
+                        msg: to_binary(&init_msg)?,
+                        funds: vec![],
+                        label: env.contract.address.to_string(),
+                    };
+
+                    let msg = SubMsg::reply_always(msg, INSTANTIATE_STAKING_REPLY_ID);
                     Ok(Response::default()
                         .add_attribute("action", "instantiate")
                         .add_attribute("token", "existing_token")
                         .add_attribute("token_address", address)
-                        .add_submessage(msg))
+                        .add_submessage(msg)
+                        )
                 }
             }
         }
@@ -194,11 +203,12 @@ pub fn instantiate(
                 label,
                 code_hash: env.contract.code_hash,
             };
-            // let msg = SubMsg::reply_on_success(msg, INSTANTIATE_TOKEN_REPLY_ID);
+            let msg = SubMsg::reply_on_success(msg, INSTANTIATE_TOKEN_REPLY_ID);
 
             Ok(Response::default()
                 .add_attribute("action", "instantiate")
-                .add_attribute("token", "new_token"))
+                .add_attribute("token", "new_token")
+            .add_submessage(msg))
         }
     }
 }
@@ -330,6 +340,7 @@ pub fn query_staking_contract(deps: Deps) -> StdResult<Binary> {
     to_binary(&staking_contract)
 }
 
+/// Have to implement submsg functionaity
 pub fn query_voting_power_at_height(
     deps: Deps,
     _env: Env,
@@ -477,91 +488,115 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
     Ok(Response::new().add_attribute("action", "migrate"))
 }
 
-// #[cfg_attr(not(feature = "library"), entry_point)]
-// pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
-//     match msg.id {
-//         INSTANTIATE_TOKEN_REPLY_ID => {
-//             let res = parse_reply_instantiate_data(msg);
-//             match res {
-//                 Ok(res) => {
-//                     let token_contract = TOKEN_CONTRACT.load(deps.storage)?;
-//                     // if token_contract.is_some() {
-//                     //     // There is no known way this error could ever
-//                     //     // be triggered, we're just paranoid.
-//                     //     return Err(ContractError::DuplicateToken {});
-//                     // }
-//                     let token = deps.api.addr_validate(&res.contract_address)?;
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
+    match msg.id {
+        INSTANTIATE_TOKEN_REPLY_ID => {
+            let res = parse_reply_instantiate_data(msg);
+            match res {
+                Ok(res) => {
+                    let mut token_contract = TOKEN_CONTRACT.load(deps.storage).unwrap_or_default();
+                
+                    let token = deps.api.addr_validate(&res.contract_address)?;
+                    token_contract.addr=token.to_string();
+                    token_contract.code_hash=from_binary(&res.data.unwrap())?;
 
-//                     TOKEN_CONTRACT.save(deps.storage, &token_contract)?;
+                    TOKEN_CONTRACT.save(deps.storage, &token_contract)?;
 
-//                     let active_threshold = ACTIVE_THRESHOLD.may_load(deps.storage)?;
-//                     if let Some(ActiveThreshold::AbsoluteCount { count }) = active_threshold {
-//                         assert_valid_absolute_count_threshold(
-//                             deps.as_ref(),
-//                             &token,
-//                             token_contract.code_hash.clone(),
-//                             count,
-//                         )?;
-//                     }
+                    let active_threshold = ACTIVE_THRESHOLD.may_load(deps.storage)?;
+                    if let Some(ActiveThreshold::AbsoluteCount { count }) = active_threshold {
+                        assert_valid_absolute_count_threshold(
+                            deps.as_ref(),
+                            &token,
+                            token_contract.code_hash.clone(),
+                            count,
+                        )?;
+                    }
 
-//                     let staking_contract_code_id = STAKING_CONTRACT_CODE_ID.load(deps.storage)?;
-//                     let unstaking_duration =
-//                         STAKING_CONTRACT_UNSTAKING_DURATION.load(deps.storage)?;
-//                     let dao = DAO.load(deps.storage)?;
-//                     let msg = WasmMsg::Instantiate {
-//                         code_id: staking_contract_code_id,
-//                         funds: vec![],
-//                         label: env.contract.address.to_string(),
-//                         msg: to_binary(&snip20_stake::msg::InstantiateMsg {
-//                             owner: Some(dao.to_string()),
-//                             unstaking_duration,
-//                             token_address: token.to_string(),
-//                             token_code_hash: Some(token_contract.code_hash.clone()),
-//                         })?,
-//                         code_hash: env.contract.code_hash,
-//                     };
-//                     let msg = SubMsg::reply_on_success(msg, INSTANTIATE_STAKING_REPLY_ID);
-//                     Ok(Response::default()
-//                         .add_attribute("token_address", token)
-//                         .add_submessage(msg))
-//                 }
-//                 Err(_) => Err(ContractError::TokenInstantiateError {}),
-//             }
-//         }
-//         INSTANTIATE_STAKING_REPLY_ID => {
-//             let res = parse_reply_instantiate_data(msg);
-//             match res {
-//                 Ok(res) => {
-//                     let staking_contract_addr = deps.api.addr_validate(&res.contract_address)?;
-//                     let staking_code_hash:snip20_stake::msg::InstantiateAnswer =from_binary(&res.data.unwrap())?;
+                    let staking_contract_code_id = STAKING_CONTRACT_CODE_ID.load(deps.storage)?;
+                    let unstaking_duration =
+                        STAKING_CONTRACT_UNSTAKING_DURATION.load(deps.storage)?;
+                    let dao = DAO.load(deps.storage)?;
+                    let msg = WasmMsg::Instantiate {
+                        code_id: staking_contract_code_id,
+                        funds: vec![],
+                        label: env.contract.address.to_string(),
+                        msg: to_binary(&snip20_stake::msg::InstantiateMsg {
+                            owner: Some(dao.to_string()),
+                            unstaking_duration,
+                            token_address: token.to_string(),
+                            token_code_hash: Some(token_contract.code_hash.clone()),
+                        })?,
+                        code_hash: env.contract.code_hash,
+                    };
+                    let msg = SubMsg::reply_on_success(msg, INSTANTIATE_STAKING_REPLY_ID);
+                    Ok(Response::default()
+                        .add_attribute("token_address", token)
+                        .add_submessage(msg))
+                }
+                Err(_) => Err(ContractError::TokenInstantiateError {}),
+            }
+        }
+        INSTANTIATE_STAKING_REPLY_ID => 
+        {
+            let res = parse_reply_instantiate_data(msg);
+            match res {
+                Ok(res) => {
+                    let staking_contract_addr = deps.api.addr_validate(&res.contract_address)?;
+                    let staking_code_hash:snip20_stake::msg::InstantiateAnswer =from_binary(&res.data.unwrap())?;
 
-//                     let mut staking_contract = STAKING_CONTRACT.load(deps.storage).unwrap_or_default();
-//                     // if staking.is_some() {
-//                     //     return Err(ContractError::DuplicateStakingContract {});
-//                     // }
-//                     staking_contract.addr=staking_contract_addr.to_string();
-//                     staking_contract.code_hash=staking_code_hash.code_hash;
+                    let mut staking_contract = STAKING_CONTRACT.load(deps.storage).unwrap_or_default();
+                    // if staking.is_some() {
+                    //     return Err(ContractError::DuplicateStakingContract {});
+                    // }
+                    staking_contract.addr=staking_contract_addr.to_string();
+                    staking_contract.code_hash=staking_code_hash.code_hash;
 
-//                     STAKING_CONTRACT.save(deps.storage, &staking_contract)?;
+                    STAKING_CONTRACT.save(deps.storage, &staking_contract)?;
 
-//                     Ok(Response::new().add_attribute("staking_contract", staking_contract_addr))
-//                 }
-//                 Err(_) => Err(ContractError::StakingInstantiateError {}),
-//             }
-//         }
+                    Ok(Response::new().add_attribute("staking_contract", staking_contract_addr))
+                }
+                Err(_) => Err(ContractError::StakingInstantiateError {}),
+            }
+        }
 
-//         // EXECUTE_TOKEN_VIEWING_KEY_ID => {
-//         //     let res = parse_reply_execute_data(msg);
-//         //     match res {
-//         //         Ok(res) => {
-//         //             // let mut token_viewing_key=TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
-//         //             let data:snip20_reference_impl::msg::CreateViewingKey = from_binary(&res.data.unwrap())?;
-//         //             TOKEN_VIEWING_KEY.save(deps.storage, &data.key)?;
-//         //             Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
-//         //         }
-//         //         Err(_) => Err(ContractError::TokenExecuteError {}),
-//         //     }
-//         // }
-//         _ => Err(ContractError::UnknownReplyId { id: msg.id }),
+        // EXECUTE_TOKEN_VIEWING_KEY_ID => {
+        //     let res = parse_reply_execute_data(msg);
+        //     match res {
+        //         Ok(res) => {
+        //             // let mut token_viewing_key=TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
+        //             let data:snip20_reference_impl::msg::CreateViewingKey = from_binary(&res.data.unwrap())?;
+        //             TOKEN_VIEWING_KEY.save(deps.storage, &data.key)?;
+        //             Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
+        //         }
+        //         Err(_) => Err(ContractError::TokenExecuteError {}),
+        //     }
+        // }
+        _ => Err(ContractError::UnknownReplyId { id: msg.id }),
+    }
+}
+
+// fn handle_instantiate_reply(deps: DepsMut, msg: Reply) -> Result<Response, ContractError> {
+//     // The parsing process below can be handled easier if one imports cw-plus
+//     // See: https://github.com/CosmWasm/cw-plus/blob/main/packages/utils/src/parse_reply.rs
+//     match msg.result {
+//         SubMsgResult::Ok(s) => match s.data {
+//             Some(bin) => {
+//                 let reply_info: snip20_stake::msg::InstantiateAnswer = from_binary(&bin)?;
+//                 let mut staking_contract = STAKING_CONTRACT.load(deps.storage).unwrap_or_default();
+              
+//                             staking_contract.addr=reply_info.contract_address;
+//                             staking_contract.code_hash=reply_info.code_hash;
+        
+//                             STAKING_CONTRACT.save(deps.storage, &staking_contract)?;   
+//                             Ok(Response::new().add_attribute("action", "init_staking_contract"))
+
+//                          }
+//             None => Err(ContractError::CustomError {
+//                 val: "Init didn't response with contract address".to_string(),
+//             }),
+//         },
+//         SubMsgResult::Err(e) => Err(ContractError::CustomError { val: e }),
 //     }
 // }
+

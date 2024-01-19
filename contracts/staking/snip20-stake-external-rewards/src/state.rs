@@ -1,19 +1,27 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128, Uint256};
-use cw20::Denom;
+use secret_storage_plus::{Item, Map};
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 
-use cw_storage_plus::{Item, Map};
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+pub enum Denom {
+    Native(String),
+    Snip20(Addr),
+}
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct Config {
     pub staking_contract: Addr,
+    pub staking_contract_code_hash: String,
     pub reward_token: Denom,
+    pub reward_token_code_hash: String,
 }
 
 // `"config"` key stores v1 configuration.
 pub const CONFIG: Item<Config> = Item::new("config_v2");
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct RewardConfig {
     pub period_finish: u64,
     pub reward_rate: Uint128,

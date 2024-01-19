@@ -41,4 +41,7 @@ pub enum ContractError {
 
     #[error("Absolute count threshold cannot be greater than the total token supply")]
     InvalidAbsoluteCount {},
+
+    #[error("Custom Error val: {val:?}")]
+    CustomError { val: String },
 }

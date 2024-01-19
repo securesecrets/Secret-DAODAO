@@ -1,36 +1,49 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
-use cw20::{Cw20ReceiveMsg, Denom};
+use cosmwasm_std::{Addr, Binary, Uint128};
 use dao_hooks::stake::StakeChangedHookMsg;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
+use crate::state::{Config, Denom, RewardConfig};
 
-use crate::state::{Config, RewardConfig};
-
-pub use cw_controllers::ClaimsResponse;
+pub use secret_cw_controllers::ClaimsResponse;
 // so that consumers don't need a cw_ownable dependency to consume
 // this contract's queries.
 pub use cw_ownable::Ownership;
 
 use cw_ownable::cw_ownable_execute;
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct InstantiateMsg {
     pub owner: Option<String>,
     pub staking_contract: String,
+    pub staking_contract_code_hash: String,
     pub reward_token: Denom,
+    pub reward_token_code_hash: Option<String>,
     pub reward_duration: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Snip20ReceiveMsg {
+    pub sender: Addr,
+    pub from: Addr,
+    pub amount: Uint128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+    pub msg: Option<Binary>,
+}
+
 #[cw_ownable_execute]
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub enum ExecuteMsg {
     StakeChangeHook(StakeChangedHookMsg),
     Claim {},
-    Receive(Cw20ReceiveMsg),
+    Receive(Snip20ReceiveMsg),
     Fund {},
     UpdateRewardDuration { new_duration: u64 },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub enum MigrateMsg {
     /// Migrates from version 0.2.6 to 2.0.0. The significant changes
     /// being the addition of a two-step ownership transfer using
@@ -39,13 +52,12 @@ pub enum MigrateMsg {
     FromV1 {},
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub enum ReceiveMsg {
     Fund {},
 }
 
-#[cw_serde]
-#[derive(QueryResponses)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug, QueryResponses)]
 pub enum QueryMsg {
     #[returns(InfoResponse)]
     Info {},
@@ -55,13 +67,13 @@ pub enum QueryMsg {
     Ownership {},
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct InfoResponse {
     pub config: Config,
     pub reward: RewardConfig,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct PendingRewardsResponse {
     pub address: String,
     pub pending_rewards: Uint128,

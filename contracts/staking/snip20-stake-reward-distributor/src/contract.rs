@@ -224,7 +224,7 @@ pub fn execute_distribute(deps: DepsMut, env: Env) -> Result<Response, ContractE
         .add_message(msg)
         .add_attribute("action", "distribute"))
 }
-
+/// Need to implement submsg functionality
 pub fn execute_withdraw(
     deps: DepsMut,
     info: MessageInfo,
@@ -238,7 +238,7 @@ pub fn execute_withdraw(
         config.reward_token.clone(),
         &snip20_reference_impl::msg::QueryMsg::Balance {
             address: env.contract.address.to_string(),
-            key: config.reward_distributor_viewing_key.clone(),
+            key: "key".to_string(),
         },
     )?;
 
@@ -341,7 +341,7 @@ fn query_info(deps: Deps, env: Env) -> StdResult<InfoResponse> {
         config.reward_token.clone(),
         &snip20_reference_impl::msg::QueryMsg::Balance {
             address: env.contract.address.to_string(),
-            key: config.reward_distributor_viewing_key.clone(),
+            key: "key".to_string(),
         },
     )?;
 

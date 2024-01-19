@@ -1425,29 +1425,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw20-stake-external-rewards"
-version = "2.4.0"
-dependencies = [
- "anyhow",
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.1.9",
- "cosmwasm-storage 1.1.9",
- "cw-controllers 1.1.2",
- "cw-multi-test",
- "cw-ownable 0.5.1",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
- "cw20 0.13.4",
- "cw20 1.1.2",
- "cw20-base 1.1.2",
- "dao-hooks",
- "snip20-stake",
- "stake-cw20-external-rewards",
- "thiserror",
-]
-
-[[package]]
 name = "cw3"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4380,6 +4357,32 @@ dependencies = [
  "snafu",
  "snip20-reference-impl",
  "subtle",
+ "thiserror",
+]
+
+[[package]]
+name = "snip20-stake-external-rewards"
+version = "2.4.0"
+dependencies = [
+ "anyhow",
+ "cosmwasm-schema 1.5.0",
+ "cosmwasm-std 1.1.9",
+ "cosmwasm-storage 1.1.9",
+ "cw-ownable 0.5.1",
+ "cw20 0.13.4",
+ "cw20 1.1.2",
+ "dao-hooks",
+ "schemars",
+ "secret-cw-controllers",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit 0.8.0 (git+https://github.com/scrtlabs/secret-toolkit?tag=v0.8.0)",
+ "secret-utils",
+ "serde",
+ "snip20-reference-impl",
+ "snip20-stake",
+ "stake-cw20-external-rewards",
  "thiserror",
 ]
 
