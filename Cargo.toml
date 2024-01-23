@@ -9,7 +9,6 @@ members = [
   # "./contracts/test/*",
   # "./contracts/voting/*",
   "./packages/*",
-  "./dummy/",
   "./snip20-reference-impl/"
 
   # "ci/*",
