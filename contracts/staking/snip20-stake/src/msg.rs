@@ -1,11 +1,10 @@
 use cosmwasm_schema::QueryResponses;
 use cosmwasm_std::{Addr, Binary, Uint128};
 // use snip20_reference_impl::receiver::Snip20ReceiveMsg;
+use cw_ownable::cw_ownable_execute;
 use schemars::JsonSchema;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
-
-use cw_ownable::cw_ownable_execute;
 
 pub use secret_cw_controllers::ClaimsResponse;
 // so that consumers don't need a cw_ownable dependency to consume
@@ -43,11 +42,16 @@ pub enum ExecuteMsg {
     AddHook { addr: String },
     RemoveHook { addr: String },
     CreateViewingKey { entropy: String },
-    SetViewingKey { key: String },
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+pub struct CreateViewingKeyResponse {
+    pub key: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct InstantiateAnswer {
+    pub contract_address: String,
     pub code_hash: String,
 }
 
@@ -62,8 +66,6 @@ pub enum ExecuteAnswer {
     UpdateConfig { status: ResponseStatus },
     AddHook { status: ResponseStatus },
     RemoveHook { status: ResponseStatus },
-    CreateViewingKey { key: String },
-    SetViewingKey { status: ResponseStatus },
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -78,6 +80,7 @@ pub enum QueryMsg {
     #[returns(StakedBalanceAtHeightResponse)]
     StakedBalanceAtHeight {
         key: String,
+        contract_address: Option<String>,
         address: String,
         height: Option<u64>,
     },
@@ -90,7 +93,11 @@ pub enum QueryMsg {
     #[returns(crate::state::Config)]
     GetConfig {},
     #[returns(ClaimsResponse)]
-    Claims { key: String, address: String },
+    Claims {
+        key: String,
+        address: String,
+        contract_address: Option<String>,
+    },
     #[returns(GetHooksResponse)]
     GetHooks {},
     #[returns(ListStakersResponse)]

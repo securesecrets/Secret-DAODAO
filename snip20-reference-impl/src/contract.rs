@@ -11,7 +11,7 @@ use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use secret_toolkit_crypto::{sha_256, Prng, SHA256_HASH_SIZE};
 
 use crate::batch;
-use crate::msg::{TokenInfo, TokenConfig, ContractStatus, TransferHistory, TransactionHistory, Balance, Minters, Allowance, AllowancesGiven, AllowancesReceived, ViewingKeyError, ExchangeRate, CreateViewingKey};
+use crate::msg::{Allowance, AllowancesGiven, AllowancesReceived, Balance, ContractStatus,CreateViewingKeyResponse, ExchangeRate, InitResponse, Minters, TokenConfig, TokenInfo, TransactionHistory, TransferHistory, ViewingKeyError};
 use crate::msg::{
     AllowanceGivenResult, AllowanceReceivedResult, ContractStatusLevel, Decoyable, ExecuteAnswer,
     ExecuteMsg, InstantiateMsg, QueryMsg, QueryWithPermit, ResponseStatus::Success,
@@ -119,7 +119,7 @@ pub fn instantiate(
             redeem_is_enabled: init_config.redeem_enabled(),
             mint_is_enabled: init_config.mint_enabled(),
             burn_is_enabled: init_config.burn_enabled(),
-            contract_address: env.contract.address,
+            contract_address: env.contract.address.clone(),
             supported_denoms,
             can_modify_denoms: init_config.can_modify_denoms(),
         },
@@ -127,7 +127,7 @@ pub fn instantiate(
     TOTAL_SUPPLY.save(deps.storage, &total_supply)?;
     CONTRACT_STATUS.save(deps.storage, &ContractStatusLevel::NormalRun)?;
     let minters = if init_config.mint_enabled() {
-        Vec::from([admin])
+        Vec::from([admin.clone()])
     } else {
         Vec::new()
     };
@@ -136,7 +136,11 @@ pub fn instantiate(
     ViewingKey::set_seed(deps.storage, &prng_seed_hashed);
 
     
-    Ok(Response::new().set_data(to_binary(&env.contract.code_hash)?))
+    Ok(Response::new().set_data(to_binary(&InitResponse{
+        owner: admin,
+        contract_address: env.contract.address.to_string(),
+        code_hash: env.contract.code_hash,
+    })?))
 }
 
 fn get_address_position(
@@ -936,7 +940,7 @@ pub fn try_create_key(
         entropy.as_ref(),
     );
 
-    Ok(Response::new().set_data(to_binary(&CreateViewingKey { key })?))
+    Ok(Response::new().set_data(to_binary(&CreateViewingKeyResponse { key })?))
 }
 
 fn set_contract_status(
@@ -2905,8 +2909,9 @@ mod tests {
                     height: 12_345,
                     time: Timestamp::from_seconds(1_571_797_420),
                     chain_id: "cosmos-testnet-14002".to_string(),
+                    random: None,
                 },
-                transaction: Some(TransactionInfo { index: 3 }),
+                transaction: Some(TransactionInfo { index: 3, hash: todo!() }),
                 contract: ContractInfo {
                     address: Addr::unchecked(MOCK_CONTRACT_ADDR.to_string()),
                     code_hash: "".to_string(),

@@ -2,16 +2,19 @@ use std::cmp::min;
 
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Addr, CosmosMsg, StdError, Uint128, WasmMsg};
+use cosmwasm_std::{to_binary,from_binary, Addr, CosmosMsg, Reply, StdError, SubMsg, Uint128, WasmMsg,SubMsgResult};
+use secret_toolkit::utils::HandleCallback;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InfoResponse, InstantiateMsg, MigrateMsg, QueryMsg};
-use crate::state::{Config, CONFIG, LAST_PAYMENT_BLOCK};
+use crate::msg::{ExecuteMsg, InfoResponse, InstantiateMsg, QueryMsg};
+use crate::snip20_msg;
+use crate::state::{Config, CONFIG, LAST_PAYMENT_BLOCK, TOKEN_VIEWING_KEY};
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use secret_cw2::set_contract_version;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:snip20-stake-reward-distributor";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+const EXECUTE_TOKEN_VIEWING_KEY_ID: u64 = 0;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -23,7 +26,11 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let staking_addr = deps.api.addr_validate(&msg.staking_addr)?;
-    if !validate_staking(deps.as_ref(), staking_addr.clone(),msg.staking_code_hash.clone()) {
+    if !validate_staking(
+        deps.as_ref(),
+        staking_addr.clone(),
+        msg.staking_code_hash.clone(),
+    ) {
         return Err(ContractError::InvalidStakingContract {});
     }
 
@@ -42,20 +49,33 @@ pub fn instantiate(
         reward_rate: msg.reward_rate,
         staking_code_hash: msg.staking_code_hash.clone(),
         reward_token_code_hash: msg.reward_token_code_hash.clone(),
-        reward_distributor_viewing_key: msg.reward_distributor_viewing_key.clone(),
     };
     CONFIG.save(deps.storage, &config)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
 
     // Initialize last payment block
     LAST_PAYMENT_BLOCK.save(deps.storage, &env.block.height)?;
+    // Create Snip20 Token viewing key
+    let gen_viewing_key_msg = snip20_msg::Snip20ExecuteMsg::CreateViewingKey {
+        entropy: "entropy".to_string(),
+        padding: None,
+    };
+    let submsg = SubMsg::reply_always(
+        gen_viewing_key_msg.to_cosmos_msg(
+            msg.reward_token_code_hash.clone(),
+            msg.reward_token.clone(),
+            None,
+        )?,
+        EXECUTE_TOKEN_VIEWING_KEY_ID,
+    );
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("owner", msg.owner)
         .add_attribute("staking_addr", staking_addr.into_string())
         .add_attribute("reward_token", reward_token.into_string())
-        .add_attribute("reward_rate", msg.reward_rate))
+        .add_attribute("reward_rate", msg.reward_rate)
+        .add_submessage(submsg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -72,7 +92,6 @@ pub fn execute(
             reward_rate,
             reward_token,
             reward_token_code_hash,
-            reward_distributor_viewing_key,
         } => execute_update_config(
             deps,
             info,
@@ -82,13 +101,10 @@ pub fn execute(
             reward_rate,
             reward_token,
             reward_token_code_hash,
-            reward_distributor_viewing_key,
         ),
         ExecuteMsg::Distribute {} => execute_distribute(deps, env),
         ExecuteMsg::Withdraw {} => execute_withdraw(deps, info, env),
         ExecuteMsg::UpdateOwnership(action) => execute_update_owner(deps, info, env, action),
-        ExecuteMsg::CreateViewingKey { entropy } => try_create_key(deps, env, info, entropy),
-        ExecuteMsg::SetViewingKey { key } => try_set_key(deps, info, key),
     }
 }
 #[allow(clippy::too_many_arguments)]
@@ -101,19 +117,26 @@ pub fn execute_update_config(
     reward_rate: Uint128,
     reward_token: String,
     reward_token_code_hash: String,
-    reward_distributor_viewing_key: String,
 ) -> Result<Response, ContractError> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     LAST_PAYMENT_BLOCK.save(deps.storage, &env.block.height)?;
 
     let staking_addr = deps.api.addr_validate(&staking_addr)?;
-    if !validate_staking(deps.as_ref(), staking_addr.clone(),staking_code_hash.clone()) {
+    if !validate_staking(
+        deps.as_ref(),
+        staking_addr.clone(),
+        staking_code_hash.clone(),
+    ) {
         return Err(ContractError::InvalidStakingContract {});
     }
 
     let reward_token = deps.api.addr_validate(&reward_token)?;
-    if !validate_cw20(deps.as_ref(), reward_token.clone(), reward_token_code_hash.clone()) {
+    if !validate_cw20(
+        deps.as_ref(),
+        reward_token.clone(),
+        reward_token_code_hash.clone(),
+    ) {
         return Err(ContractError::InvalidSnip20 {});
     }
 
@@ -123,7 +146,6 @@ pub fn execute_update_config(
         reward_rate,
         staking_code_hash,
         reward_token_code_hash,
-        reward_distributor_viewing_key,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -161,18 +183,19 @@ pub fn validate_cw20(deps: Deps, snip20_addr: Addr, snip20_code_hash: String) ->
     response.is_ok()
 }
 
-pub fn validate_staking(deps: Deps, staking_addr: Addr,staking_code_hash : String) -> bool {
-    let response: Result<snip20_stake::msg::TotalValueResponse, StdError> =
+pub fn validate_staking(deps: Deps, staking_addr: Addr, staking_code_hash: String) -> bool {
+    let response: Result<snip20_stake::msg::TotalStakedAtHeightResponse, StdError> =
         deps.querier.query_wasm_smart(
             staking_code_hash,
             staking_addr,
-            &snip20_stake::msg::QueryMsg::TotalValue {  },
+            &snip20_stake::msg::QueryMsg::TotalStakedAtHeight { height: None },
         );
     response.is_ok()
 }
 
 fn get_distribution_msg(deps: Deps, env: &Env) -> Result<CosmosMsg, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+    let token_viewing_key = TOKEN_VIEWING_KEY.load(deps.storage)?;
     let last_payment_block = LAST_PAYMENT_BLOCK.load(deps.storage)?;
     if last_payment_block >= env.block.height {
         return Err(ContractError::RewardsDistributedForBlock {});
@@ -186,7 +209,7 @@ fn get_distribution_msg(deps: Deps, env: &Env) -> Result<CosmosMsg, ContractErro
         config.reward_token.clone(),
         &snip20_reference_impl::msg::QueryMsg::Balance {
             address: env.contract.address.to_string(),
-            key: config.reward_distributor_viewing_key,
+            key: token_viewing_key,
         },
     )?;
 
@@ -224,7 +247,6 @@ pub fn execute_distribute(deps: DepsMut, env: Env) -> Result<Response, ContractE
         .add_message(msg)
         .add_attribute("action", "distribute"))
 }
-/// Need to implement submsg functionality
 pub fn execute_withdraw(
     deps: DepsMut,
     info: MessageInfo,
@@ -232,13 +254,14 @@ pub fn execute_withdraw(
 ) -> Result<Response, ContractError> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let config = CONFIG.load(deps.storage)?;
+    let token_viewing_key = TOKEN_VIEWING_KEY.load(deps.storage)?;
 
     let balance_info: snip20_reference_impl::msg::Balance = deps.querier.query_wasm_smart(
         config.reward_token_code_hash.clone(),
         config.reward_token.clone(),
         &snip20_reference_impl::msg::QueryMsg::Balance {
             address: env.contract.address.to_string(),
-            key: "key".to_string(),
+            key: token_viewing_key,
         },
     )?;
 
@@ -265,34 +288,6 @@ pub fn execute_withdraw(
         .add_attribute("action", "withdraw")
         .add_attribute("amount", balance_info.amount)
         .add_attribute("recipient", &info.sender))
-}
-
-pub fn try_create_key(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    entropy: String,
-) -> Result<Response, ContractError> {
-    let key = ViewingKey::create(
-        deps.storage,
-        &info,
-        &env,
-        info.sender.as_str(),
-        entropy.as_ref(),
-    );
-
-    Ok(Response::new().set_data(to_binary(&key)?))
-}
-
-pub fn try_set_key(
-    deps: DepsMut,
-    info: MessageInfo,
-    key: String,
-) -> Result<Response, ContractError> {
-    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
-    Ok(
-        Response::default())
-    
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -335,13 +330,14 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 fn query_info(deps: Deps, env: Env) -> StdResult<InfoResponse> {
     let config = CONFIG.load(deps.storage)?;
+    let token_viewing_key = TOKEN_VIEWING_KEY.load(deps.storage)?;
     let last_payment_block = LAST_PAYMENT_BLOCK.load(deps.storage)?;
     let balance_info: snip20_reference_impl::msg::Balance = deps.querier.query_wasm_smart(
         config.reward_token_code_hash.clone(),
         config.reward_token.clone(),
         &snip20_reference_impl::msg::QueryMsg::Balance {
             address: env.contract.address.to_string(),
-            key: "key".to_string(),
+            key: token_viewing_key,
         },
     )?;
 
@@ -352,7 +348,21 @@ fn query_info(deps: Deps, env: Env) -> StdResult<InfoResponse> {
     })
 }
 
-// Helper Functions
-fn authenticate(deps: Deps, addr: Addr, key: String) -> StdResult<()> {
-    ViewingKey::check(deps.storage, addr.as_ref(), &key)
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+    match msg.id {
+        EXECUTE_TOKEN_VIEWING_KEY_ID => {
+            match msg.result {
+                SubMsgResult::Ok(res) => {
+                    // let mut token_viewing_key=TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
+                    let data: snip20_reference_impl::msg::CreateViewingKeyResponse =
+                        from_binary(&res.data.unwrap())?;
+                    TOKEN_VIEWING_KEY.save(deps.storage, &data.key)?;
+                    Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
+                }
+                SubMsgResult::Err(_) => Err(ContractError::TokenExecuteError {}),
+            }
+        }
+        _ => Err(ContractError::UnknownReplyId { id: msg.id }),
+    }
 }

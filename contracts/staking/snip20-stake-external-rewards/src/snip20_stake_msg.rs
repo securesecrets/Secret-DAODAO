@@ -1,8 +1,7 @@
 use schemars::JsonSchema;
+use secret_toolkit::utils::{HandleCallback, InitCallback};
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
-use secret_toolkit::utils::{HandleCallback, InitCallback};
-
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct InstantiateMsg {

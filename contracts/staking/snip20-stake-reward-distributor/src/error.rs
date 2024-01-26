@@ -23,4 +23,10 @@ pub enum ContractError {
 
     #[error("can not migrate. current version is up to date")]
     AlreadyMigrated {},
+
+    #[error("Error in executing token contract")]
+    TokenExecuteError {},
+
+    #[error("Got a submessage reply with unknown id: {id}")]
+    UnknownReplyId { id: u64 },
 }

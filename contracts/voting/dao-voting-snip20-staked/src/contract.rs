@@ -1,37 +1,24 @@
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, Snip20TokenInfo, StakingInfo};
-use crate::state::{
-    StakingContractInfo, TokenContractInfo, ACTIVE_THRESHOLD, DAO, STAKING_CONTRACT,
-    STAKING_CONTRACT_CODE_ID, STAKING_CONTRACT_UNSTAKING_DURATION, TOKEN_CONTRACT,
-    TOKEN_VIEWING_KEY,
-};
 use crate::{snip20_msg, snip20_stake_msg};
+use crate::state::{
+    StakingContractInfo, TokenContractInfo, ACTIVE_THRESHOLD, DAO, SNIP20_STAKING_VIEWING_KEY,
+    STAKING_CONTRACT, STAKING_CONTRACT_CODE_HASH, STAKING_CONTRACT_CODE_ID,
+    STAKING_CONTRACT_UNSTAKING_DURATION, TOKEN_CONTRACT, TOKEN_VIEWING_KEY,
+};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
-    Reply, Response, StdResult, SubMsg, Uint128, Uint256, WasmMsg,SubMsgResult
+    from_binary, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply,
+    Response, StdResult, SubMsg, SubMsgResult, Uint128, Uint256,
 };
 use dao_interface::voting::IsActiveResponse;
 use dao_voting::threshold::ActiveThreshold;
 use dao_voting::threshold::ActiveThresholdResponse;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
-use secret_toolkit::snip20::TokenInfoResponse;
-use secret_toolkit::utils::InitCallback;
-use secret_toolkit::viewing_key::*;
-use secret_utils::{
-    parse_execute_response_data, parse_reply_execute_data, parse_reply_instantiate_data,
-    ParseReplyError,
-};
+use secret_toolkit::utils::{HandleCallback, InitCallback};
+
 use std::convert::TryInto;
-
-// impl InitCallback for snip20_stake::msg::InstantiateMsg {
-//     const BLOCK_SIZE: usize = 256;
-// }
-
-// impl InitCallback for {
-
-// }
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:dao-voting-snip20-staked";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -39,6 +26,7 @@ pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INSTANTIATE_TOKEN_REPLY_ID: u64 = 0;
 const INSTANTIATE_STAKING_REPLY_ID: u64 = 1;
 const EXECUTE_TOKEN_VIEWING_KEY_ID: u64 = 2;
+const EXECUTE_SNIP20_STAKE_VIEWING_KEY_ID: u64 = 3;
 
 // We multiply by this when calculating needed power for being active
 // when using active threshold with percent
@@ -47,7 +35,7 @@ const PRECISION_FACTOR: u128 = 10u128.pow(9);
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
@@ -75,17 +63,19 @@ pub fn instantiate(
                 code_hash: code_hash.clone(),
             };
             TOKEN_CONTRACT.save(deps.storage, &token_contract)?;
-            // let gen_viewing_key_msg = snip20_reference_impl::msg::ExecuteMsg::CreateViewingKey {
-            //     entropy: "entropy".to_string(),
-            //     padding: None,
-            // };
-            // let exec_msg = CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-            //     contract_addr: address.to_string(),
-            //     code_hash: code_hash.clone(),
-            //     msg: to_binary(&gen_viewing_key_msg)?,
-            //     funds: vec![],
-            // });
-            // let submsg = SubMsg::reply_on_success(exec_msg, EXECUTE_TOKEN_VIEWING_KEY_ID);
+            let gen_viewing_key_msg = snip20_msg::Snip20ExecuteMsg::CreateViewingKey {
+                entropy: "entropy".to_string(),
+                padding: None,
+            };
+
+            let submsg = SubMsg::reply_on_success(
+                gen_viewing_key_msg.to_cosmos_msg(
+                    code_hash.clone(),
+                    address.clone().to_string(),
+                    None,
+                )?,
+                EXECUTE_TOKEN_VIEWING_KEY_ID,
+            );
 
             if let Some(ActiveThreshold::AbsoluteCount { count }) = msg.active_threshold {
                 assert_valid_absolute_count_threshold(
@@ -109,7 +99,7 @@ pub fn instantiate(
                     };
                     let resp: snip20_stake::state::Config = deps.querier.query_wasm_smart(
                         staking_contract_code_hash.clone(),
-                        &staking_contract_address,
+                        &staking_contract_address.clone(),
                         &snip20_stake::msg::QueryMsg::GetConfig {},
                     )?;
 
@@ -117,44 +107,60 @@ pub fn instantiate(
                         return Err(ContractError::StakingContractMismatch {});
                     }
 
+                    let gen_viewing_key_msg = snip20_stake_msg::ExecuteMsg::CreateViewingKey {
+                        entropy: "entropy".to_string(),
+                    };
+                    let msg = SubMsg::reply_always(
+                        gen_viewing_key_msg.to_cosmos_msg(
+                            staking_contract_code_hash.clone(),
+                            staking_contract_address.clone().to_string(),
+                            None,
+                        )?,
+                        EXECUTE_SNIP20_STAKE_VIEWING_KEY_ID,
+                    );
                     STAKING_CONTRACT.save(deps.storage, &staking_contract)?;
                     Ok(Response::default()
                         .add_attribute("action", "instantiate")
                         .add_attribute("token", "existing_token")
                         .add_attribute("token_address", address)
-                        .add_attribute("staking_contract", staking_contract_address))
+                        .add_attribute("staking_contract", staking_contract_address)
+                        .add_submessage(submsg)
+                        .add_submessage(msg))
                 }
                 StakingInfo::New {
                     staking_code_id,
+                    staking_code_hash,
+                    label,
                     unstaking_duration,
                 } => {
-                    let init_msg = snip20_stake::msg::InstantiateMsg {
+                    let init_msg = snip20_stake_msg::InstantiateMsg {
                         owner: Some(info.sender.to_string()),
                         unstaking_duration,
                         token_address: address.to_string(),
                         token_code_hash: Some(code_hash),
                     };
 
-                    let msg = WasmMsg::Instantiate {
-                        code_id: staking_code_id,
-                        code_hash: env.contract.code_hash.clone(),
-                        msg: to_binary(&init_msg)?,
-                        funds: vec![],
-                        label: env.contract.address.to_string(),
-                    };
-
-                    let msg = SubMsg::reply_always(msg, INSTANTIATE_STAKING_REPLY_ID);
+                    let msg = SubMsg::reply_always(
+                        init_msg.to_cosmos_msg(
+                            Some(info.sender.clone().to_string()),
+                            label,
+                            staking_code_id,
+                            staking_code_hash,
+                            None,
+                        )?,
+                        INSTANTIATE_STAKING_REPLY_ID,
+                    );
                     Ok(Response::default()
                         .add_attribute("action", "instantiate")
                         .add_attribute("token", "existing_token")
                         .add_attribute("token_address", address)
-                        .add_submessage(msg)
-                        )
+                        .add_submessage(msg))
                 }
             }
         }
         Snip20TokenInfo::New {
             code_id,
+            code_hash,
             label,
             name,
             symbol,
@@ -162,6 +168,7 @@ pub fn instantiate(
             mut initial_balances,
             initial_dao_balance,
             staking_code_id,
+            staking_code_hash,
             unstaking_duration,
         } => {
             let initial_supply = initial_balances
@@ -185,30 +192,34 @@ pub fn instantiate(
             }
 
             STAKING_CONTRACT_CODE_ID.save(deps.storage, &staking_code_id)?;
+            STAKING_CONTRACT_CODE_HASH.save(deps.storage, &staking_code_hash)?;
             STAKING_CONTRACT_UNSTAKING_DURATION.save(deps.storage, &unstaking_duration)?;
 
-            let msg = WasmMsg::Instantiate {
-                code_id,
-                msg: to_binary(&snip20_msg::InstantiateMsg {
-                    name,
-                    symbol,
-                    decimals,
-                    admin: Some(info.sender.to_string()),
-                    prng_seed: to_binary(&"snip20")?,
-                    config: None,
-                    supported_denoms: None,
-                    initial_balances: Some(initial_balances),
-                })?,
-                funds: vec![],
-                label,
-                code_hash: env.contract.code_hash,
+            let init_msg = snip20_msg::InstantiateMsg {
+                name,
+                symbol,
+                decimals,
+                admin: Some(info.sender.clone().to_string()),
+                prng_seed: to_binary(&"snip20")?,
+                config: None,
+                supported_denoms: None,
+                initial_balances: Some(initial_balances),
             };
-            let msg = SubMsg::reply_on_success(msg, INSTANTIATE_TOKEN_REPLY_ID);
+            let msg = SubMsg::reply_on_success(
+                init_msg.to_cosmos_msg(
+                    Some(info.sender.to_string()),
+                    label,
+                    code_id,
+                    code_hash,
+                    None,
+                )?,
+                INSTANTIATE_TOKEN_REPLY_ID,
+            );
 
             Ok(Response::default()
                 .add_attribute("action", "instantiate")
                 .add_attribute("token", "new_token")
-            .add_submessage(msg))
+                .add_submessage(msg))
         }
     }
 }
@@ -246,8 +257,6 @@ pub fn execute(
         ExecuteMsg::UpdateActiveThreshold { new_threshold } => {
             execute_update_active_threshold(deps, env, info, new_threshold)
         }
-        ExecuteMsg::CreateViewingKey { entropy } => try_create_key(deps, env, info, entropy),
-        ExecuteMsg::SetViewingKey { key } => try_set_key(deps, info, key),
     }
 }
 
@@ -287,32 +296,6 @@ pub fn execute_update_active_threshold(
     Ok(Response::new().add_attribute("action", "update_active_threshold"))
 }
 
-pub fn try_create_key(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    entropy: String,
-) -> Result<Response, ContractError> {
-    let key = ViewingKey::create(
-        deps.storage,
-        &info,
-        &env,
-        info.sender.as_str(),
-        entropy.as_ref(),
-    );
-
-    Ok(Response::new().set_data(to_binary(&key)?))
-}
-
-pub fn try_set_key(
-    deps: DepsMut,
-    info: MessageInfo,
-    key: String,
-) -> Result<Response, ContractError> {
-    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
-    Ok(Response::default())
-}
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -326,7 +309,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Dao {} => query_dao(deps),
         QueryMsg::IsActive {} => query_is_active(deps),
         QueryMsg::ActiveThreshold {} => query_active_threshold(deps),
-        QueryMsg::GetViewingKey {} => query_get_viewing_key(deps),
     }
 }
 
@@ -343,19 +325,21 @@ pub fn query_staking_contract(deps: Deps) -> StdResult<Binary> {
 /// Have to implement submsg functionaity
 pub fn query_voting_power_at_height(
     deps: Deps,
-    _env: Env,
+    env: Env,
     address: String,
     height: Option<u64>,
 ) -> StdResult<Binary> {
     let staking_contract = STAKING_CONTRACT.load(deps.storage)?;
     let address = deps.api.addr_validate(&address)?;
+    let snip20_stake_viewing_key = SNIP20_STAKING_VIEWING_KEY.load(deps.storage)?;
     let res: snip20_stake::msg::StakedBalanceAtHeightResponse = deps.querier.query_wasm_smart(
         staking_contract.code_hash,
         staking_contract.addr,
         &snip20_stake::msg::QueryMsg::StakedBalanceAtHeight {
             address: address.to_string(),
             height,
-            key: "help".to_string(),
+            key: snip20_stake_viewing_key,
+            contract_address: Some(env.contract.address.to_string()),
         },
     )?;
     to_binary(&dao_interface::voting::VotingPowerAtHeightResponse {
@@ -466,15 +450,6 @@ pub fn query_active_threshold(deps: Deps) -> StdResult<Binary> {
     })
 }
 
-pub fn query_get_viewing_key(deps: Deps) -> StdResult<Binary> {
-    to_binary(&TOKEN_VIEWING_KEY.may_load(deps.storage)?)
-}
-
-// Helper Functions
-fn authenticate(deps: Deps, addr: Addr, key: String) -> StdResult<()> {
-    ViewingKey::check(deps.storage, addr.as_ref(), &key)
-}
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
     let storage_version: ContractVersion = get_contract_version(deps.storage)?;
@@ -491,112 +466,95 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
-        INSTANTIATE_TOKEN_REPLY_ID => {
-            let res = parse_reply_instantiate_data(msg);
-            match res {
-                Ok(res) => {
-                    let mut token_contract = TOKEN_CONTRACT.load(deps.storage).unwrap_or_default();
-                
-                    let token = deps.api.addr_validate(&res.contract_address)?;
-                    token_contract.addr=token.to_string();
-                    token_contract.code_hash=from_binary(&res.data.unwrap())?;
+        INSTANTIATE_TOKEN_REPLY_ID => match msg.result {
+            SubMsgResult::Ok(res) => {
+                let mut token_contract = TOKEN_CONTRACT.load(deps.storage).unwrap_or_default();
+                let token_init_response: snip20_reference_impl::msg::InitResponse =
+                    from_binary(&res.data.unwrap())?;
+                token_contract.addr = token_init_response.contract_address.to_string();
+                token_contract.code_hash = token_init_response.code_hash.clone();
 
-                    TOKEN_CONTRACT.save(deps.storage, &token_contract)?;
+                TOKEN_CONTRACT.save(deps.storage, &token_contract)?;
 
-                    let active_threshold = ACTIVE_THRESHOLD.may_load(deps.storage)?;
-                    if let Some(ActiveThreshold::AbsoluteCount { count }) = active_threshold {
-                        assert_valid_absolute_count_threshold(
-                            deps.as_ref(),
-                            &token,
-                            token_contract.code_hash.clone(),
-                            count,
-                        )?;
-                    }
-
-                    let staking_contract_code_id = STAKING_CONTRACT_CODE_ID.load(deps.storage)?;
-                    let unstaking_duration =
-                        STAKING_CONTRACT_UNSTAKING_DURATION.load(deps.storage)?;
-                    let dao = DAO.load(deps.storage)?;
-                    let msg = WasmMsg::Instantiate {
-                        code_id: staking_contract_code_id,
-                        funds: vec![],
-                        label: env.contract.address.to_string(),
-                        msg: to_binary(&snip20_stake::msg::InstantiateMsg {
-                            owner: Some(dao.to_string()),
-                            unstaking_duration,
-                            token_address: token.to_string(),
-                            token_code_hash: Some(token_contract.code_hash.clone()),
-                        })?,
-                        code_hash: env.contract.code_hash,
-                    };
-                    let msg = SubMsg::reply_on_success(msg, INSTANTIATE_STAKING_REPLY_ID);
-                    Ok(Response::default()
-                        .add_attribute("token_address", token)
-                        .add_submessage(msg))
+                let active_threshold = ACTIVE_THRESHOLD.may_load(deps.storage)?;
+                if let Some(ActiveThreshold::AbsoluteCount { count }) = active_threshold {
+                    assert_valid_absolute_count_threshold(
+                        deps.as_ref(),
+                        &deps.api.addr_validate(
+                            &token_init_response.contract_address.clone().to_string(),
+                        )?,
+                        token_init_response.code_hash.clone(),
+                        count,
+                    )?;
                 }
-                Err(_) => Err(ContractError::TokenInstantiateError {}),
+
+                let staking_contract_code_id = STAKING_CONTRACT_CODE_ID.load(deps.storage)?;
+                let staking_contract_code_hash = STAKING_CONTRACT_CODE_HASH.load(deps.storage)?;
+                let unstaking_duration = STAKING_CONTRACT_UNSTAKING_DURATION.load(deps.storage)?;
+                let dao = DAO.load(deps.storage)?;
+                let init_msg = snip20_stake_msg::InstantiateMsg {
+                    owner: Some(dao.clone().to_string()),
+                    unstaking_duration,
+                    token_address: token_init_response.contract_address.clone().to_string(),
+                    token_code_hash: Some(token_init_response.code_hash.clone()),
+                };
+                let msg = SubMsg::reply_on_success(
+                    init_msg.to_cosmos_msg(
+                        Some(dao.clone().to_string()),
+                        env.contract.address.to_string(),
+                        staking_contract_code_id,
+                        staking_contract_code_hash,
+                        None,
+                    )?,
+                    INSTANTIATE_STAKING_REPLY_ID,
+                );
+                Ok(Response::default()
+                    .add_attribute("token_address", token_init_response.contract_address)
+                    .add_submessage(msg))
+            }
+            SubMsgResult::Err(_) => Err(ContractError::TokenInstantiateError {}),
+        },
+        INSTANTIATE_STAKING_REPLY_ID => match msg.result {
+            SubMsgResult::Ok(res) => {
+                let staking_init_response: snip20_stake::msg::InstantiateAnswer =
+                    from_binary(&res.data.unwrap())?;
+
+                let mut staking_contract = STAKING_CONTRACT.load(deps.storage).unwrap_or_default();
+
+                staking_contract.addr = staking_init_response.contract_address.clone();
+                staking_contract.code_hash = staking_init_response.code_hash;
+
+                STAKING_CONTRACT.save(deps.storage, &staking_contract)?;
+
+                Ok(Response::new().add_attribute(
+                    "staking contract address ",
+                    staking_init_response.contract_address,
+                ))
+            }
+            SubMsgResult::Err(_) => Err(ContractError::StakingInstantiateError {}),
+        },
+
+        EXECUTE_TOKEN_VIEWING_KEY_ID => {
+            match msg.result {
+                SubMsgResult::Ok(res) => {
+                    // let mut token_viewing_key=TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
+                    let data: snip20_reference_impl::msg::CreateViewingKeyResponse =
+                        from_binary(&res.data.unwrap())?;
+                    TOKEN_VIEWING_KEY.save(deps.storage, &data.key)?;
+                    Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
+                }
+                SubMsgResult::Err(_) => Err(ContractError::TokenExecuteError {}),
             }
         }
-        INSTANTIATE_STAKING_REPLY_ID => 
-        {
-            let res = parse_reply_instantiate_data(msg);
-            match res {
-                Ok(res) => {
-                    let staking_contract_addr = deps.api.addr_validate(&res.contract_address)?;
-                    let staking_code_hash:snip20_stake::msg::InstantiateAnswer =from_binary(&res.data.unwrap())?;
-
-                    let mut staking_contract = STAKING_CONTRACT.load(deps.storage).unwrap_or_default();
-                    // if staking.is_some() {
-                    //     return Err(ContractError::DuplicateStakingContract {});
-                    // }
-                    staking_contract.addr=staking_contract_addr.to_string();
-                    staking_contract.code_hash=staking_code_hash.code_hash;
-
-                    STAKING_CONTRACT.save(deps.storage, &staking_contract)?;
-
-                    Ok(Response::new().add_attribute("staking_contract", staking_contract_addr))
-                }
-                Err(_) => Err(ContractError::StakingInstantiateError {}),
+        EXECUTE_SNIP20_STAKE_VIEWING_KEY_ID => match msg.result {
+            SubMsgResult::Ok(res) => {
+                let data: snip20_stake::msg::CreateViewingKeyResponse =
+                    from_binary(&res.data.unwrap())?;
+                SNIP20_STAKING_VIEWING_KEY.save(deps.storage, &data.key)?;
+                Ok(Response::new().add_attribute("action", "create_snip20_stake_viewing_key"))
             }
-        }
-
-        // EXECUTE_TOKEN_VIEWING_KEY_ID => {
-        //     let res = parse_reply_execute_data(msg);
-        //     match res {
-        //         Ok(res) => {
-        //             // let mut token_viewing_key=TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
-        //             let data:snip20_reference_impl::msg::CreateViewingKey = from_binary(&res.data.unwrap())?;
-        //             TOKEN_VIEWING_KEY.save(deps.storage, &data.key)?;
-        //             Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
-        //         }
-        //         Err(_) => Err(ContractError::TokenExecuteError {}),
-        //     }
-        // }
+            SubMsgResult::Err(_) => Err(ContractError::Snip20StakeExecuteError {}),
+        },
         _ => Err(ContractError::UnknownReplyId { id: msg.id }),
     }
 }
-
-// fn handle_instantiate_reply(deps: DepsMut, msg: Reply) -> Result<Response, ContractError> {
-//     // The parsing process below can be handled easier if one imports cw-plus
-//     // See: https://github.com/CosmWasm/cw-plus/blob/main/packages/utils/src/parse_reply.rs
-//     match msg.result {
-//         SubMsgResult::Ok(s) => match s.data {
-//             Some(bin) => {
-//                 let reply_info: snip20_stake::msg::InstantiateAnswer = from_binary(&bin)?;
-//                 let mut staking_contract = STAKING_CONTRACT.load(deps.storage).unwrap_or_default();
-              
-//                             staking_contract.addr=reply_info.contract_address;
-//                             staking_contract.code_hash=reply_info.code_hash;
-        
-//                             STAKING_CONTRACT.save(deps.storage, &staking_contract)?;   
-//                             Ok(Response::new().add_attribute("action", "init_staking_contract"))
-
-//                          }
-//             None => Err(ContractError::CustomError {
-//                 val: "Init didn't response with contract address".to_string(),
-//             }),
-//         },
-//         SubMsgResult::Err(e) => Err(ContractError::CustomError { val: e }),
-//     }
-// }
-

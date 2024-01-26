@@ -23,4 +23,6 @@ pub const STAKING_CONTRACT: Item<StakingContractInfo> = Item::new("staking_contr
 pub const STAKING_CONTRACT_UNSTAKING_DURATION: Item<Option<Duration>> =
     Item::new("staking_contract_unstaking_duration");
 pub const STAKING_CONTRACT_CODE_ID: Item<u64> = Item::new("staking_contract_code_id");
+pub const STAKING_CONTRACT_CODE_HASH: Item<String> = Item::new("staking_contract_code_hash");
 pub const TOKEN_VIEWING_KEY: Item<String> = Item::new("token_viewing_key");
+pub const SNIP20_STAKING_VIEWING_KEY: Item<String> = Item::new("snip20_staking_viewing_key");

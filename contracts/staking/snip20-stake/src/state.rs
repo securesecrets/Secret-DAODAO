@@ -84,11 +84,7 @@ impl StakedBalancesStore {
             )?;
             STAKED_BALANCES_PRIMARY.insert(store, &key.clone(), &value)?;
             user_staked_height.push(block_height);
-            USER_STAKED_AT_HEIGHT.insert(
-                store,
-                &key.clone(),
-                &user_staked_height,
-            )?;
+            USER_STAKED_AT_HEIGHT.insert(store, &key.clone(), &user_staked_height)?;
         }
 
         Ok(())
@@ -115,7 +111,7 @@ impl StakedBalancesStore {
                 Err(_) => None,
             };
             // return Ok(Some(Uint128::new(x.len() as u128)));
-            if id.unwrap()  == (x.len() - 1) {
+            if id.unwrap() == (x.len() - 1) {
                 return Ok(STAKED_BALANCES_PRIMARY.get(store, &key));
             } else {
                 let snapshot_value = STAKED_BALANCES_SNAPSHOT

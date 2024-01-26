@@ -34,6 +34,13 @@ impl InstantiateMsg {
     }
 }
 
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+pub struct InitResponse {
+    pub owner : Addr,
+    pub contract_address : String,
+    pub code_hash: String,
+}
+
 /// This type represents optional configuration values which can be overridden.
 /// All values are optional and have defaults which are more private by default,
 /// but can be overridden if necessary
@@ -359,9 +366,7 @@ pub enum ExecuteAnswer {
     RegisterReceive {
         status: ResponseStatus,
     },
-    // CreateViewingKey {
-    //     key: String,
-    // },
+
     SetViewingKey {
         status: ResponseStatus,
     },
@@ -650,7 +655,7 @@ pub struct AllowanceReceivedResult {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
-pub struct CreateViewingKey {
+pub struct CreateViewingKeyResponse {
     pub key: String,
 }
 

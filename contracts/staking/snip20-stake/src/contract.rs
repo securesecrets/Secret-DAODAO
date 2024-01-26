@@ -1,10 +1,10 @@
 use crate::math;
+use crate::msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg};
 use crate::msg::{
-    ExecuteAnswer, GetHooksResponse, InstantiateAnswer, ListStakersResponse, QueryMsg,
-    Snip20ReceiveMsg, StakedBalanceAtHeightResponse, StakedValueResponse, StakerBalanceResponse,
+    GetHooksResponse, InstantiateAnswer, ListStakersResponse, QueryMsg, Snip20ReceiveMsg,
+    StakedBalanceAtHeightResponse, StakedValueResponse, StakerBalanceResponse,
     TotalStakedAtHeightResponse, TotalValueResponse,
 };
-use crate::msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg, ResponseStatus::Success};
 use crate::state::{
     Config, StakedBalancesStore, StakedTotalStore, BALANCE, CLAIMS, CONFIG, HOOKS, MAX_CLAIMS,
     STAKED_BALANCES_PRIMARY,
@@ -17,6 +17,7 @@ use cosmwasm_std::{
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_voting::duration::validate_duration;
 use secret_cw2::set_contract_version;
+use snip20_reference_impl::msg::CreateViewingKeyResponse;
 use snip20_reference_impl::msg::ExecuteMsg::Transfer;
 
 use secret_cw_controllers::ClaimsResponse;
@@ -70,6 +71,7 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new().set_data(to_binary(&InstantiateAnswer {
+        contract_address: env.contract.address.to_string(),
         code_hash: env.contract.code_hash,
     })?))
 }
@@ -90,7 +92,6 @@ pub fn execute(
         ExecuteMsg::RemoveHook { addr } => execute_remove_hook(deps, env, info, addr),
         ExecuteMsg::UpdateOwnership(action) => execute_update_owner(deps, info, env, action),
         ExecuteMsg::CreateViewingKey { entropy } => try_create_key(deps, env, info, entropy),
-        ExecuteMsg::SetViewingKey { key } => try_set_key(deps, info, key),
     }
 }
 
@@ -377,31 +378,20 @@ pub fn try_create_key(
         entropy.as_ref(),
     );
 
-    Ok(Response::new().set_data(to_binary(&ExecuteAnswer::CreateViewingKey { key })?))
+    Ok(Response::new().set_data(to_binary(&CreateViewingKeyResponse { key })?))
 }
 
-pub fn try_set_key(
-    deps: DepsMut,
-    info: MessageInfo,
-    key: String,
-) -> Result<Response, ContractError> {
-    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
-    Ok(
-        Response::new().set_data(to_binary(&ExecuteAnswer::SetViewingKey {
-            status: Success,
-        })?),
-    )
-}
 #[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetConfig {} => to_binary(&query_config(deps)?),
         QueryMsg::StakedBalanceAtHeight {
             key,
+            contract_address,
             address,
             height,
         } => to_binary(&query_staked_balance_at_height(
-            deps, env, key, address, height,
+            deps, env, key, contract_address,address, height,
         )?),
         QueryMsg::TotalStakedAtHeight { height } => {
             to_binary(&query_total_staked_at_height(deps, env, height)?)
@@ -410,7 +400,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_staked_value(deps, env, key, address)?)
         }
         QueryMsg::TotalValue {} => to_binary(&query_total_value(deps, env)?),
-        QueryMsg::Claims { key, address } => to_binary(&query_claims(deps, key, address)?),
+        QueryMsg::Claims {key,address, contract_address } => to_binary(&query_claims(deps, key, address,contract_address)?),
         QueryMsg::GetHooks {} => to_binary(&query_hooks(deps)?),
         QueryMsg::ListStakers {} => query_list_stakers(deps),
         QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
@@ -421,10 +411,16 @@ pub fn query_staked_balance_at_height(
     deps: Deps,
     env: Env,
     key: String,
+    contract_address: Option<String>,
     address: String,
     height: Option<u64>,
 ) -> StdResult<StakedBalanceAtHeightResponse> {
+    if contract_address.is_some(){
+        authenticate(deps, deps.api.addr_validate(&contract_address.unwrap())?, key)?;
+    }
+    else {
     authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+    }
 
     let address = deps.api.addr_validate(&address)?;
     let height = height.unwrap_or(env.block.height);
@@ -485,8 +481,14 @@ pub fn query_config(deps: Deps) -> StdResult<Config> {
     Ok(config)
 }
 
-pub fn query_claims(deps: Deps, key: String, address: String) -> StdResult<ClaimsResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+pub fn query_claims(deps: Deps, key: String, address: String,contract_address: Option<String>) -> StdResult<ClaimsResponse> {
+    if contract_address.is_some(){
+        authenticate(deps, deps.api.addr_validate(&contract_address.unwrap())?, key)?;
+    }
+    else{
+        authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+
+    }
 
     CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)
 }

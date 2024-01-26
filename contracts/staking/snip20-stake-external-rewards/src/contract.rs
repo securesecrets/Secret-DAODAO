@@ -1,15 +1,17 @@
 use crate::msg::{
-    ExecuteMsg, InfoResponse, InstantiateMsg, MigrateMsg, PendingRewardsResponse, QueryMsg,
+    ExecuteMsg, InfoResponse, InstantiateMsg, PendingRewardsResponse, QueryMsg,
     ReceiveMsg,
 };
 use crate::state::{
     Config, Denom, RewardConfig, CONFIG, LAST_UPDATE_BLOCK, PENDING_REWARDS, REWARD_CONFIG,
-    REWARD_PER_TOKEN, USER_REWARD_PER_TOKEN,
+    REWARD_PER_TOKEN, SNIP20_STAKING_VIEWING_KEY, USER_REWARD_PER_TOKEN,
 };
-use crate::ContractError;
 use crate::ContractError::{
     InvalidFunds, InvalidSnip20, NoRewardsClaimable, RewardPeriodNotFinished,
 };
+use crate::{snip20_stake_msg, ContractError};
+use secret_toolkit::utils::HandleCallback;
+const EXECUTE_SNIP20_STAKE_VIEWING_KEY_ID: u64 = 0;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
@@ -17,10 +19,11 @@ use crate::msg::Snip20ReceiveMsg;
 use crate::state::Denom::Snip20;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
-    MessageInfo, Response, StdError, StdResult, Uint128, Uint256, WasmMsg,
+    MessageInfo, Reply, Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint256,
+    WasmMsg,
 };
 use dao_hooks::stake::StakeChangedHookMsg;
-use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
+use secret_cw2::set_contract_version;
 use std::cmp::min;
 use std::convert::TryInto;
 
@@ -30,7 +33,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response<Empty>, ContractError> {
@@ -69,6 +72,20 @@ pub fn instantiate(
     };
     REWARD_CONFIG.save(deps.storage, &reward_config)?;
 
+    // Create Snip20 Stake viewing key
+    let gen_viewing_key_msg = snip20_stake_msg::ExecuteMsg::CreateViewingKey {
+        entropy: "entropy".to_string(),
+    };
+
+    let submsg = SubMsg::reply_on_success(
+        gen_viewing_key_msg.to_cosmos_msg(
+            msg.staking_contract_code_hash.clone(),
+            msg.staking_contract.clone().to_string(),
+            None,
+        )?,
+        EXECUTE_SNIP20_STAKE_VIEWING_KEY_ID,
+    );
+
     Ok(Response::new()
         .add_attribute("owner", msg.owner.unwrap_or_else(|| "None".to_string()))
         .add_attribute("staking_contract", config.staking_contract)
@@ -81,7 +98,8 @@ pub fn instantiate(
         )
         .add_attribute("reward_rate", reward_config.reward_rate)
         .add_attribute("period_finish", reward_config.period_finish.to_string())
-        .add_attribute("reward_duration", reward_config.reward_duration.to_string()))
+        .add_attribute("reward_duration", reward_config.reward_duration.to_string())
+    .add_submessage(submsg).set_data(to_binary(&env.contract.code_hash)?))
 }
 
 // #[cfg_attr(not(feature = "library"), entry_point)]
@@ -257,7 +275,12 @@ pub fn execute_claim(
     }
     PENDING_REWARDS.save(deps.storage, info.sender.clone(), &Uint128::zero())?;
     let config = CONFIG.load(deps.storage)?;
-    let transfer_msg = get_transfer_msg(info.sender, rewards, config.reward_token, config.reward_token_code_hash)?;
+    let transfer_msg = get_transfer_msg(
+        info.sender,
+        rewards,
+        config.reward_token,
+        config.reward_token_code_hash,
+    )?;
     Ok(Response::new()
         .add_message(transfer_msg)
         .add_attribute("action", "claim")
@@ -364,7 +387,7 @@ pub fn get_reward_per_token(
 
 pub fn get_rewards_earned(
     deps: Deps,
-    _env: &Env,
+    env: &Env,
     addr: &Addr,
     reward_per_token: Uint256,
     staking_contract: &Addr,
@@ -372,6 +395,7 @@ pub fn get_rewards_earned(
     let config = CONFIG.load(deps.storage)?;
     let staked_balance = Uint256::from(get_staked_balance(
         deps,
+        env,
         staking_contract,
         config.staking_contract_code_hash,
         addr,
@@ -406,18 +430,21 @@ fn get_total_staked(
 // Need to add submsg functionality
 fn get_staked_balance(
     deps: Deps,
-    contract_addr: &Addr,
+    env: &Env,
+    contract_address: &Addr,
     staking_contract_code_hash: String,
     addr: &Addr,
 ) -> StdResult<Uint128> {
+    let key = SNIP20_STAKING_VIEWING_KEY.load(deps.storage)?;
     let msg = snip20_stake::msg::QueryMsg::StakedBalanceAtHeight {
+        contract_address:Some(env.contract.address.to_string()),
         address: addr.into(),
         height: None,
-        key: "key".into(),
+        key,
     };
     let resp: snip20_stake::msg::StakedBalanceAtHeightResponse =
         deps.querier
-            .query_wasm_smart(staking_contract_code_hash, contract_addr, &msg)?;
+            .query_wasm_smart(staking_contract_code_hash, contract_address.to_string(), &msg)?;
     Ok(resp.balance)
 }
 
@@ -499,6 +526,22 @@ pub fn query_pending_rewards(
         denom: config.reward_token,
         last_update_block: LAST_UPDATE_BLOCK.load(deps.storage).unwrap_or_default(),
     })
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+    match msg.id {
+        EXECUTE_SNIP20_STAKE_VIEWING_KEY_ID => match msg.result {
+            SubMsgResult::Ok(res) => {
+                let data: snip20_stake::msg::CreateViewingKeyResponse =
+                    from_binary(&res.data.unwrap())?;
+                SNIP20_STAKING_VIEWING_KEY.save(deps.storage, &data.key)?;
+                Ok(Response::new().add_attribute("action", "create_snip20_stake_viewing_key"))
+            }
+            SubMsgResult::Err(_) => Err(ContractError::Snip20StakeExecuteError {}),
+        },
+        _ => Err(ContractError::UnknownReplyId { id: msg.id }),
+    }
 }
 
 // #[cfg(test)]

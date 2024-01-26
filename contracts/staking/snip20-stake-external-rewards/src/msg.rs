@@ -1,9 +1,9 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use crate::state::{Config, Denom, RewardConfig};
+use cosmwasm_schema::QueryResponses;
 use cosmwasm_std::{Addr, Binary, Uint128};
 use dao_hooks::stake::StakeChangedHookMsg;
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
-use crate::state::{Config, Denom, RewardConfig};
+use serde::{Deserialize, Serialize};
 
 pub use secret_cw_controllers::ClaimsResponse;
 // so that consumers don't need a cw_ownable dependency to consume
@@ -35,6 +35,7 @@ pub struct Snip20ReceiveMsg {
 
 #[cw_ownable_execute]
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     StakeChangeHook(StakeChangedHookMsg),
     Claim {},
@@ -44,6 +45,7 @@ pub enum ExecuteMsg {
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum MigrateMsg {
     /// Migrates from version 0.2.6 to 2.0.0. The significant changes
     /// being the addition of a two-step ownership transfer using
@@ -58,6 +60,7 @@ pub enum ReceiveMsg {
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug, QueryResponses)]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     #[returns(InfoResponse)]
     Info {},

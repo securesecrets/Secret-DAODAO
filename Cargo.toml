@@ -142,16 +142,23 @@ voting-v1 = { package = "dao-voting", version = "0.1.0" }
 # cosmwasm-storage = { version = "1.1.11", package = "secret-cosmwasm-storage", default-features = false }
 secret-utils = { path="./packages/utils/"}
 # cosmwasm-std = { version = "1.1.11", package = "secret-cosmwasm-std", default-features = false }
-secret-toolkit = { git = "https://github.com/scrtlabs/secret-toolkit", tag = "v0.8.0",features = ["viewing-key","permit"] }
+secret-toolkit = { version = "0.10.0", default-features = false, features = [
+    "utils",
+    "serialization",
+    "viewing-key",
+    "permit",
+    "storage",
+    "snip20"
+] }
 secret-storage-plus = { path = "./packages/storage-plus/"}
 secret-cw-controllers = { path = "./packages/controllers/"}
 secret-cw2 = { path="./packages/cw2/" }
 secret-multi-test = {path = "./packages/multi-test/"}
 
-cosmwasm-std = { git = "https://github.com/scrtlabs/cosmwasm", tag = "v1.1.9-secret" }
-cosmwasm-storage = { git = "https://github.com/scrtlabs/cosmwasm", tag = "v1.1.9-secret" }
+cosmwasm-std = { package = "secret-cosmwasm-std", version = "1.1.10" }
+cosmwasm-storage = { package = "secret-cosmwasm-storage", version = "1.1.10" }
 schemars = { version = "0.8.11" }
 serde = { version = "1.0" }
 thiserror = { version = "1.0" }
-cosmwasm-schema = "1.0.0"
+cosmwasm-schema = { git = "https://github.com/scrtlabs/cosmwasm/", branch = "secret" }
 snip20-reference-impl ={ path = "./snip20-reference-impl/"}
