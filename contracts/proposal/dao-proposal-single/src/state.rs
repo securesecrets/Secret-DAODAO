@@ -1,8 +1,9 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
 use cw_hooks::Hooks;
-use cw_storage_plus::{Item, Map};
-use cw_utils::Duration;
+use secret_storage_plus::Item;
+use secret_toolkit::storage::Keymap;
+use secret_utils::Duration;
 use dao_voting::{
     pre_propose::ProposalCreationPolicy, threshold::Threshold, veto::VetoConfig, voting::Vote,
 };
@@ -68,8 +69,8 @@ pub struct Config {
 pub const CONFIG: Item<Config> = Item::new("config_v2");
 /// The number of proposals that have been created.
 pub const PROPOSAL_COUNT: Item<u64> = Item::new("proposal_count");
-pub const PROPOSALS: Map<u64, SingleChoiceProposal> = Map::new("proposals_v2");
-pub const BALLOTS: Map<(u64, &Addr), Ballot> = Map::new("ballots");
+pub const  PROPOSALS: Keymap<u64, SingleChoiceProposal> = Keymap::new(b"proposals_v2");
+pub const  BALLOTS: Keymap<(u64, Addr), Ballot> = Keymap::new(b"ballots");
 /// Consumers of proposal state change hooks.
 pub const PROPOSAL_HOOKS: Hooks = Hooks::new("proposal_hooks");
 /// Consumers of vote hooks.

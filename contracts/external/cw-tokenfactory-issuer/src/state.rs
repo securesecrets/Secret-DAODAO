@@ -1,15 +1,16 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
-use cw_storage_plus::{Item, Map};
+use secret_storage_plus::Item;
+use secret_toolkit::storage::Keymap;
 
 /// Holds the Token Factory denom managed by this contract
 pub const DENOM: Item<String> = Item::new("denom");
 
 /// Denylist addresses prevented from transferring tokens
-pub const DENYLIST: Map<&Addr, bool> = Map::new("denylist");
+pub const DENYLIST: Keymap<Addr, bool> = Keymap::new(b"denylist");
 
 /// Addresses allowed to transfer tokens even if the token is frozen
-pub const ALLOWLIST: Map<&Addr, bool> = Map::new("allowlist");
+pub const ALLOWLIST: Keymap<Addr, bool> = Keymap::new(b"allowlist");
 
 /// Whether or not features that require MsgBeforeSendHook are enabled
 /// Many Token Factory chains do not yet support MsgBeforeSendHook
@@ -27,7 +28,7 @@ pub const BEFORE_SEND_HOOK_INFO: Item<BeforeSendHookInfo> = Item::new("hook_feat
 pub const IS_FROZEN: Item<bool> = Item::new("is_frozen");
 
 /// Allowances for burning
-pub const BURNER_ALLOWANCES: Map<&Addr, Uint128> = Map::new("burner_allowances");
+pub const BURNER_ALLOWANCES: Keymap<Addr, Uint128> = Keymap::new(b"burner_allowances");
 
 /// Allowances for minting
-pub const MINTER_ALLOWANCES: Map<&Addr, Uint128> = Map::new("minter_allowances");
+pub const MINTER_ALLOWANCES: Keymap<Addr, Uint128> = Keymap::new(b"minter_allowances");

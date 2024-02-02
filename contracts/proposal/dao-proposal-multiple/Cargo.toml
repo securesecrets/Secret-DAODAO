@@ -49,7 +49,7 @@ dao-voting-cw4 = { workspace = true }
 dao-voting-cw20-balance = { workspace = true }
 dao-voting-snip20-staked = { workspace = true }
 dao-voting-token-staked = { workspace = true }
-dao-voting-cw721-staked = { workspace = true }
+dao-voting-snip721-staked = { workspace = true }
 cw-denom = { workspace = true }
 dao-testing = { workspace = true }
 snip20-stake = { workspace = true }

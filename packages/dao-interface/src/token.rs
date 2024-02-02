@@ -26,12 +26,16 @@ pub struct NewDenomMetadata {
     /// Used define additional units of the token (e.g. "tiger")
     /// These must have an exponent larger than 0.
     pub additional_denom_units: Option<Vec<DenomUnit>>,
+    pub uri: String,
+    pub uri_hash: String
 }
 
 #[cw_serde]
 pub struct NewTokenInfo {
     /// The code id of the cw-tokenfactory-issuer contract
     pub token_issuer_code_id: u64,
+    /// The code hash of the cw-tokenfactory-issuer contract
+    pub token_issuer_code_hash: String,
     /// The subdenom of the token to create, will also be used as an alias
     /// for the denom. The Token Factory denom will have the format of
     /// factory/{contract_address}/{subdenom}

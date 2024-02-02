@@ -2,7 +2,7 @@ use std::u64;
 
 use cosmwasm_std::StdError;
 use cw_hooks::HookError;
-use cw_utils::ParseReplyError;
+use secret_utils::ParseReplyError;
 use dao_voting::{reply::error::TagError, veto::VetoError};
 use thiserror::Error;
 

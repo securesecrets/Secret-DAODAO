@@ -1,0 +1,15 @@
+[package]
+name = "snip721-controllers"
+authors = ["CypherApe cypherape@protonmail.com"]
+description = "A package for managing cw721 claims."
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+[dependencies]
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+secret-utils = { workspace = true }
+secret-storage-plus = { workspace = true }
+thiserror = { workspace = true }

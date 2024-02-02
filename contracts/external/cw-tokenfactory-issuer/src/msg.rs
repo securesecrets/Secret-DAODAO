@@ -1,8 +1,9 @@
 use crate::state::BeforeSendHookInfo;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Uint128};
+use cosmwasm_std::{Addr, Coin, Uint128};
 
 pub use dao_interface::token::{DenomUnit, Metadata};
+use secret_toolkit::utils::InitCallback;
 
 /// The message used to create a new instance of this smart contract.
 #[cw_serde]
@@ -18,6 +19,16 @@ pub enum InstantiateMsg {
     /// Token Factory admin for the existing token needs trasfer admin over
     /// to this contract, and optionally set the `BeforeSendHook` manually.
     ExistingToken { denom: String },
+}
+
+impl InitCallback for InstantiateMsg{
+    const BLOCK_SIZE: usize=264;
+}
+
+#[cw_serde]
+pub struct InstantiateResponse{
+    pub contact_address: Addr,
+    pub code_hash: String,
 }
 
 /// State changing methods available to this smart contract.

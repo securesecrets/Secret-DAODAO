@@ -44,19 +44,20 @@ cosmwasm_tokenfactory = ["cw-tokenfactory-types/cosmwasm_tokenfactory"]
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 cosmwasm-storage = { workspace = true }
-cw2 = { workspace = true }
+secret-cw2 = { workspace = true }
 cw-ownable = { workspace = true }
-cw-storage-plus = { workspace = true }
+secret-storage-plus = { workspace = true }
 cw-tokenfactory-types = { workspace = true, default-features = false }
 dao-interface = { workspace = true }
 osmosis-std = { workspace = true }
 prost = { workspace = true }
+secret-toolkit={ workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 cosmwasm-schema = { workspace = true }
-cw-multi-test = { workspace = true }
+secret-multi-test = { workspace = true }
 osmosis-test-tube = { workspace = true }
 serde_json = { workspace = true }

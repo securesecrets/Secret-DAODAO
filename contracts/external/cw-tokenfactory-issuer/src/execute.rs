@@ -33,7 +33,7 @@ pub fn mint(
 
     // Decrease minter allowance
     let allowance = MINTER_ALLOWANCES
-        .may_load(deps.storage, &info.sender)?
+        .get(deps.storage, &info.sender)
         .unwrap_or_else(Uint128::zero);
 
     // If minter allowance goes negative, throw error
@@ -43,9 +43,9 @@ pub fn mint(
 
     // If minter allowance goes 0, remove from storage
     if updated_allowance.is_zero() {
-        MINTER_ALLOWANCES.remove(deps.storage, &info.sender);
+        MINTER_ALLOWANCES.remove(deps.storage, &info.sender)?;
     } else {
-        MINTER_ALLOWANCES.save(deps.storage, &info.sender, &updated_allowance)?;
+        MINTER_ALLOWANCES.insert(deps.storage, &info.sender, &updated_allowance)?;
     }
 
     // Get token denom from contract
@@ -94,7 +94,7 @@ pub fn burn(
 
     // Decrease burner allowance
     let allowance = BURNER_ALLOWANCES
-        .may_load(deps.storage, &info.sender)?
+        .get(deps.storage, &info.sender)
         .unwrap_or_else(Uint128::zero);
 
     // If burner allowance goes negative, throw error
@@ -104,9 +104,9 @@ pub fn burn(
 
     // If burner allowance goes 0, remove from storage
     if updated_allowance.is_zero() {
-        BURNER_ALLOWANCES.remove(deps.storage, &info.sender);
+        BURNER_ALLOWANCES.remove(deps.storage, &info.sender)?;
     } else {
-        BURNER_ALLOWANCES.save(deps.storage, &info.sender, &updated_allowance)?;
+        BURNER_ALLOWANCES.insert(deps.storage, &info.sender, &updated_allowance)?;
     }
 
     // Get token denom from contract config
@@ -278,9 +278,9 @@ pub fn set_burner(
 
     // Update allowance of burner, remove key from state if set to 0
     if allowance.is_zero() {
-        BURNER_ALLOWANCES.remove(deps.storage, &address);
+        BURNER_ALLOWANCES.remove(deps.storage, &address)?;
     } else {
-        BURNER_ALLOWANCES.save(deps.storage, &address, &allowance)?;
+        BURNER_ALLOWANCES.insert(deps.storage, &address, &allowance)?;
     }
 
     Ok(Response::new()
@@ -307,9 +307,9 @@ pub fn set_minter(
 
     // Update allowance of minter, remove key from state if set to 0
     if allowance.is_zero() {
-        MINTER_ALLOWANCES.remove(deps.storage, &address);
+        MINTER_ALLOWANCES.remove(deps.storage, &address)?;
     } else {
-        MINTER_ALLOWANCES.save(deps.storage, &address, &allowance)?;
+        MINTER_ALLOWANCES.insert(deps.storage, &address, &allowance)?;
     }
 
     Ok(Response::new()
@@ -351,9 +351,9 @@ pub fn freeze(
     // Add the issue contract itself to the Allowlist, or remove
     // if unfreezing to save storage.
     if status {
-        ALLOWLIST.save(deps.storage, &env.contract.address, &status)?;
+        ALLOWLIST.insert(deps.storage, &env.contract.address, &status)?;
     } else {
-        ALLOWLIST.remove(deps.storage, &env.contract.address);
+        ALLOWLIST.remove(deps.storage, &env.contract.address)?;
     }
 
     Ok(Response::new()
@@ -389,9 +389,9 @@ pub fn deny(
     // NOTE: Does not check if new status is same as old status
     // but if status is false, remove if exist to reduce space usage
     if status {
-        DENYLIST.save(deps.storage, &address, &status)?;
+        DENYLIST.insert(deps.storage, &address, &status)?;
     } else {
-        DENYLIST.remove(deps.storage, &address);
+        DENYLIST.remove(deps.storage, &address)?;
     }
 
     Ok(Response::new()
@@ -424,9 +424,9 @@ pub fn allow(
     // NOTE: Does not check if new status is same as old status
     // but if status is false, remove if exist to reduce space usage
     if status {
-        ALLOWLIST.save(deps.storage, &address, &status)?;
+        ALLOWLIST.insert(deps.storage, &address, &status)?;
     } else {
-        ALLOWLIST.remove(deps.storage, &address);
+        ALLOWLIST.remove(deps.storage, &address)?;
     }
 
     Ok(Response::new()

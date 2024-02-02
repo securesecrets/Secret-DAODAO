@@ -26,10 +26,10 @@ cosmwasm-std    = { workspace = true}
 cosmwasm-schema = { workspace = true }
 cosmwasm-storage = { workspace = true }
 cw-ownable = { workspace = true }
-cw-storage-plus = { workspace = true }
-cw2 = { workspace = true }
-cw-utils = { workspace = true }
-cw-controllers = { workspace = true }
+secret-storage-plus = { workspace = true }
+secret-cw2 = { workspace = true }
+secret-utils = { workspace = true }
+secret-cw-controllers = { workspace = true }
 cw-hooks = { workspace = true }
 thiserror = { workspace = true }
 dao-dao-macros = { workspace = true }
@@ -38,10 +38,11 @@ dao-interface = { workspace = true }
 dao-voting = { workspace = true }
 cw-paginate-storage = { workspace = true }
 cw-tokenfactory-issuer = { workspace = true, features = ["library"] }
+secret-toolkit={workspace=true}
 
 [dev-dependencies]
 anyhow = { workspace = true }
-cw-multi-test = { workspace = true }
+secret-multi-test = { workspace = true }
 cw-tokenfactory-issuer = { workspace = true }
 dao-proposal-single = { workspace = true }
 dao-proposal-hook-counter = { workspace = true }

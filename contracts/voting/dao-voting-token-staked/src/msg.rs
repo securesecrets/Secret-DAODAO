@@ -1,9 +1,9 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Binary, Uint128};
-use cw_utils::Duration;
 use dao_dao_macros::{active_query, native_token_query, voting_module_query};
 use dao_interface::token::NewTokenInfo;
 use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
+use secret_utils::Duration;
 
 #[cw_serde]
 pub enum TokenInfo {

@@ -40,7 +40,7 @@ cw-proposal-single-v1 = { workspace = true }
 cw-vesting = { workspace = true }
 snip20-stake = { workspace = true }
 cw721-base = { workspace = true }
-cw721-roles = { workspace = true }
+snip721-roles = { workspace = true }
 cw-tokenfactory-issuer = { workspace = true }
 dao-dao-core = { workspace = true, features = ["library"] }
 dao-interface = { workspace = true }
@@ -53,7 +53,7 @@ dao-voting = { workspace = true }
 dao-voting-cw20-balance = { workspace = true }
 dao-voting-snip20-staked = { workspace = true }
 dao-voting-cw4 = { workspace = true }
-dao-voting-cw721-staked = { workspace = true }
+dao-voting-snip721-staked = { workspace = true }
 dao-voting-cw721-roles = { workspace = true }
 dao-voting-token-staked = { workspace = true }
 voting-v1 = { workspace = true }

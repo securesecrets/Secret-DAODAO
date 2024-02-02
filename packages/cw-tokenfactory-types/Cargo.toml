@@ -15,7 +15,7 @@ cosmwasm_tokenfactory = []
 osmosis_tokenfactory = []
 
 [dependencies]
-# cosmwasm-std = { workspace = true }
+cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
 dao-interface = { workspace = true }
 osmosis-std = { workspace = true }

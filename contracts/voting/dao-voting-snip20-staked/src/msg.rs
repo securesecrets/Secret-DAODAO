@@ -2,7 +2,7 @@ use crate::snip20_msg::InitialBalance;
 use cosmwasm_schema::QueryResponses;
 use cosmwasm_std::Uint128;
 use dao_dao_macros::{active_query, cw20_token_query, voting_module_query};
-use dao_voting::threshold::ActiveThreshold;
+use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
 use schemars::JsonSchema;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};

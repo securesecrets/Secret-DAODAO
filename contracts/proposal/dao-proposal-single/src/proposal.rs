@@ -4,7 +4,7 @@ use crate::query::ProposalResponse;
 use crate::state::PROPOSAL_COUNT;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, BlockInfo, CosmosMsg, Decimal, Empty, StdResult, Storage, Uint128};
-use cw_utils::Expiration;
+use secret_utils::Expiration;
 use dao_voting::status::Status;
 use dao_voting::threshold::{PercentageThreshold, Threshold};
 use dao_voting::veto::VetoConfig;
