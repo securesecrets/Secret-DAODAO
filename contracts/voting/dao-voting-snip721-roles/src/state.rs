@@ -1,12 +1,13 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
-use cw_storage_plus::Item;
+use secret_storage_plus::Item;
 
 use crate::msg::NftMintMsg;
 
 #[cw_serde]
 pub struct Config {
     pub nft_address: Addr,
+    pub nft_code_hash: String,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

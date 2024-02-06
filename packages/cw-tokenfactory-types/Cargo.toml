@@ -8,7 +8,7 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [features]
-default = ["osmosis_tokenfactory"]
+default = ["cosmwasm_tokenfactory"]
 # use the /cosmwasm.tokenfactory... msg types
 cosmwasm_tokenfactory = []
 # use the /osmosis.tokenfactory... msg types

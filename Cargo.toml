@@ -51,7 +51,7 @@ cw20 = "1.1"
 cw20-base = "1.1"
 cw3 = "1.1"
 cw4 = {path = "./packages/cw4-1.1.2/"}
-cw4-group = "1.1"
+cw4-group = {path = "./packages/cw4-group-1.1.2/"}
 cw721 = "0.18"
 cw721-base = "0.18"
 env_logger = "0.10"
@@ -123,7 +123,7 @@ dao-voting = { path = "./packages/dao-voting", version = "2.4.0" }
 dao-voting-cw20-balance = { path = "./contracts/test/dao-voting-cw20-balance", version = "2.4.0" }
 dao-voting-snip20-staked = { path = "./contracts/voting/dao-voting-snip20-staked", version = "2.4.0" }
 dao-voting-cw4 = { path = "./contracts/voting/dao-voting-cw4", version = "2.4.0" }
-dao-voting-cw721-roles = { path = "./contracts/voting/dao-voting-cw721-roles", version = "2.4.0" }
+dao-voting-snip721-roles = { path = "./contracts/voting/dao-voting-snip721-roles", version = "2.4.0" }
 dao-voting-snip721-staked = { path = "./contracts/voting/dao-voting-snip721-staked", version = "2.4.0" }
 dao-voting-token-staked = { path = "./contracts/voting/dao-voting-token-staked", version = "2.4.0" }
 
@@ -157,8 +157,8 @@ secret-cw-controllers = { path = "./packages/controllers/"}
 secret-cw2 = { path="./packages/cw2/" }
 secret-multi-test = {path = "./packages/multi-test/"}
 
-cosmwasm-std = { package = "secret-cosmwasm-std", version = "1.1.10",features = ["stargate","staking","ibc3","random"] }
-cosmwasm-storage = { package = "secret-cosmwasm-storage", version = "1.1.10" }
+cosmwasm-std = { package = "secret-cosmwasm-std", version = "1.1.11",features = ["stargate","staking","ibc3","random"] }
+cosmwasm-storage = { package = "secret-cosmwasm-storage", version = "1.1.11" }
 schemars = { version = "0.8.11" }
 serde = { version = "1.0" }
 thiserror = { version = "1.0" }

@@ -1,33 +1,26 @@
 use cosmwasm_std::{Addr, StdResult, Storage};
-use schemars::JsonSchema;
-use secret_cw_controllers::Hooks;
+// use cw4::{
+//     MEMBERS_CHANGELOG, MEMBERS_CHECKPOINTS, MEMBERS_KEY, TOTAL_KEY, TOTAL_KEY_CHANGELOG,
+//     TOTAL_KEY_CHECKPOINTS,
+// };
+use secret_cw_controllers::{Admin, Hooks};
 use secret_storage_plus::Item;
 use secret_toolkit::storage::Keymap;
-use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug, Default)]
-pub struct Config {
-    pub contract_address: String,
-    pub code_hash: String,
-}
+pub const ADMIN: Admin = Admin::new("admin");
+pub const HOOKS: Hooks = Hooks::new("cw4-hooks");
 
-// Hooks to contracts that will receive staking and unstaking messages.
-pub const HOOKS: Hooks = Hooks::new("hooks");
-pub const SNIP721_INFO: Item<Config> = Item::new("si");
-
-// /// A historic snapshot of total weight over time
 // pub const TOTAL: SnapshotItem<u64> = SnapshotItem::new(
-//     "total",
-//     "total__checkpoints",
-//     "total__changelog",
+//     TOTAL_KEY,
+//     TOTAL_KEY_CHECKPOINTS,
+//     TOTAL_KEY_CHANGELOG,
 //     Strategy::EveryBlock,
 // );
 
-// /// A historic list of members and total voting weights
 // pub const MEMBERS: SnapshotMap<&Addr, u64> = SnapshotMap::new(
-//     "members",
-//     "members__checkpoints",
-//     "members__changelog",
+//     MEMBERS_KEY,
+//     MEMBERS_CHECKPOINTS,
+//     MEMBERS_CHANGELOG,
 //     Strategy::EveryBlock,
 // );
 

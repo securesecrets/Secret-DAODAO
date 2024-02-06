@@ -1,11 +1,11 @@
-use crate::msg::{ExecuteMsg, InstantiateMsg, InstantiateResponse, QueryMsg};
-use crate::snip721::{self, Extension, Metadata, ReceiverInfo, Snip721ExecuteMsg, Snip721QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::snip721::{self, Snip721ExecuteMsg, Snip721QueryMsg};
 use cosmwasm_schema::serde;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response,
-    StdResult, SubMsg, Uint64, WasmMsg,
+    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdResult, SubMsg, SubMsgResult, Uint64, WasmMsg,
 };
 use cw4::{
     Member, MemberChangedHookMsg, MemberDiff, MemberListResponse, MemberResponse,
@@ -17,10 +17,11 @@ use serde::{Deserialize, Serialize};
 // use cw721_base::Cw721Contract;
 // use snip721_reference_impl::msg::InstantiateMsg as Cw721BaseInstantiateMsg;
 
-use dao_snip721_extensions::roles::{ExecuteExt, MetadataExt, QueryExt};
+use dao_snip721_extensions::roles::{ExecuteExt, QueryExt};
 use std::cmp::Ordering;
+// use snip721_reference_impl::msg::{ExecuteMsg as Snip721ExecuteMsg};
 
-use crate::state::{Config, MembersStore, TotalStore, SNIP721_INFO};
+use crate::state::{Config, MembersStore, TotalStore, MEMBERS_PRIMARY, SNIP721_INFO};
 use crate::{error::RolesContractError as ContractError, state::HOOKS};
 
 // Version info for migration
@@ -67,20 +68,30 @@ const SNIP721_INIT_ID: u64 = 0;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-     deps: DepsMut,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(&info.sender.to_string()))?;
     // Cw721Roles::default().instantiate(deps.branch(), env.clone(), info, msg)?;
 
     // init snip721
+    let init_msg = snip721::Snip721InstantiateMsg {
+        name: msg.name,
+        symbol: msg.symbol,
+        admin: Some(env.contract.address.to_string().clone()),
+        entropy: msg.entropy,
+        royalty_info: None,
+        config: msg.config,
+        post_init_callback: None,
+    };
     let submsg = SubMsg::reply_always(
-        msg.snip721_init_msg.to_cosmos_msg(
+        init_msg.to_cosmos_msg(
             Some(info.sender.clone().to_string()),
-            msg.label,
-            msg.snip721_code_id,
-            msg.snip721_code_hash.clone(),
+            msg.label.clone(),
+            msg.code_id.clone(),
+            msg.code_hash.clone(),
             None,
         )?,
         SNIP721_INIT_ID,
@@ -88,17 +99,10 @@ pub fn instantiate(
 
     // Initialize total weight to zero
     TotalStore::save(deps.storage, env.block.height, 0)?;
-    SNIP721_INFO.save(
-        deps.storage,
-        &Config {
-            code_hash: msg.snip721_code_hash.clone(),
-            contract_address: Addr::unchecked(""),
-        },
-    )?;
 
     secret_cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    Ok(Response::default()
+    Ok(Response::new()
         .add_attribute("contract_name", CONTRACT_NAME)
         .add_attribute("contract_version", CONTRACT_VERSION)
         .add_submessage(submsg))
@@ -115,8 +119,8 @@ pub fn execute(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     match msg {
-        ExecuteMsg::Snip721Execute(ref snip721_exec_msg) => match snip721_exec_msg {
-            snip721_reference_impl::msg::ExecuteMsg::MintNft {
+        ExecuteMsg::Snip721Execute(snip721_exec_msg) => match snip721_exec_msg {
+            Snip721ExecuteMsg::MintNft {
                 token_id,
                 owner,
                 public_metadata,
@@ -130,28 +134,43 @@ pub fn execute(
                 deps,
                 &env,
                 &info.sender,
-                token_id,
-                owner,
-                public_metadata,
-                private_metadata,
-                serial_number,
-                royalty_info,
-                transferable,
-                memo,
-                padding
+                token_id.clone(),
+                owner.clone(),
+                public_metadata.clone(),
+                private_metadata.clone(),
+                serial_number.clone(),
+                royalty_info.clone(),
+                transferable.clone(),
+                memo.clone(),
+                padding.clone(),
             ),
-            snip721_reference_impl::msg::ExecuteMsg::BurnNft {
+            Snip721ExecuteMsg::BurnNft {
                 token_id,
                 memo,
                 padding,
-            } => execute_burn(deps, env, info, token_id, memo, padding),
-            snip721_reference_impl::msg::ExecuteMsg::TransferNft {
+            } => execute_burn(
+                deps,
+                env,
+                info,
+                token_id.clone(),
+                memo.clone(),
+                padding.clone(),
+            ),
+            Snip721ExecuteMsg::TransferNft {
                 recipient,
                 token_id,
                 memo,
                 padding,
-            } => execute_transfer(deps, env, info, recipient, token_id, memo, padding),
-            snip721_reference_impl::msg::ExecuteMsg::SendNft {
+            } => execute_transfer(
+                deps,
+                env,
+                info,
+                recipient.clone(),
+                token_id.clone(),
+                memo.clone(),
+                padding.clone(),
+            ),
+            Snip721ExecuteMsg::SendNft {
                 contract,
                 receiver_info,
                 token_id,
@@ -162,19 +181,19 @@ pub fn execute(
                 deps,
                 env,
                 info,
-                contract,
-                receiver_info,
-                token_id,
-                msg.unwrap(),
-                memo,
-                padding,
+                contract.clone(),
+                receiver_info.clone(),
+                token_id.clone(),
+                msg.clone().unwrap(),
+                memo.clone(),
+                padding.clone(),
             ),
             _ => {
                 let snip721_info = SNIP721_INFO.load(deps.storage)?;
                 let exec_msg = WasmMsg::Execute {
                     contract_addr: snip721_info.contract_address.to_string(),
                     code_hash: snip721_info.code_hash,
-                    msg: to_binary(&msg)?,
+                    msg: to_binary(&snip721_exec_msg)?,
                     funds: vec![],
                 };
                 Ok(Response::default().add_message(exec_msg))
@@ -200,13 +219,13 @@ pub fn execute(
 pub fn execute_mint(
     deps: DepsMut,
     env: &Env,
-    sender: &Addr,
+    _sender: &Addr,
     token_id: Option<String>,
     owner: Option<String>,
-    public_metadata: Option<snip721_reference_impl::token::Metadata>,
-    private_metadata: Option<snip721_reference_impl::token::Metadata>,
-    serial_number: Option<snip721_reference_impl::mint_run::SerialNumber>,
-    royalty_info: Option<snip721_reference_impl::royalties::RoyaltyInfo>,
+    public_metadata: Option<snip721::Metadata>,
+    private_metadata: Option<snip721::Metadata>,
+    serial_number: Option<snip721::SerialNumber>,
+    royalty_info: Option<snip721::RoyaltyInfo>,
     transferable: Option<bool>,
     memo: Option<String>,
     padding: Option<String>,
@@ -214,13 +233,16 @@ pub fn execute_mint(
     let snip721_info = SNIP721_INFO.load(deps.storage)?;
     let mut total = Uint64::from(TotalStore::load(deps.storage));
     let mut diff = MemberDiff::new(owner.clone().unwrap(), None, None);
-    let old = MembersStore::load(deps.storage, deps.api.addr_validate(&owner.clone().unwrap())?);
+    let old = MembersStore::load(
+        deps.storage,
+        deps.api.addr_validate(&owner.clone().unwrap())?,
+    );
     // Increment the total weight by the weight of the new token
     total = total.checked_add(Uint64::from(
-        public_metadata.unwrap().extension.unwrap().weight,
+        public_metadata.clone().unwrap().extension.unwrap().weight,
     ))?;
     // Add the new NFT weight to the old weight for the owner
-    let new_weight = old+ public_metadata.unwrap().extension.unwrap().weight;
+    let new_weight = old + public_metadata.clone().unwrap().extension.unwrap().weight;
     // Set the diff for use in hooks
     diff = MemberDiff::new(owner.clone().unwrap(), Some(old), Some(new_weight));
     // Update member weights and total
@@ -242,23 +264,36 @@ pub fn execute_mint(
     MembersStore::save(
         deps.storage,
         env.block.height,
-        deps.api.addr_validate(&owner.unwrap())?.clone(),
+        deps.api.addr_validate(&owner.clone().unwrap())?,
         new_weight,
-    );
+    )?;
     TotalStore::save(deps.storage, env.block.height, total.u64())?;
 
     let diffs = MemberChangedHookMsg { diffs: vec![diff] };
 
     // Prepare hook messages
     let msgs = HOOKS.prepare_hooks(deps.storage, |h| {
-        diffs.clone().into_cosmos_msg(h,env.contract.code_hash.clone()).map(SubMsg::new)
+        diffs
+            .clone()
+            .into_cosmos_msg(h, env.contract.code_hash.clone())
+            .map(SubMsg::new)
     })?;
 
+    // //add this contract to be minter
+    // let minter_msg = WasmMsg::Execute {
+    //     contract_addr: snip721_info.contract_address.to_string().clone(),
+    //     code_hash: snip721_info.code_hash.clone(),
+    //     msg: to_binary(&Snip721ExecuteMsg::AddMinters {
+    //         minters: vec![env.contract.address.clone().to_string()],
+    //         padding: None,
+    //     })?,
+    //     funds: vec![],
+    // };
     // Call Snip721 mint
     let exec_msg = WasmMsg::Execute {
         contract_addr: snip721_info.contract_address.to_string(),
-        code_hash: snip721_info.code_hash,
-        msg: to_binary(&snip721_reference_impl::msg::ExecuteMsg::MintNft {
+        code_hash: snip721_info.code_hash.clone(),
+        msg: to_binary(&Snip721ExecuteMsg::MintNft {
             token_id,
             owner,
             public_metadata,
@@ -274,6 +309,7 @@ pub fn execute_mint(
 
     Ok(Response::default()
         .add_submessages(msgs)
+        // .add_message(minter_msg)
         .add_message(exec_msg))
 }
 
@@ -282,26 +318,28 @@ pub fn execute_burn(
     env: Env,
     info: MessageInfo,
     token_id: String,
-    memo: Option<String>,
-    padding: Option<String>,
+    _memo: Option<String>,
+    _padding: Option<String>,
 ) -> Result<Response, ContractError> {
     let snip721_info = SNIP721_INFO.load(deps.storage)?;
     // Lookup the owner of the NFT
-    let owner: snip721_reference_impl::msg::OwnerOf = deps.querier.query_wasm_smart(
+    let owner: snip721::OwnerOf = deps.querier.query_wasm_smart(
         snip721_info.code_hash.clone(),
         snip721_info.contract_address.to_string().clone(),
         &Snip721QueryMsg::OwnerOf {
-            token_id,
+            token_id: token_id.clone(),
             viewer: None,
             include_expired: None,
         },
     )?;
 
     // Get the weight of the token
-    let nft_info: snip721_reference_impl::msg::NftInfo = deps.querier.query_wasm_smart(
+    let nft_info: snip721::NftInfo = deps.querier.query_wasm_smart(
         snip721_info.code_hash.clone(),
         snip721_info.contract_address.to_string().clone(),
-        &Snip721QueryMsg::NftInfo { token_id },
+        &Snip721QueryMsg::NftInfo {
+            token_id: token_id.clone(),
+        },
     )?;
 
     let mut total = Uint64::from(TotalStore::load(deps.storage));
@@ -309,22 +347,22 @@ pub fn execute_burn(
 
     // Update member weights and total
     let owner_addr = owner.owner;
-    let old_weight = MembersStore::load(deps.storage, owner_addr);
+    let old_weight = MembersStore::load(deps.storage, owner_addr.clone());
 
     // Subtract the nft weight from the member's old weight
     let new_weight = old_weight
-        .checked_sub(nft_info.extension.unwrap().weight)
+        .checked_sub(nft_info.extension.clone().unwrap().weight)
         .ok_or(ContractError::CannotBurn {})?;
 
     // Subtract nft weight from the total
-    total = total.checked_sub(Uint64::from(nft_info.extension.unwrap().weight))?;
+    total = total.checked_sub(Uint64::from(nft_info.extension.clone().unwrap().weight))?;
 
     // Check if the new weight is now zero
     if new_weight == 0 {
         // New weight is now None
-        diff = MemberDiff::new(owner.owner, Some(old_weight), None);
+        diff = MemberDiff::new(owner_addr.clone(), Some(old_weight), None);
         // Remove owner from list of members
-        MembersStore::remove(deps.storage, owner_addr.clone());
+        MembersStore::remove(deps.storage, owner_addr.clone())?;
     } else {
         // MEMBERS.update(
         //     deps.storage,
@@ -336,7 +374,7 @@ pub fn execute_burn(
         //     },
         // )?;
         let old = MembersStore::load(deps.storage, owner_addr.clone());
-        diff = MemberDiff::new(owner.owner.clone(), Some(old), Some(new_weight));
+        diff = MemberDiff::new(owner_addr.clone(), Some(old), Some(new_weight));
         MembersStore::save(
             deps.storage,
             env.block.height,
@@ -351,15 +389,18 @@ pub fn execute_burn(
 
     // Prepare hook messages
     let msgs = HOOKS.prepare_hooks(deps.storage, |h| {
-        diffs.clone().into_cosmos_msg(h,env.contract.code_hash).map(SubMsg::new)
+        diffs
+            .clone()
+            .into_cosmos_msg(h, env.contract.code_hash.clone())
+            .map(SubMsg::new)
     })?;
 
     // Burn the token
     let exec_msg = WasmMsg::Execute {
         contract_addr: snip721_info.contract_address.to_string().clone(),
         code_hash: snip721_info.code_hash.clone(),
-        msg: to_binary(&snip721_reference_impl::msg::ExecuteMsg::BurnNft {
-            token_id,
+        msg: to_binary(&Snip721ExecuteMsg::BurnNft {
+            token_id: token_id.clone(),
             memo: None,
             padding: None,
         })?,
@@ -380,8 +421,8 @@ pub fn execute_transfer(
     info: MessageInfo,
     recipient: String,
     token_id: String,
-    memo: Option<String>,
-    padding: Option<String>,
+    _memo: Option<String>,
+    _padding: Option<String>,
 ) -> Result<Response, ContractError> {
     let snip721_info = SNIP721_INFO.load(deps.storage)?;
 
@@ -395,9 +436,9 @@ pub fn execute_transfer(
     let exec_msg = WasmMsg::Execute {
         contract_addr: snip721_info.contract_address.to_string().clone(),
         code_hash: snip721_info.code_hash.clone(),
-        msg: to_binary(&snip721_reference_impl::msg::ExecuteMsg::TransferNft {
-            recipient,
-            token_id,
+        msg: to_binary(&Snip721ExecuteMsg::TransferNft {
+            recipient: recipient.clone(),
+            token_id: token_id.clone(),
             memo: None,
             padding: None,
         })?,
@@ -407,8 +448,8 @@ pub fn execute_transfer(
     Ok(Response::new()
         .add_attribute("action", "transfer_nft")
         .add_attribute("sender", info.sender)
-        .add_attribute("recipient", recipient)
-        .add_attribute("token_id", token_id)
+        .add_attribute("recipient", recipient.clone())
+        .add_attribute("token_id", token_id.clone())
         .add_message(exec_msg))
 }
 
@@ -417,11 +458,11 @@ pub fn execute_send(
     _env: Env,
     info: MessageInfo,
     recipient_contract: String,
-    recipient_info: Option<snip721_reference_impl::msg::ReceiverInfo>,
+    recipient_info: Option<snip721::ReceiverInfo>,
     token_id: String,
     msg: Binary,
-    memo: Option<String>,
-    padding: Option<String>,
+    _memo: Option<String>,
+    _padding: Option<String>,
 ) -> Result<Response, ContractError> {
     let snip721_info = SNIP721_INFO.load(deps.storage)?;
 
@@ -440,13 +481,13 @@ pub fn execute_send(
     let exec_msg = WasmMsg::Execute {
         contract_addr: snip721_info.contract_address.to_string().clone(),
         code_hash: snip721_info.code_hash.clone(),
-        msg: to_binary(&snip721_reference_impl::msg::ExecuteMsg::SendNft {
-            contract: recipient_contract,
-            receiver_info: Some(snip721_reference_impl::msg::ReceiverInfo {
+        msg: to_binary(&Snip721ExecuteMsg::SendNft {
+            contract: recipient_contract.clone(),
+            receiver_info: Some(snip721::ReceiverInfo {
                 recipient_code_hash: recipient_info.unwrap().recipient_code_hash,
                 also_implements_batch_receive_nft: None,
             }),
-            token_id,
+            token_id: token_id.clone(),
             msg: Some(msg),
             memo: None,
             padding: None,
@@ -457,8 +498,8 @@ pub fn execute_send(
     Ok(Response::new()
         .add_attribute("action", "send_nft")
         .add_attribute("sender", info.sender)
-        .add_attribute("recipient", recipient_contract)
-        .add_attribute("token_id", token_id)
+        .add_attribute("recipient", recipient_contract.clone())
+        .add_attribute("token_id", token_id.clone())
         .add_message(exec_msg))
 }
 
@@ -497,12 +538,12 @@ pub fn execute_update_token_role(
 ) -> Result<Response, ContractError> {
     let snip721_info = SNIP721_INFO.load(deps.storage)?;
     // Make sure NFT exists
-    let token: snip721_reference_impl::msg::NftInfo = deps
+    let token: snip721::NftInfo = deps
         .querier
         .query_wasm_smart(
             snip721_info.code_hash.clone(),
             snip721_info.contract_address.to_string().clone(),
-            &snip721_reference_impl::msg::QueryMsg::NftInfo {
+            &Snip721QueryMsg::NftInfo {
                 token_id: token_id.clone(),
             },
         )
@@ -512,24 +553,33 @@ pub fn execute_update_token_role(
     let exec_msg = WasmMsg::Execute {
         contract_addr: snip721_info.contract_address.to_string().clone(),
         code_hash: snip721_info.code_hash.clone(),
-        msg: to_binary(&snip721_reference_impl::msg::ExecuteMsg::SetMetadata {
+        msg: to_binary(&Snip721ExecuteMsg::SetMetadata {
             token_id: token_id.clone(),
-            public_metadata: Some(snip721_reference_impl::token::Metadata {
+            public_metadata: Some(snip721::Metadata {
                 token_uri: Some(token.token_uri.unwrap()),
-                extension: Some(snip721_reference_impl::token::Extension {
+                extension: Some(snip721::Extension {
                     image: Some(token.extension.clone().unwrap().image.unwrap()),
                     image_data: Some(token.extension.clone().unwrap().image_data.unwrap()),
                     external_url: Some(token.extension.clone().unwrap().external_url.unwrap()),
                     description: Some(token.extension.clone().unwrap().description.unwrap()),
                     name: Some(token.extension.clone().unwrap().name.unwrap()),
                     attributes: Some(token.extension.clone().unwrap().attributes.unwrap()),
-                    background_color: Some(token.extension.clone().unwrap().background_color.unwrap()),
+                    background_color: Some(
+                        token.extension.clone().unwrap().background_color.unwrap(),
+                    ),
                     animation_url: Some(token.extension.clone().unwrap().animation_url.unwrap()),
                     youtube_url: Some(token.extension.clone().unwrap().youtube_url.unwrap()),
                     media: Some(token.extension.clone().unwrap().media.unwrap()),
-                    protected_attributes: Some(token.extension.clone().unwrap().protected_attributes.unwrap()),
+                    protected_attributes: Some(
+                        token
+                            .extension
+                            .clone()
+                            .unwrap()
+                            .protected_attributes
+                            .unwrap(),
+                    ),
                     token_subtype: Some(token.extension.clone().unwrap().token_subtype.unwrap()),
-                    role,
+                    role: role.clone(),
                     weight: token.extension.unwrap().weight,
                 }),
             }),
@@ -543,7 +593,7 @@ pub fn execute_update_token_role(
         .add_attribute("action", "update_token_role")
         .add_attribute("sender", info.sender)
         .add_attribute("token_id", token_id)
-        .add_attribute("role", role.unwrap_or_default())
+        .add_attribute("role", role.clone().unwrap_or_default())
         .add_message(exec_msg))
 }
 
@@ -556,7 +606,7 @@ pub fn execute_update_token_uri(
 ) -> Result<Response, ContractError> {
     let snip721_info = SNIP721_INFO.load(deps.storage)?;
     // Make sure NFT exists
-    let token: snip721_reference_impl::msg::NftInfo = deps
+    let token: snip721::NftInfo = deps
         .querier
         .query_wasm_smart(
             snip721_info.code_hash.clone(),
@@ -571,25 +621,34 @@ pub fn execute_update_token_uri(
     let exec_msg = WasmMsg::Execute {
         contract_addr: snip721_info.contract_address.to_string().clone(),
         code_hash: snip721_info.code_hash.clone(),
-        msg: to_binary(&snip721_reference_impl::msg::ExecuteMsg::SetMetadata {
+        msg: to_binary(&Snip721ExecuteMsg::SetMetadata {
             token_id: token_id.clone(),
-            public_metadata: Some(snip721_reference_impl::token::Metadata {
-                token_uri,
-                extension: Some(snip721_reference_impl::token::Extension {
+            public_metadata: Some(snip721::Metadata {
+                token_uri: token_uri.clone(),
+                extension: Some(snip721::Extension {
                     image: Some(token.extension.clone().unwrap().image.unwrap()),
                     image_data: Some(token.extension.clone().unwrap().image_data.unwrap()),
                     external_url: Some(token.extension.clone().unwrap().external_url.unwrap()),
                     description: Some(token.extension.clone().unwrap().description.unwrap()),
                     name: Some(token.extension.clone().unwrap().name.unwrap()),
                     attributes: Some(token.extension.clone().unwrap().attributes.unwrap()),
-                    background_color: Some(token.extension.clone().unwrap().background_color.unwrap()),
+                    background_color: Some(
+                        token.extension.clone().unwrap().background_color.unwrap(),
+                    ),
                     animation_url: Some(token.extension.clone().unwrap().animation_url.unwrap()),
                     youtube_url: Some(token.extension.clone().unwrap().youtube_url.unwrap()),
                     media: Some(token.extension.clone().unwrap().media.unwrap()),
-                    protected_attributes: Some(token.extension.clone().unwrap().protected_attributes.unwrap()),
+                    protected_attributes: Some(
+                        token
+                            .extension
+                            .clone()
+                            .unwrap()
+                            .protected_attributes
+                            .unwrap(),
+                    ),
                     token_subtype: Some(token.extension.clone().unwrap().token_subtype.unwrap()),
-                    role: Some(token.extension.unwrap().role.unwrap()),
-                    weight: token.extension.unwrap().weight,
+                    role: Some(token.extension.clone().unwrap().role.unwrap()),
+                    weight: token.extension.clone().unwrap().weight,
                 }),
             }),
             private_metadata: None,
@@ -601,8 +660,9 @@ pub fn execute_update_token_uri(
     Ok(Response::new()
         .add_attribute("action", "update_token_uri")
         .add_attribute("sender", info.sender)
-        .add_attribute("token_id", token_id)
-        .add_attribute("token_uri", token_uri.unwrap_or_default()))
+        .add_attribute("token_id", token_id.clone())
+        .add_attribute("token_uri", token_uri.clone().unwrap_or_default())
+        .add_message(exec_msg))
 }
 
 pub fn execute_update_token_weight(
@@ -614,7 +674,7 @@ pub fn execute_update_token_weight(
 ) -> Result<Response, ContractError> {
     let snip721_info = SNIP721_INFO.load(deps.storage)?;
     // Make sure NFT exists
-    let token: snip721_reference_impl::msg::NftInfo = deps
+    let token: snip721::NftInfo = deps
         .querier
         .query_wasm_smart(
             snip721_info.code_hash.clone(),
@@ -626,11 +686,11 @@ pub fn execute_update_token_weight(
         .map_err(|_| ContractError::NftDoesNotExist {})?;
 
     // Lookup the owner of the NFT
-    let owner: snip721_reference_impl::msg::OwnerOf = deps.querier.query_wasm_smart(
+    let owner: snip721::OwnerOf = deps.querier.query_wasm_smart(
         snip721_info.code_hash.clone(),
         snip721_info.contract_address.to_string().clone(),
         &Snip721QueryMsg::OwnerOf {
-            token_id,
+            token_id: token_id.clone(),
             viewer: None,
             include_expired: None,
         },
@@ -644,11 +704,11 @@ pub fn execute_update_token_weight(
     let new_total_weight;
     let old_total_weight = old;
 
-    match weight.cmp(&token.extension.unwrap().weight) {
+    match weight.cmp(&token.extension.clone().unwrap().weight) {
         Ordering::Greater => {
             // Subtract the old token weight from the new token weight
             let weight_difference = weight
-                .checked_sub(token.extension.unwrap().weight)
+                .checked_sub(token.extension.clone().unwrap().weight)
                 .ok_or(ContractError::NegativeValue {})?;
 
             // Increment the total weight by the weight difference of the new token
@@ -662,6 +722,7 @@ pub fn execute_update_token_weight(
             // Subtract the new token weight from the old token weight
             let weight_difference = token
                 .extension
+                .clone()
                 .unwrap()
                 .weight
                 .checked_sub(weight)
@@ -737,29 +798,41 @@ pub fn execute_update_token_weight(
 
     // Prepare hook messages
     let msgs = HOOKS.prepare_hooks(deps.storage, |h| {
-        diffs.clone().into_cosmos_msg(h,env.contract.code_hash).map(SubMsg::new)
+        diffs
+            .clone()
+            .into_cosmos_msg(h, env.contract.code_hash.clone())
+            .map(SubMsg::new)
     })?;
 
     // Save token weight
     let exec_msg = WasmMsg::Execute {
         contract_addr: snip721_info.contract_address.to_string().clone(),
         code_hash: snip721_info.code_hash.clone(),
-        msg: to_binary(&snip721_reference_impl::msg::ExecuteMsg::SetMetadata {
+        msg: to_binary(&Snip721ExecuteMsg::SetMetadata {
             token_id: token_id.clone(),
-            public_metadata: Some(snip721_reference_impl::token::Metadata {
+            public_metadata: Some(snip721::Metadata {
                 token_uri: Some(token.token_uri.unwrap()),
-                extension: Some(snip721_reference_impl::token::Extension {
+                extension: Some(snip721::Extension {
                     image: Some(token.extension.clone().unwrap().image.unwrap()),
                     image_data: Some(token.extension.clone().unwrap().image_data.unwrap()),
                     external_url: Some(token.extension.clone().unwrap().external_url.unwrap()),
                     description: Some(token.extension.clone().unwrap().description.unwrap()),
                     name: Some(token.extension.clone().unwrap().name.unwrap()),
                     attributes: Some(token.extension.clone().unwrap().attributes.unwrap()),
-                    background_color: Some(token.extension.clone().unwrap().background_color.unwrap()),
+                    background_color: Some(
+                        token.extension.clone().unwrap().background_color.unwrap(),
+                    ),
                     animation_url: Some(token.extension.clone().unwrap().animation_url.unwrap()),
                     youtube_url: Some(token.extension.clone().unwrap().youtube_url.unwrap()),
                     media: Some(token.extension.clone().unwrap().media.unwrap()),
-                    protected_attributes: Some(token.extension.clone().unwrap().protected_attributes.unwrap()),
+                    protected_attributes: Some(
+                        token
+                            .extension
+                            .clone()
+                            .unwrap()
+                            .protected_attributes
+                            .unwrap(),
+                    ),
                     token_subtype: Some(token.extension.clone().unwrap().token_subtype.unwrap()),
                     role: Some(token.extension.unwrap().role.unwrap()),
                     weight,
@@ -780,60 +853,138 @@ pub fn execute_update_token_weight(
         .add_message(exec_msg))
 }
 
-// #[cfg_attr(not(feature = "library"), entry_point)]
-// pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-//     match msg {
-//         QueryMsg::Extension { msg } => match msg {
-//             QueryExt::Hooks {} => to_binary(&HOOKS.query_hooks(deps)?),
-//             QueryExt::ListMembers { start_after, limit } => {
-//                 to_binary(&query_list_members(deps, start_after, limit)?)
-//             }
-//             QueryExt::Member { addr, at_height } => {
-//                 to_binary(&query_member(deps, addr, at_height)?)
-//             }
-//             QueryExt::TotalWeight { at_height } => to_binary(&query_total_weight(deps, at_height)?),
-//         },
-//         _ => Cw721Roles::default().query(deps, env, msg),
-//     }
-// }
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::ExtensionQuery(extension_query) => match extension_query {
+            QueryExt::Hooks {} => to_binary(&HOOKS.query_hooks(deps)?),
+            QueryExt::ListMembers { start_after, limit } => {
+                to_binary(&query_list_members(deps, start_after, limit)?)
+            }
+            QueryExt::Member { addr, at_height } => {
+                to_binary(&query_member(deps, addr, at_height)?)
+            }
+            QueryExt::TotalWeight { at_height } => to_binary(&query_total_weight(deps, at_height)?),
+        },
+        QueryMsg::GetNftContractInfo {} => to_binary(&get_info(deps)?),
+        _ => {
+            let snip721_info = SNIP721_INFO.load(deps.storage)?;
+            let res = deps.querier.query_wasm_smart(
+                snip721_info.code_hash.clone(),
+                snip721_info.contract_address.to_string().clone(),
+                &msg,
+            )?;
+            Ok(to_binary(&res)?)
+        }
+    }
+}
 
-// pub fn query_total_weight(deps: Deps, height: Option<u64>) -> StdResult<TotalWeightResponse> {
-//     let weight = match height {
-//         Some(h) => TOTAL.may_load_at_height(deps.storage, h),
-//         None => TOTAL.may_load(deps.storage),
-//     }?
-//     .unwrap_or_default();
-//     Ok(TotalWeightResponse { weight })
-// }
+pub fn query_total_weight(deps: Deps, height: Option<u64>) -> StdResult<TotalWeightResponse> {
+    if height.is_some() {
+        let weight = TotalStore::may_load_at_height(deps.storage, height.unwrap())?;
+        Ok(TotalWeightResponse {
+            weight: weight.unwrap(),
+        })
+    } else {
+        let weight = TotalStore::load(deps.storage);
+        Ok(TotalWeightResponse { weight })
+    }
+}
 
-// pub fn query_member(deps: Deps, addr: String, height: Option<u64>) -> StdResult<MemberResponse> {
-//     let addr = deps.api.addr_validate(&addr)?;
-//     let weight = match height {
-//         Some(h) => MEMBERS.may_load_at_height(deps.storage, &addr, h),
-//         None => MEMBERS.may_load(deps.storage, &addr),
-//     }?;
-//     Ok(MemberResponse { weight })
-// }
+pub fn get_info(deps: Deps) -> StdResult<Config> {
+    let res = SNIP721_INFO.load(deps.storage)?;
+    Ok(Config {
+        contract_address: res.contract_address,
+        code_hash: res.code_hash,
+    })
+}
 
-// pub fn query_list_members(
-//     deps: Deps,
-//     start_after: Option<String>,
-//     limit: Option<u32>,
-// ) -> StdResult<MemberListResponse> {
-//     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-//     let addr = maybe_addr(deps.api, start_after)?;
-//     let start = addr.as_ref().map(Bound::exclusive);
+pub fn query_member(deps: Deps, addr: String, height: Option<u64>) -> StdResult<MemberResponse> {
+    let addr = deps.api.addr_validate(&addr)?;
+    if height.is_some() {
+        let weight = MembersStore::may_load_at_height(deps.storage, addr.clone(), height.unwrap())?;
 
-//     let members = MEMBERS
-//         .range(deps.storage, start, None, Order::Ascending)
-//         .take(limit)
-//         .map(|item| {
-//             item.map(|(addr, weight)| Member {
-//                 addr: addr.into(),
-//                 weight,
-//             })
-//         })
-//         .collect::<StdResult<_>>()?;
+        Ok(MemberResponse { weight })
+    } else {
+        let weight = MembersStore::load(deps.storage, addr.clone());
 
-//     Ok(MemberListResponse { members })
-// }
+        Ok(MemberResponse {
+            weight: Some(weight),
+        })
+    }
+}
+
+pub fn query_list_members(
+    deps: Deps,
+    start_after: Option<String>,
+    limit: Option<u32>,
+) -> StdResult<MemberListResponse> {
+    // let addr = maybe_addr(deps.api, start_after)?;
+    // let start = addr.as_ref().map(Bound::exclusive);
+
+    // let members = MEMBERS
+    //     .range(deps.storage, start, None, Order::Ascending)
+    //     .take(limit)
+    //     .map(|item| {
+    //         item.map(|(addr, weight)| Member {
+    //             addr: addr.into(),
+    //             weight,
+    //         })
+    //     })
+    //     .collect::<StdResult<_>>()?;
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+
+    let mut res_members: Vec<Member> = Vec::new();
+
+    let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
+
+    let binding = MEMBERS_PRIMARY;
+    let iter = binding.iter(deps.storage)?;
+    for item in iter {
+        let (address, weight) = item?;
+        if let Some(start_after) = &start {
+            if &address == start_after {
+                // If we found the start point, reset it to start iterating
+                start = None;
+            }
+        }
+        if start.is_none() {
+            res_members.push(Member {
+                addr: address.to_string(),
+                weight,
+            });
+            if res_members.len() >= limit {
+                break; // Break out of loop if limit reached
+            }
+        }
+    }
+
+    let response = MemberListResponse {
+        members: res_members,
+    };
+
+    Ok(response)
+}
+
+#[entry_point]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+    match msg.id {
+        SNIP721_INIT_ID => handle_instantiate_reply(deps, msg),
+        id => Err(ContractError::UnexpectedReplyId { id }),
+    }
+}
+
+fn handle_instantiate_reply(deps: DepsMut, msg: Reply) -> Result<Response, ContractError> {
+    match msg.result {
+        SubMsgResult::Ok(res) => {
+            let mut snip721_info = SNIP721_INFO.load(deps.storage).unwrap_or_default();
+            let data: snip721::InstantiateResponse = from_binary(&res.data.unwrap())?;
+            snip721_info.code_hash = data.code_hash;
+            snip721_info.contract_address = data.contract_address.to_string();
+            SNIP721_INFO.save(deps.storage, &snip721_info)?;
+            Ok(Response::new().add_attribute("action", "instantiate"))
+        }
+
+        SubMsgResult::Err(e) => Err(ContractError::CustomError { val: e }),
+    }
+}

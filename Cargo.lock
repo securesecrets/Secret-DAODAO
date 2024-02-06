@@ -876,21 +876,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw-controllers"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57de8d3761e46be863e3ac1eba8c8a976362a48c6abf240df1e26c3e421ee9e8"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "schemars",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "cw-core"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1478,32 +1463,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw4"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24754ff6e45f2a1c60adc409d9b2eb87666012c44021329141ffaab3388fccd2"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw-storage-plus 1.2.0",
- "schemars",
- "serde",
-]
-
-[[package]]
 name = "cw4-group"
 version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e24a22c3af54c52edf528673b420a67a1648be2c159b8ec778d2fbf543df24b"
 dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw-controllers 1.1.2",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
- "cw4 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cosmwasm-schema 1.1.11",
+ "cw4",
  "schemars",
+ "secret-cosmwasm-std",
+ "secret-cw-controllers",
+ "secret-cw2",
+ "secret-storage-plus",
+ "secret-toolkit",
+ "secret-utils",
  "serde",
  "thiserror",
 ]
@@ -1625,7 +1596,7 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-hooks",
- "cw4 1.1.2",
+ "cw4",
  "dao-pre-propose-base",
  "dao-voting 2.4.0",
  "secret-cosmwasm-std",
@@ -1721,7 +1692,7 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "cw-utils 1.0.3",
  "cw2 1.1.2",
- "cw4 1.1.2",
+ "cw4",
  "cw4-group",
  "dao-dao-core",
  "dao-dao-macros",
@@ -1770,7 +1741,7 @@ dependencies = [
  "cw20 1.1.2",
  "cw20-base 1.1.2",
  "cw3 1.1.2",
- "cw4 1.1.2",
+ "cw4",
  "cw4-group",
  "cw721-base 0.18.0",
  "dao-dao-macros",
@@ -1805,7 +1776,7 @@ dependencies = [
  "cw-proposal-single",
  "cw-utils 0.13.4",
  "cw3 1.1.2",
- "cw4 1.1.2",
+ "cw4",
  "cw4-group",
  "cw721-base 0.18.0",
  "dao-dao-core",
@@ -1854,7 +1825,7 @@ name = "dao-snip721-extensions"
 version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
- "cw4 1.1.2",
+ "cw4",
  "secret-cosmwasm-std",
  "secret-cw-controllers",
 ]
@@ -1895,7 +1866,7 @@ dependencies = [
  "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
- "cw4 1.1.2",
+ "cw4",
  "cw4-group",
  "cw721-base 0.18.0",
  "dao-dao-core",
@@ -1909,8 +1880,8 @@ dependencies = [
  "dao-voting 2.4.0",
  "dao-voting-cw20-balance",
  "dao-voting-cw4",
- "dao-voting-cw721-roles",
  "dao-voting-snip20-staked",
+ "dao-voting-snip721-roles",
  "dao-voting-snip721-staked",
  "dao-voting-token-staked",
  "osmosis-std 0.21.0",
@@ -1972,41 +1943,17 @@ name = "dao-voting-cw4"
 version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
- "cw-multi-test",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
- "cw4 1.1.2",
+ "cw4",
  "cw4-group",
  "dao-dao-macros",
  "dao-interface",
  "secret-cosmwasm-std",
  "secret-cosmwasm-storage",
- "thiserror",
-]
-
-[[package]]
-name = "dao-voting-cw721-roles"
-version = "2.4.0"
-dependencies = [
- "anyhow",
- "cosmwasm-schema 1.1.11",
- "cw-ownable 0.5.1",
- "cw-paginate-storage 2.4.0",
- "cw4 1.1.2",
- "cw721 0.18.0",
- "cw721-base 0.18.0",
- "dao-dao-macros",
- "dao-interface",
- "dao-snip721-extensions",
- "dao-testing",
- "secret-cosmwasm-std",
  "secret-cw2",
  "secret-multi-test",
  "secret-storage-plus",
+ "secret-toolkit",
  "secret-utils",
- "snip721-controllers",
- "snip721-roles",
  "thiserror",
 ]
 
@@ -2032,6 +1979,33 @@ dependencies = [
  "serde",
  "snip20-reference-impl",
  "snip20-stake",
+ "thiserror",
+]
+
+[[package]]
+name = "dao-voting-snip721-roles"
+version = "2.4.0"
+dependencies = [
+ "anyhow",
+ "cosmwasm-schema 1.1.11",
+ "cw-ownable 0.5.1",
+ "cw-paginate-storage 2.4.0",
+ "cw4",
+ "dao-dao-macros",
+ "dao-interface",
+ "dao-snip721-extensions",
+ "dao-testing",
+ "schemars",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit",
+ "secret-utils",
+ "serde",
+ "snip721-controllers",
+ "snip721-reference-impl",
+ "snip721-roles",
  "thiserror",
 ]
 
@@ -4361,9 +4335,7 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-ownable 0.5.1",
- "cw4 1.1.2",
- "cw721 0.18.0",
- "cw721-base 0.18.0",
+ "cw4",
  "dao-snip721-extensions",
  "dao-testing",
  "dao-voting-snip721-staked",

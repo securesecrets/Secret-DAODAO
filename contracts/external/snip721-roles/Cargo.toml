@@ -25,8 +25,8 @@ secret-storage-plus = { workspace = true }
 secret-utils        = { workspace = true }
 secret-cw2             = { workspace = true }
 cw4             = { workspace = true }
-cw721           = { workspace = true }
-cw721-base      = { workspace = true, features = ["library"] }
+# cw721           = { workspace = true }
+# cw721-base      = { workspace = true, features = ["library"] }
 dao-snip721-extensions = { workspace = true }
 serde           = { workspace = true }
 thiserror       = { workspace = true }

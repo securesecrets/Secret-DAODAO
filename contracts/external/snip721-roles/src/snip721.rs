@@ -3,7 +3,6 @@
 use std::fmt;
 
 use cosmwasm_std::{Addr, Api, Binary, BlockInfo, CanonicalAddr, Coin, StdResult};
-use dao_snip721_extensions::roles::MetadataExt;
 use schemars::JsonSchema;
 use secret_toolkit::{
     permit::Permit,
@@ -1465,4 +1464,22 @@ pub struct Permission {
 
 impl InitCallback for Snip721InstantiateMsg {
     const BLOCK_SIZE: usize = 256;
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct NftInfo {
+    pub token_uri: Option<String>,
+    pub extension: Option<Extension>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct OwnerOf {
+    pub owner: Addr,
+    pub approvals: Vec<Cw721Approval>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+pub struct InstantiateResponse {
+    pub contract_address: Addr,
+    pub code_hash: String,
 }

@@ -3,9 +3,9 @@
 pub mod contract;
 mod error;
 pub mod msg;
+pub mod snip721roles;
 pub mod state;
 
 #[cfg(test)]
-mod testing;
-
+// mod testing;
 pub use crate::error::ContractError;

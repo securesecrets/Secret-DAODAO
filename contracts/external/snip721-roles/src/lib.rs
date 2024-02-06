@@ -14,4 +14,4 @@ pub use crate::error::RolesContractError as ContractError;
 // So consumers don't need dependencies to interact with this contract.
 pub use cw_ownable::{Action, Ownership};
 pub use dao_snip721_extensions::roles::{ExecuteExt, MetadataExt, QueryExt};
-pub use snip721_reference_impl::msg::Minters;
+// pub use snip721_reference_impl::msg::Minters;

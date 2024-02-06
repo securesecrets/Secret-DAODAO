@@ -6,7 +6,8 @@ use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg,
 };
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
-use cw_tokenfactory_types::msg::{msg_create_denom, MsgCreateDenomResponse};
+use cw_tokenfactory_types::msg::msg_create_denom;
+use cw_tokenfactory_types::cosmwasm::MsgCreateDenomResponse;
 
 use crate::error::ContractError;
 use crate::execute;
@@ -178,15 +179,15 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
     Ok(Response::default())
 }
 
-// #[cfg_attr(not(feature = "library"), entry_point)]
-// pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-//     match msg.id {
-//         CREATE_DENOM_REPLY_ID => {
-//             let MsgCreateDenomResponse { new_token_denom } = msg.result.try_into()?;
-//             DENOM.save(deps.storage, &new_token_denom)?;
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+    match msg.id {
+        CREATE_DENOM_REPLY_ID => {
+            let MsgCreateDenomResponse { new_token_denom } = msg.result.try_into()?;
+            DENOM.save(deps.storage, &new_token_denom)?;
 
-//             Ok(Response::new().add_attribute("denom", new_token_denom))
-//         }
-//         _ => Err(ContractError::UnknownReplyId { id: msg.id }),
-//     }
-// }
+            Ok(Response::new().add_attribute("denom", new_token_denom))
+        }
+        _ => Err(ContractError::UnknownReplyId { id: msg.id }),
+    }
+}

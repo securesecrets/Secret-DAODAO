@@ -6,13 +6,13 @@ pub enum ContractError {
     #[error(transparent)]
     Std(#[from] StdError),
 
-    #[error("Error instantiating cw721-roles contract")]
+    #[error("Error instantiating snip721-roles contract")]
     NftInstantiateError {},
 
     #[error("This contract only supports queries")]
     NoExecute {},
 
-    #[error("New cw721-roles contract must be instantiated with at least one NFT")]
+    #[error("New snip721-roles contract must be instantiated with at least one NFT")]
     NoInitialNfts {},
 
     #[error("Only the owner of this contract my execute this message")]
