@@ -2,8 +2,8 @@ use std::u64;
 
 use cosmwasm_std::StdError;
 use cw_hooks::HookError;
-use secret_utils::ParseReplyError;
 use dao_voting::{reply::error::TagError, veto::VetoError};
+use secret_utils::ParseReplyError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]

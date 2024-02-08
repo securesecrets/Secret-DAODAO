@@ -39,7 +39,8 @@ dao-voting = { workspace = true }
 cw-paginate-storage = { workspace = true }
 cw-tokenfactory-issuer = { workspace = true, features = ["library"] }
 secret-toolkit={workspace=true}
-
+cosmos-sdk-proto = {workspace=true}
+prost ={ workspace = true}
 [dev-dependencies]
 anyhow = { workspace = true }
 secret-multi-test = { workspace = true }

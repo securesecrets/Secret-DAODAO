@@ -6,11 +6,11 @@ use cosmwasm_std::{to_binary,from_binary, Addr, CosmosMsg, Reply, StdError, SubM
 use secret_toolkit::utils::HandleCallback;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InfoResponse, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InfoResponse, InstantiateMsg, QueryMsg,MigrateMsg};
 use crate::snip20_msg;
 use crate::state::{Config, CONFIG, LAST_PAYMENT_BLOCK, TOKEN_VIEWING_KEY};
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
-use secret_cw2::set_contract_version;
+use secret_cw2::{set_contract_version,ContractVersion};
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:snip20-stake-reward-distributor";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -298,35 +298,18 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-// #[cfg_attr(not(feature = "library"), entry_point)]
-// pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
-//     use cw20_stake_reward_distributor_v1 as v1;
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let storage_version: ContractVersion = get_contract_version(deps.storage)?;
 
-//     let ContractVersion { version, .. } = get_contract_version(deps.storage)?;
-//     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    // Only migrate if newer
+    if storage_version.version.as_str() < CONTRACT_VERSION {
+        // Set contract to version to latest
+        set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
 
-//     match msg {
-//         MigrateMsg::FromV1 {} => {
-//             if version == CONTRACT_VERSION {
-//                 // You can not possibly be migrating from v1 to v2 and
-//                 // also not changing your contract version.
-//                 return Err(ContractError::AlreadyMigrated {});
-//             }
-//             // From v1 -> v2 we moved `owner` out of config and into
-//             // the `cw_ownable` package.
-//             let config = v1::state::CONFIG.load(deps.storage)?;
-//             cw_ownable::initialize_owner(deps.storage, deps.api, Some(config.owner.as_str()))?;
-//             let config = Config {
-//                 staking_addr: config.staking_addr,
-//                 reward_rate: config.reward_rate,
-//                 reward_token: config.reward_token,
-//             };
-//             CONFIG.save(deps.storage, &config)?;
-
-//             Ok(Response::default())
-//         }
-//     }
-// }
+    Ok(Response::new().add_attribute("action", "migrate"))
+}
 
 fn query_info(deps: Deps, env: Env) -> StdResult<InfoResponse> {
     let config = CONFIG.load(deps.storage)?;

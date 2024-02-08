@@ -1,9 +1,13 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
+use std::str::from_utf8;
+
+use cosmos_sdk_proto::cosmos::bank;
 use cosmwasm_std::{
-    coins, from_binary, to_binary, BankMsg, BankQuery, Binary, Coin, CosmosMsg, Deps, DepsMut, Env,
-    MessageInfo, Reply, Response, StdError, StdResult, SubMsg, Uint128, Uint256, WasmMsg,
+    coins, from_binary, to_binary, to_vec, BankMsg, Binary, Coin, ContractResult, CosmosMsg, Deps,
+    DepsMut, Empty, Env, MessageInfo, QueryRequest, Reply, Response, StdError, StdResult, SubMsg,
+    SystemResult, Uint128, Uint256, WasmMsg,
 };
 use cw_tokenfactory_issuer::msg::{
     DenomUnit, ExecuteMsg as IssuerExecuteMsg, InstantiateMsg as IssuerInstantiateMsg, Metadata,
@@ -23,6 +27,7 @@ use dao_voting::{
         ActiveThresholdResponse,
     },
 };
+use prost::Message;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_cw_controllers::ClaimsResponse;
 use secret_toolkit::utils::InitCallback;
@@ -52,11 +57,10 @@ const FACTORY_EXECUTE_REPLY_ID: u64 = 2;
 // when using active threshold with percent
 const PRECISION_FACTOR: u128 = 10u128.pow(9);
 
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
@@ -86,7 +90,7 @@ pub fn instantiate(
         TokenInfo::Existing { denom } => {
             // Validate active threshold absolute count if configured
             if let Some(ActiveThreshold::AbsoluteCount { count }) = msg.active_threshold {
-                let supply: Coin = deps.querier.query_supply(denom.clone())?;
+                let supply: Coin = from_binary(&query_bank_supply_of(deps.as_ref(), denom.clone())?)?;
                 assert_valid_absolute_count_threshold(count, supply.amount)?;
             }
 
@@ -116,7 +120,7 @@ pub fn instantiate(
             let issuer_instantiate_msg = SubMsg::reply_on_success(
                 msg.to_cosmos_msg(
                     Some(info.sender.to_string()),
-                    "cw-tokenfactory-issuer".to_string(),
+                    env.contract.address.to_string(),
                     token_issuer_code_id.clone(),
                     token_issuer_code_hash.clone(),
                     None,
@@ -241,28 +245,6 @@ pub fn execute_unstake(
         return Err(ContractError::ZeroUnstake {});
     }
 
-    // STAKED_BALANCES.update(
-    //     deps.storage,
-    //     &info.sender,
-    //     env.block.height,
-    //     |balance| -> Result<Uint128, ContractError> {
-    //         balance
-    //             .unwrap_or_default()
-    //             .checked_sub(amount)
-    //             .map_err(|_e| ContractError::InvalidUnstakeAmount {})
-    //     },
-    // )?;
-    // STAKED_TOTAL.update(
-    //     deps.storage,
-    //     env.block.height,
-    //     |total| -> Result<Uint128, ContractError> {
-    //         total
-    //             .unwrap_or_default()
-    //             .checked_sub(amount)
-    //             .map_err(|_e| ContractError::InvalidUnstakeAmount {})
-    //     },
-    // )?;
-
     let prev_balance = StakedBalancesStore::load(deps.storage, info.sender.clone());
 
     StakedBalancesStore::save(
@@ -273,11 +255,7 @@ pub fn execute_unstake(
             .checked_sub(amount)
             .map_err(StdError::overflow)?,
     )?;
-    // STAKED_TOTAL.update(
-    //     deps.storage,
-    //     env.block.height,
-    //     |total| -> StdResult<Uint128> { Ok(total.unwrap_or_default().checked_add(amount)?) },
-    // )?;
+
     let total_staked = TotalStakedStore::load(deps.storage);
     TotalStakedStore::save(
         deps.storage,
@@ -396,7 +374,7 @@ pub fn execute_update_active_threshold(
             }
             ActiveThreshold::AbsoluteCount { count } => {
                 let denom = DENOM.load(deps.storage)?;
-                let supply: Coin = deps.querier.query_supply(denom.to_string())?;
+                let supply: Coin = from_binary(&query_bank_supply_of(deps.as_ref(), denom)?)?;
                 assert_valid_absolute_count_threshold(count, supply.amount)?;
             }
         }
@@ -517,22 +495,7 @@ pub fn query_list_stakers(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    // let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    // let addr = maybe_addr(deps.api, start_after)?;
-    // let start = addr.as_ref().map(Bound::exclusive);
 
-    // let stakers = STAKED_BALANCES
-    //     .range(deps.storage, start, None, Order::Ascending)
-    //     .take(limit)
-    //     .map(|item| {
-    //         item.map(|(address, balance)| StakerBalanceResponse {
-    //             address: address.into_string(),
-    //             balance,
-    //         })
-    //     })
-    //     .collect::<StdResult<_>>()?;
-
-    // to_binary(&ListStakersResponse { stakers })
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let mut res: Vec<StakerBalanceResponse> = Vec::new();
 
@@ -559,7 +522,7 @@ pub fn query_list_stakers(
         }
     }
 
-    to_binary(&res)
+    to_binary(&ListStakersResponse { stakers: res })
 }
 
 pub fn query_is_active(deps: Deps) -> StdResult<Binary> {
@@ -594,15 +557,15 @@ pub fn query_is_active(deps: Deps) -> StdResult<Binary> {
                 // rounding is rounding down, so the whole thing can
                 // be safely unwrapped at the end of the day thank you
                 // for coming to my ted talk.
-                let total_potential_power: cosmwasm_std::SupplyResponse =
-                    deps.querier
-                        .query(&cosmwasm_std::QueryRequest::Bank(BankQuery::Supply {
-                            denom,
-                        }))?;
-                let total_power = total_potential_power
-                    .amount
-                    .amount
-                    .full_mul(PRECISION_FACTOR);
+
+                let total_potential_power: Coin = from_binary(&query_bank_supply_of(deps, denom)?)?;
+
+                // let total_potential_power: cosmwasm_std::SupplyResponse =
+                //     deps.querier
+                //         .query(&cosmwasm_std::QueryRequest::Bank(BankQuery::Supply {
+                //             denom,
+                //         }))?;
+                let total_power = total_potential_power.amount.full_mul(PRECISION_FACTOR);
                 // under the hood decimals are `atomics / 10^decimal_places`.
                 // cosmwasm doesn't give us a Decimal * Uint256
                 // implementation so we take the decimal apart and
@@ -636,7 +599,51 @@ pub fn query_hooks(deps: Deps) -> StdResult<GetHooksResponse> {
     })
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn make_stargate_query(
+    deps: Deps,
+    path: String,
+    encoded_query_data: Vec<u8>,
+) -> StdResult<String> {
+    let raw = to_vec::<QueryRequest<Empty>>(&QueryRequest::Stargate {
+        path,
+        data: encoded_query_data.into(),
+    })
+    .map_err(|serialize_err| {
+        StdError::generic_err(format!("Serializing QueryRequest: {}", serialize_err))
+    })?;
+    match deps.querier.raw_query(&raw) {
+        SystemResult::Err(system_err) => Err(StdError::generic_err(format!(
+            "Querier system error: {}",
+            system_err
+        ))),
+        SystemResult::Ok(ContractResult::Err(contract_err)) => Err(StdError::generic_err(format!(
+            "Querier contract error: {}",
+            contract_err
+        ))),
+        // response(value) is base64 encoded bytes
+        SystemResult::Ok(ContractResult::Ok(value)) => {
+            let str = value.to_base64();
+            deps.api
+                .debug(format!("WASMDEBUG: make_stargate_query: {:?}", str).as_str());
+            from_utf8(value.as_slice())
+                .map(|s| s.to_string())
+                .map_err(|_e| StdError::generic_err("Unable to encode from utf8"))
+        }
+    }
+}
+
+fn query_bank_supply_of(deps: Deps, denom: String) -> StdResult<Binary> {
+    let msg = bank::v1beta1::QuerySupplyOfRequest { denom };
+    let resp = make_stargate_query(
+        deps,
+        "/cosmos.bank.v1beta1.Query/SupplyOf".to_string(),  
+        Message::encode_to_vec(&msg),
+    )?;
+
+    Ok(to_binary(&resp)?)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]                                                                                                                                                                                                      
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
     let storage_version: ContractVersion = get_contract_version(deps.storage)?;
 
@@ -670,7 +677,11 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                             let dao = DAO.load(deps.storage)?;
 
                             // Format the denom and save it
-                            let denom = format!("factory/{}/{}", &data.contact_address.clone(), token.subdenom);
+                            let denom = format!(
+                                "factory/{}/{}",
+                                &data.contact_address.clone(),
+                                token.subdenom
+                            );
 
                             DENOM.save(deps.storage, &denom)?;
 
@@ -815,7 +826,10 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
 
                             Ok(Response::new()
                                 .add_attribute("denom", denom)
-                                .add_attribute("token_contract", data.contact_address.clone().to_string())
+                                .add_attribute(
+                                    "token_contract",
+                                    data.contact_address.clone().to_string(),
+                                )
                                 .add_messages(msgs)
                                 .set_data(callback))
                         }

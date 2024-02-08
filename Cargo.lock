@@ -393,6 +393,9 @@ name = "bytes"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "cast"
@@ -485,7 +488,18 @@ checksum = "20b42021d8488665b1a0d9748f1f81df7235362d194f44481e2e61bf376b77b4"
 dependencies = [
  "prost 0.11.9",
  "prost-types 0.11.9",
- "tendermint-proto",
+ "tendermint-proto 0.23.9",
+]
+
+[[package]]
+name = "cosmos-sdk-proto"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32560304ab4c365791fd307282f76637213d8083c1a98490c35159cd67852237"
+dependencies = [
+ "prost 0.12.3",
+ "prost-types 0.12.3",
+ "tendermint-proto 0.34.0",
 ]
 
 [[package]]
@@ -495,7 +509,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3903590099dcf1ea580d9353034c9ba1dbf55d1389a5bd2ade98535c3445d1f9"
 dependencies = [
  "bip32",
- "cosmos-sdk-proto",
+ "cosmos-sdk-proto 0.14.0",
  "ecdsa 0.14.8",
  "eyre",
  "getrandom",
@@ -1770,25 +1784,17 @@ version = "2.4.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema 1.1.11",
- "cw-core",
  "cw-denom",
  "cw-hooks",
- "cw-proposal-single",
- "cw-utils 0.13.4",
  "cw3 1.1.2",
  "cw4",
  "cw4-group",
- "cw721-base 0.18.0",
  "dao-dao-core",
  "dao-dao-macros",
  "dao-hooks",
  "dao-interface",
  "dao-pre-propose-base",
- "dao-pre-propose-single",
- "dao-testing",
- "dao-voting 0.1.0",
  "dao-voting 2.4.0",
- "dao-voting-cw20-balance",
  "dao-voting-cw4",
  "dao-voting-snip20-staked",
  "dao-voting-snip721-staked",
@@ -2042,6 +2048,7 @@ name = "dao-voting-token-staked"
 version = "2.4.0"
 dependencies = [
  "anyhow",
+ "cosmos-sdk-proto 0.20.0",
  "cosmwasm-schema 1.1.11",
  "cw-hooks",
  "cw-ownable 0.5.1",
@@ -2057,6 +2064,7 @@ dependencies = [
  "dao-voting 2.4.0",
  "osmosis-std 0.21.0",
  "osmosis-test-tube",
+ "prost 0.12.3",
  "secret-cosmwasm-std",
  "secret-cosmwasm-storage",
  "secret-cw-controllers",
@@ -4526,7 +4534,7 @@ dependencies = [
  "signature 1.6.4",
  "subtle",
  "subtle-encoding",
- "tendermint-proto",
+ "tendermint-proto 0.23.9",
  "time",
  "zeroize",
 ]
@@ -4564,6 +4572,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "tendermint-proto"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cc728a4f9e891d71adf66af6ecaece146f9c7a11312288a3107b3e1d6979aaf"
+dependencies = [
+ "bytes",
+ "flex-error",
+ "num-derive",
+ "num-traits",
+ "prost 0.12.3",
+ "prost-types 0.12.3",
+ "serde",
+ "serde_bytes",
+ "subtle-encoding",
+ "time",
+]
+
+[[package]]
 name = "tendermint-rpc"
 version = "0.23.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4586,7 +4612,7 @@ dependencies = [
  "subtle-encoding",
  "tendermint",
  "tendermint-config",
- "tendermint-proto",
+ "tendermint-proto 0.23.9",
  "thiserror",
  "time",
  "tokio",

@@ -1,6 +1,6 @@
 use crate::msg::{
     ExecuteMsg, InfoResponse, InstantiateMsg, PendingRewardsResponse, QueryMsg,
-    ReceiveMsg,
+    ReceiveMsg,MigrateMsg
 };
 use crate::state::{
     Config, Denom, RewardConfig, CONFIG, LAST_UPDATE_BLOCK, PENDING_REWARDS, REWARD_CONFIG,
@@ -23,7 +23,7 @@ use cosmwasm_std::{
     WasmMsg,
 };
 use dao_hooks::stake::StakeChangedHookMsg;
-use secret_cw2::set_contract_version;
+use secret_cw2::{set_contract_version,ContractVersion};
 use std::cmp::min;
 use std::convert::TryInto;
 
@@ -102,41 +102,18 @@ pub fn instantiate(
     .add_submessage(submsg).set_data(to_binary(&env.contract.code_hash)?))
 }
 
-// #[cfg_attr(not(feature = "library"), entry_point)]
-// pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
-//     use cw20_stake_external_rewards_v1 as v1;
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let storage_version: ContractVersion = get_contract_version(deps.storage)?;
 
-//     let ContractVersion { version, .. } = get_contract_version(deps.storage)?;
-//     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    // Only migrate if newer
+    if storage_version.version.as_str() < CONTRACT_VERSION {
+        // Set contract to version to latest
+        set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
 
-//     match msg {
-//         MigrateMsg::FromV1 {} => {
-//             if version == CONTRACT_VERSION {
-//                 // You can not possibly be migrating from v1 to v2 and
-//                 // also not changing your contract version.
-//                 return Err(ContractError::AlreadyMigrated {});
-//             }
-//             // From v1 -> v2 we moved `owner` out of config and into
-//             // the `cw_ownable` package.
-//             let config = v1::state::CONFIG.load(deps.storage)?;
-//             cw_ownable::initialize_owner(
-//                 deps.storage,
-//                 deps.api,
-//                 config.owner.map(|a| a.into_string()).as_deref(),
-//             )?;
-//             let config = Config {
-//                 staking_contract: config.staking_contract,
-//                 reward_token: match config.reward_token {
-//                     cw20_013::Denom::Native(n) => Denom::Native(n),
-//                     cw20_013::Denom::Snip20(a) => Denom::Snip20(a),
-//                 },
-//             };
-//             CONFIG.save(deps.storage, &config)?;
-
-//             Ok(Response::default())
-//         }
-//     }
-// }
+    Ok(Response::new().add_attribute("action", "migrate"))
+}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(

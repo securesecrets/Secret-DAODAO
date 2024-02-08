@@ -1,5 +1,5 @@
 use crate::math;
-use crate::msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, ReceiveMsg};
 use crate::msg::{
     GetHooksResponse, InstantiateAnswer, ListStakersResponse, QueryMsg, Snip20ReceiveMsg,
     StakedBalanceAtHeightResponse, StakedValueResponse, StakerBalanceResponse,
@@ -16,7 +16,7 @@ use cosmwasm_std::{
 };
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_voting::duration::validate_duration;
-use secret_cw2::set_contract_version;
+use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use snip20_reference_impl::msg::CreateViewingKeyResponse;
 use snip20_reference_impl::msg::ExecuteMsg::Transfer;
 
@@ -527,35 +527,15 @@ fn authenticate(deps: Deps, addr: Addr, key: String) -> StdResult<()> {
     ViewingKey::check(deps.storage, addr.as_ref(), &key)
 }
 
-// #[entry_point]
-// pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
-//     use cw20_stake_v1 as v1;
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let storage_version: ContractVersion = get_contract_version(deps.storage)?;
 
-//     let ContractVersion { version, .. } = get_contract_version(deps.storage)?;
-//     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-//     match msg {
-//         MigrateMsg::FromV1 {} => {
-//             if version == CONTRACT_VERSION {
-//                 // Migrating from a version to a new one implies that
-//                 // the new version must be different.
-//                 return Err(ContractError::AlreadyMigrated {});
-//             }
-//             let config = v1::state::CONFIG.load(deps.storage)?;
-//             cw_ownable::initialize_owner(
-//                 deps.storage,
-//                 deps.api,
-//                 config.owner.map(|a| a.into_string()).as_deref(),
-//             )?;
-//             let config = Config {
-//                 token_address: config.token_address,
-//                 unstaking_duration: config.unstaking_duration.map(|duration| match duration {
-//                     cw_utils_v1::Duration::Time(t) => Duration::Time(t),
-//                     cw_utils_v1::Duration::Height(h) => Duration::Height(h),
-//                 }),
-//             };
-//             CONFIG.save(deps.storage, &config)?;
+    // Only migrate if newer
+    if storage_version.version.as_str() < CONTRACT_VERSION {
+        // Set contract to version to latest
+        set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    }
 
-//             Ok(Response::default())
-//         }
-//     }
-// }
+    Ok(Response::new().add_attribute("action", "migrate"))
+}

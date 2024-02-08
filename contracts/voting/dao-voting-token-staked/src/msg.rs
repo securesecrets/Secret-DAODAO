@@ -65,7 +65,7 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     #[returns(crate::state::Config)]
     GetConfig {},
-    #[returns(cw_controllers::ClaimsResponse)]
+    #[returns(secret_cw_controllers::ClaimsResponse)]
     Claims { address: String },
     #[returns(ListStakersResponse)]
     ListStakers {
