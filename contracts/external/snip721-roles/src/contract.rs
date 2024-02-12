@@ -233,6 +233,7 @@ pub fn execute_mint(
     let snip721_info = SNIP721_INFO.load(deps.storage)?;
     let mut total = Uint64::from(TotalStore::load(deps.storage));
     let mut diff = MemberDiff::new(owner.clone().unwrap(), None, None);
+    let _ = diff; // reading the value in diff so we don't get warning
     let old = MembersStore::load(
         deps.storage,
         deps.api.addr_validate(&owner.clone().unwrap())?,
@@ -344,6 +345,7 @@ pub fn execute_burn(
 
     let mut total = Uint64::from(TotalStore::load(deps.storage));
     let mut diff = MemberDiff::new(owner.owner.clone(), None, None);
+    let _ = diff; // reading the value in diff so we don't get warning
 
     // Update member weights and total
     let owner_addr = owner.owner;

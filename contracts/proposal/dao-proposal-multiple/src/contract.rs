@@ -892,7 +892,7 @@ pub fn query_reverse_proposals(
 ) -> StdResult<Binary> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT);
     let max = start_before.map(Bound::exclusive);
-    let props: Vec<ProposalResponse> = PROPOSALS
+    let props: Vec<ProposalResponse> = PROPOSALS.
         .range(deps.storage, None, max, cosmwasm_std::Order::Descending)
         .take(limit as usize)
         .collect::<Result<Vec<(u64, MultipleChoiceProposal)>, _>>()?

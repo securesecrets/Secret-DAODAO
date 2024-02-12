@@ -16,6 +16,8 @@ secret-toolkit = { workspace = true }
 cw-hooks = { workspace = true }
 secret-utils = { workspace = true }
 osmosis-std = { workspace = true }
+serde ={ workspace = true }
+schemars = {workspace = true}
 
 [dev-dependencies]
 cosmwasm-schema = { workspace = true }

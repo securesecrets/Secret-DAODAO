@@ -1573,11 +1573,7 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-core",
- "cw-multi-test",
  "cw-paginate-storage 2.4.0",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
  "cw721 0.18.0",
@@ -1586,7 +1582,16 @@ dependencies = [
  "dao-interface",
  "dao-proposal-sudo",
  "dao-voting-cw20-balance",
+ "schemars",
  "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit",
+ "secret-utils",
+ "serde",
+ "snip20-reference-impl",
+ "snip721-reference-impl",
  "thiserror",
 ]
 
@@ -1623,10 +1628,12 @@ dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-hooks",
  "osmosis-std 0.21.0",
+ "schemars",
  "secret-cosmwasm-std",
  "secret-cw2",
  "secret-toolkit",
  "secret-utils",
+ "serde",
 ]
 
 [[package]]
@@ -1748,10 +1755,6 @@ dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-denom",
  "cw-hooks",
- "cw-multi-test",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
  "cw3 1.1.2",
@@ -1774,6 +1777,10 @@ dependencies = [
  "rand",
  "secret-cosmwasm-std",
  "secret-cosmwasm-storage",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-utils",
  "snip20-stake",
  "thiserror",
 ]

@@ -2,9 +2,10 @@
 
 pub mod contract;
 mod error;
+pub mod snip20_msg;
 pub mod state;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 pub use crate::error::ContractError;

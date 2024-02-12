@@ -1,5 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, WasmMsg};
+use secret_toolkit::utils::InitCallback;
 
 /// Top level config type for core module.
 #[cw_serde]
@@ -12,10 +13,10 @@ pub struct Config {
     pub image_url: Option<String>,
     /// If true the contract will automatically add received cw20
     /// tokens to its treasury.
-    pub automatically_add_cw20s: bool,
+    pub automatically_add_snip20s: bool,
     /// If true the contract will automatically add received cw721
     /// tokens to its treasury.
-    pub automatically_add_cw721s: bool,
+    pub automatically_add_snip721s: bool,
     /// The URI for the DAO as defined by the DAOstar standard
     /// <https://daostar.one/EIP>
     pub dao_uri: Option<String>,
@@ -31,6 +32,12 @@ pub struct ProposalModule {
     pub prefix: String,
     /// The status of the proposal module, e.g. 'Enabled' or 'Disabled.'
     pub status: ProposalModuleStatus,
+}
+
+#[cw_serde]
+pub struct VotingModuleInfo{
+    pub addr: Addr,
+    pub code_hash: String,
 }
 
 /// The status of a proposal module.
@@ -66,6 +73,10 @@ pub struct ModuleInstantiateInfo {
     pub funds: Vec<Coin>,
     /// Label for the instantiated contract.
     pub label: String,
+}
+
+impl InitCallback for ModuleInstantiateInfo{
+    const BLOCK_SIZE: usize=256;
 }
 
 impl ModuleInstantiateInfo {

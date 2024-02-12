@@ -2,8 +2,8 @@ use crate::proposal::MultipleChoiceProposal;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
 use cw_hooks::Hooks;
-use cw_storage_plus::{Item, Map};
-use cw_utils::Duration;
+use secret_storage_plus::{Item, Map};
+use secret_utils::Duration;
 use dao_voting::{
     multiple_choice::{MultipleChoiceVote, VotingStrategy},
     pre_propose::ProposalCreationPolicy,

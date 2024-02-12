@@ -16,7 +16,7 @@ use secret_toolkit::{
     viewing_key::{ViewingKey, ViewingKeyStore},
 };
 
-use crate::inventory::{Inventory, InventoryIter};
+use crate::{inventory::{Inventory, InventoryIter}, msg::ContractInfo};
 use crate::mint_run::{SerialNumber, StoredMintRunInfo};
 use crate::msg::{
     AccessLevel, BatchNftDossierElement, Burn, ContractStatus, Cw721Approval, Cw721OwnerOfResponse,
@@ -1964,7 +1964,7 @@ pub fn query_contract_creator(deps: Deps) -> StdResult<Binary> {
 pub fn query_contract_info(storage: &dyn Storage) -> StdResult<Binary> {
     let config: Config = load(storage, CONFIG_KEY)?;
 
-    to_binary(&QueryAnswer::ContractInfo {
+    to_binary(&ContractInfo {
         name: config.name,
         symbol: config.symbol,
     })
@@ -4104,6 +4104,7 @@ pub struct CacheReceiverInfo {
 #[allow(clippy::too_many_arguments)]
 fn receiver_callback_msgs(
     deps: &mut DepsMut,
+    env: Env,
     contract_human: &str,
     contract: &CanonicalAddr,
     receiver_info: Option<ReceiverInfo>,
@@ -4145,6 +4146,7 @@ fn receiver_callback_msgs(
         if impl_batch {
             callbacks.push(batch_receive_nft_msg(
                 sender.clone(),
+                env.contract.code_hash.clone(),
                 deps.api.addr_humanize(&send_from.owner)?,
                 send_from.token_ids,
                 msg.clone(),
@@ -4156,6 +4158,7 @@ fn receiver_callback_msgs(
             for token_id in send_from.token_ids.into_iter() {
                 callbacks.push(receive_nft_msg(
                     deps.api.addr_humanize(&send_from.owner)?,
+                    env.contract.code_hash.clone(),
                     token_id,
                     msg.clone(),
                     code_hash.clone(),
@@ -4405,6 +4408,7 @@ fn send_list(
             // get BatchReceiveNft and ReceiveNft msgs for all the tokens sent in this Send
             messages.extend(receiver_callback_msgs(
                 &mut deps,
+                env.clone(),
                 &send.contract,
                 &contract_raw,
                 send.receiver_info,

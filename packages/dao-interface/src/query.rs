@@ -3,7 +3,7 @@ use cosmwasm_std::{Addr, Uint128};
 use secret_cw2::ContractVersion;
 use secret_utils::Expiration;
 
-use crate::state::{Config, ProposalModule};
+use crate::state::{Config, ProposalModule,VotingModuleInfo};
 
 /// Relevant state for the governance module. Returned by the
 /// `DumpState` query.
@@ -21,7 +21,7 @@ pub struct DumpStateResponse {
     /// contract.
     pub proposal_modules: Vec<ProposalModule>,
     /// The voting module associated with the governance contract.
-    pub voting_module: Addr,
+    pub voting_module: VotingModuleInfo,
     /// The number of active proposal modules.
     pub active_proposal_module_count: u32,
     /// The total number of proposal modules.
@@ -35,6 +35,7 @@ pub enum PauseInfoResponse {
     Unpaused {},
 }
 
+
 /// Returned by the `GetItem` query.
 #[cw_serde]
 pub struct GetItemResponse {
@@ -45,9 +46,9 @@ pub struct GetItemResponse {
 
 /// Returned by the `Cw20Balances` query.
 #[cw_serde]
-pub struct Cw20BalanceResponse {
+pub struct Snip20BalanceResponse {
     /// The address of the token.
-    pub addr: Addr,
+    pub addr: String,
     /// The contract's balance.
     pub balance: Uint128,
 }

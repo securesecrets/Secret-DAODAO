@@ -908,6 +908,12 @@ pub struct OwnerOf {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct ContractInfo {
+    pub name: String,
+    pub symbol: String,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
     ContractInfo {

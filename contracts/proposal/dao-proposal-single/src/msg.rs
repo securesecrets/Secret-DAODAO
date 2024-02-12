@@ -44,6 +44,8 @@ pub struct InstantiateMsg {
     /// During this period an oversight account (`veto.vetoer`) can
     /// veto the proposal.
     pub veto: Option<VetoConfig>,
+
+    pub dao_code_hash: String,
 }
 
 #[cw_serde]
@@ -62,87 +64,88 @@ pub enum ExecuteMsg {
         /// the vote.
         rationale: Option<String>,
     },
-    // /// Updates the sender's rationale for their vote on the specified
-    // /// proposal. Errors if no vote vote has been cast.
-    // UpdateRationale {
-    //     proposal_id: u64,
-    //     rationale: Option<String>,
-    // },
-    // /// Causes the messages associated with a passed proposal to be
-    // /// executed by the DAO.
-    // Execute {
-    //     /// The ID of the proposal to execute.
-    //     proposal_id: u64,
-    // },
-    // /// Callable only if veto is configured
-    // Veto {
-    //     /// The ID of the proposal to veto.
-    //     proposal_id: u64,
-    // },
-    // /// Closes a proposal that has failed (either not passed or timed
-    // /// out). If applicable this will cause the proposal deposit
-    // /// associated wth said proposal to be returned.
-    // Close {
-    //     /// The ID of the proposal to close.
-    //     proposal_id: u64,
-    // },
-    // /// Updates the governance module's config.
-    // UpdateConfig {
-    //     /// The new proposal passing threshold. This will only apply
-    //     /// to proposals created after the config update.
-    //     threshold: Threshold,
-    //     /// The default maximum amount of time a proposal may be voted
-    //     /// on before expiring. This will only apply to proposals
-    //     /// created after the config update.
-    //     max_voting_period: Duration,
-    //     /// The minimum amount of time a proposal must be open before
-    //     /// passing. A proposal may fail before this amount of time has
-    //     /// elapsed, but it will not pass. This can be useful for
-    //     /// preventing governance attacks wherein an attacker aquires a
-    //     /// large number of tokens and forces a proposal through.
-    //     min_voting_period: Option<Duration>,
-    //     /// If set to true only members may execute passed
-    //     /// proposals. Otherwise, any address may execute a passed
-    //     /// proposal. Applies to all outstanding and future proposals.
-    //     only_members_execute: bool,
-    //     /// Allows changing votes before the proposal expires. If this is
-    //     /// enabled proposals will not be able to complete early as final
-    //     /// vote information is not known until the time of proposal
-    //     /// expiration.
-    //     allow_revoting: bool,
-    //     /// The address if tge DAO that this governance module is
-    //     /// associated with.
-    //     dao: String,
-    //     /// If set to true proposals will be closed if their execution
-    //     /// fails. Otherwise, proposals will remain open after execution
-    //     /// failure. For example, with this enabled a proposal to send 5
-    //     /// tokens out of a DAO's treasury with 4 tokens would be closed when
-    //     /// it is executed. With this disabled, that same proposal would
-    //     /// remain open until the DAO's treasury was large enough for it to be
-    //     /// executed.
-    //     close_proposal_on_execution_failure: bool,
-    //     /// Optional time delay on proposal execution, during which the
-    //     /// proposal may be vetoed.
-    //     veto: Option<VetoConfig>,
-    // },
-    // /// Update's the proposal creation policy used for this
-    // /// module. Only the DAO may call this method.
-    // UpdatePreProposeInfo { info: PreProposeInfo },
-    // /// Adds an address as a consumer of proposal hooks. Consumers of
-    // /// proposal hooks have hook messages executed on them whenever
-    // /// the status of a proposal changes or a proposal is created. If
-    // /// a consumer contract errors when handling a hook message it
-    // /// will be removed from the list of consumers.
-    // AddProposalHook { address: String },
-    // /// Removes a consumer of proposal hooks.
-    // RemoveProposalHook { address: String },
-    // /// Adds an address as a consumer of vote hooks. Consumers of vote
-    // /// hooks have hook messages executed on them whenever the a vote
-    // /// is cast. If a consumer contract errors when handling a hook
-    // /// message it will be removed from the list of consumers.
-    // AddVoteHook { address: String },
-    // /// Removed a consumer of vote hooks.
-    // RemoveVoteHook { address: String },
+    /// Updates the sender's rationale for their vote on the specified
+    /// proposal. Errors if no vote vote has been cast.
+    UpdateRationale {
+        proposal_id: u64,
+        rationale: Option<String>,
+    },
+    /// Causes the messages associated with a passed proposal to be
+    /// executed by the DAO.
+    Execute {
+        /// The ID of the proposal to execute.
+        proposal_id: u64,
+    },
+    /// Callable only if veto is configured
+    Veto {
+        /// The ID of the proposal to veto.
+        proposal_id: u64,
+    },
+    /// Closes a proposal that has failed (either not passed or timed
+    /// out). If applicable this will cause the proposal deposit
+    /// associated wth said proposal to be returned.
+    Close {
+        /// The ID of the proposal to close.
+        proposal_id: u64,
+    },
+    /// Updates the governance module's config.
+    UpdateConfig {
+        /// The new proposal passing threshold. This will only apply
+        /// to proposals created after the config update.
+        threshold: Threshold,
+        /// The default maximum amount of time a proposal may be voted
+        /// on before expiring. This will only apply to proposals
+        /// created after the config update.
+        max_voting_period: Duration,
+        /// The minimum amount of time a proposal must be open before
+        /// passing. A proposal may fail before this amount of time has
+        /// elapsed, but it will not pass. This can be useful for
+        /// preventing governance attacks wherein an attacker aquires a
+        /// large number of tokens and forces a proposal through.
+        min_voting_period: Option<Duration>,
+        /// If set to true only members may execute passed
+        /// proposals. Otherwise, any address may execute a passed
+        /// proposal. Applies to all outstanding and future proposals.
+        only_members_execute: bool,
+        /// Allows changing votes before the proposal expires. If this is
+        /// enabled proposals will not be able to complete early as final
+        /// vote information is not known until the time of proposal
+        /// expiration.
+        allow_revoting: bool,
+        /// The address if tge DAO that this governance module is
+        /// associated with.
+        dao: String,
+        code_hash: String,
+        /// If set to true proposals will be closed if their execution
+        /// fails. Otherwise, proposals will remain open after execution
+        /// failure. For example, with this enabled a proposal to send 5
+        /// tokens out of a DAO's treasury with 4 tokens would be closed when
+        /// it is executed. With this disabled, that same proposal would
+        /// remain open until the DAO's treasury was large enough for it to be
+        /// executed.
+        close_proposal_on_execution_failure: bool,
+        /// Optional time delay on proposal execution, during which the
+        /// proposal may be vetoed.
+        veto: Option<VetoConfig>,
+    },
+    /// Update's the proposal creation policy used for this
+    /// module. Only the DAO may call this method.
+    UpdatePreProposeInfo { info: PreProposeInfo },
+    /// Adds an address as a consumer of proposal hooks. Consumers of
+    /// proposal hooks have hook messages executed on them whenever
+    /// the status of a proposal changes or a proposal is created. If
+    /// a consumer contract errors when handling a hook message it
+    /// will be removed from the list of consumers.
+    AddProposalHook { address: String },
+    /// Removes a consumer of proposal hooks.
+    RemoveProposalHook { address: String },
+    /// Adds an address as a consumer of vote hooks. Consumers of vote
+    /// hooks have hook messages executed on them whenever the a vote
+    /// is cast. If a consumer contract errors when handling a hook
+    /// message it will be removed from the list of consumers.
+    AddVoteHook { address: String },
+    /// Removed a consumer of vote hooks.
+    RemoveVoteHook { address: String },
 }
 
 #[proposal_module_query]

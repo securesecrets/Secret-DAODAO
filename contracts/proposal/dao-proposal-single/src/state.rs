@@ -51,6 +51,8 @@ pub struct Config {
     /// The address of the DAO that this governance module is
     /// associated with.
     pub dao: Addr,
+    /// The DAO code hash
+    pub code_hash: String,
     /// If set to true proposals will be closed if their execution
     /// fails. Otherwise, proposals will remain open after execution
     /// failure. For example, with this enabled a proposal to send 5
@@ -69,8 +71,8 @@ pub struct Config {
 pub const CONFIG: Item<Config> = Item::new("config_v2");
 /// The number of proposals that have been created.
 pub const PROPOSAL_COUNT: Item<u64> = Item::new("proposal_count");
-pub const PROPOSALS: Keymap<u64, SingleChoiceProposal> = Keymap::new(b"proposals_v2");
-pub const BALLOTS: Keymap<(u64, Addr), Ballot> = Keymap::new(b"ballots");
+pub static  PROPOSALS: Keymap<u64, SingleChoiceProposal> = Keymap::new(b"proposals_v2");
+pub static  BALLOTS: Keymap<(u64, Addr), Ballot> = Keymap::new(b"ballots");
 /// Consumers of proposal state change hooks.
 pub const PROPOSAL_HOOKS: Hooks = Hooks::new("proposal_hooks");
 /// Consumers of vote hooks.
