@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Binary, Uint128};
 use dao_dao_macros::{active_query, native_token_query, voting_module_query};
-use dao_interface::token::NewTokenInfo;
+// use dao_interface::token::NewTokenInfo;
 use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
 use secret_utils::Duration;
 
@@ -14,9 +14,10 @@ pub enum TokenInfo {
         /// Token factory denom
         denom: String,
     },
+    /// NOTE* There is right now no way to create new token so will be using existing token
     /// Creates a new Token Factory token via the issue contract with the DAO automatically
     /// setup as admin and owner.
-    New(NewTokenInfo),
+    // New(NewTokenInfo),
     /// Uses a factory contract that must return the denom, optionally a Token Contract address.
     /// The binary must serialize to a `WasmMsg::Execute` message.
     /// Validation happens in the factory contract itself, so be sure to use a

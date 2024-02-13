@@ -7,26 +7,30 @@ use secret_toolkit::utils::InitCallback;
 
 /// The message used to create a new instance of this smart contract.
 #[cw_serde]
-pub enum InstantiateMsg {
+pub struct InstantiateMsg {
     /// `NewToken` will create a new token when instantiate the contract.
     /// Newly created token will have full denom as `factory/<contract_address>/<subdenom>`.
     /// It will be attached to the contract setup the beforesend listener automatically.
-    NewToken {
-        /// component of fulldenom (`factory/<contract_address>/<subdenom>`).
-        subdenom: String,
-    },
+
+    /// NOTE* ============ The new token functionality is not suported right now in Secret Network
+
+    // NewToken {
+    //     /// component of fulldenom (`factory/<contract_address>/<subdenom>`).
+    //     subdenom: String,
+    // },
+
     /// `ExistingToken` will use already created token. So to set this up,
     /// Token Factory admin for the existing token needs trasfer admin over
     /// to this contract, and optionally set the `BeforeSendHook` manually.
-    ExistingToken { denom: String },
+    pub denom: String,
 }
 
-impl InitCallback for InstantiateMsg{
-    const BLOCK_SIZE: usize=264;
+impl InitCallback for InstantiateMsg {
+    const BLOCK_SIZE: usize = 264;
 }
 
 #[cw_serde]
-pub struct InstantiateResponse{
+pub struct InstantiateResponse {
     pub contact_address: Addr,
     pub code_hash: String,
 }
