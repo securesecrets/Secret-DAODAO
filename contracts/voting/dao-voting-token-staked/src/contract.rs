@@ -1,11 +1,9 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
-use std::str::from_utf8;
-
 use cosmos_sdk_proto::cosmos::bank;
 use cosmwasm_std::{
-    coins, from_binary, to_binary, to_vec, BankMsg, Binary, Coin, ContractResult, CosmosMsg, Deps,
+    coins, from_binary, to_binary, to_vec, BankMsg, Binary, ContractResult, CosmosMsg, Deps,
     DepsMut, Empty, Env, MessageInfo, QueryRequest, Reply, Response, StdError, StdResult, SubMsg,
     SystemResult, Uint128, Uint256, WasmMsg,
 };
@@ -90,8 +88,10 @@ pub fn instantiate(
         TokenInfo::Existing { denom } => {
             // Validate active threshold absolute count if configured
             if let Some(ActiveThreshold::AbsoluteCount { count }) = msg.active_threshold {
-                let supply: Coin = from_binary(&query_bank_supply_of(deps.as_ref(), denom.clone())?)?;
-                assert_valid_absolute_count_threshold(count, supply.amount)?;
+                let supply = query_bank_supply_of(deps.as_ref(), denom.clone())?;
+                let parsed_supply: Result<u128, _> = supply.amount.unwrap().amount.parse();
+
+                assert_valid_absolute_count_threshold(count, parsed_supply.unwrap().into())?;
             }
 
             DENOM.save(deps.storage, &denom)?;
@@ -374,8 +374,11 @@ pub fn execute_update_active_threshold(
             }
             ActiveThreshold::AbsoluteCount { count } => {
                 let denom = DENOM.load(deps.storage)?;
-                let supply: Coin = from_binary(&query_bank_supply_of(deps.as_ref(), denom)?)?;
-                assert_valid_absolute_count_threshold(count, supply.amount)?;
+
+                let supply = query_bank_supply_of(deps.as_ref(), denom.clone())?;
+                let parsed_supply: Result<u128, _> = supply.amount.unwrap().amount.parse();
+
+                assert_valid_absolute_count_threshold(count, parsed_supply.unwrap().into())?;
             }
         }
         ACTIVE_THRESHOLD.save(deps.storage, &active_threshold)?;
@@ -495,7 +498,6 @@ pub fn query_list_stakers(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let mut res: Vec<StakerBalanceResponse> = Vec::new();
 
@@ -558,14 +560,18 @@ pub fn query_is_active(deps: Deps) -> StdResult<Binary> {
                 // be safely unwrapped at the end of the day thank you
                 // for coming to my ted talk.
 
-                let total_potential_power: Coin = from_binary(&query_bank_supply_of(deps, denom)?)?;
+                let total_potential_power = query_bank_supply_of(deps, denom)?;
+                let total_potential_power_u128: Result<u128, _> =
+                    total_potential_power.amount.unwrap().amount.parse();
+                let total_potential_power_uint128: Uint128 =
+                    total_potential_power_u128.unwrap().into();
 
                 // let total_potential_power: cosmwasm_std::SupplyResponse =
                 //     deps.querier
                 //         .query(&cosmwasm_std::QueryRequest::Bank(BankQuery::Supply {
                 //             denom,
                 //         }))?;
-                let total_power = total_potential_power.amount.full_mul(PRECISION_FACTOR);
+                let total_power = total_potential_power_uint128.full_mul(PRECISION_FACTOR);
                 // under the hood decimals are `atomics / 10^decimal_places`.
                 // cosmwasm doesn't give us a Decimal * Uint256
                 // implementation so we take the decimal apart and
@@ -603,7 +609,7 @@ pub fn make_stargate_query(
     deps: Deps,
     path: String,
     encoded_query_data: Vec<u8>,
-) -> StdResult<String> {
+) -> StdResult<bank::v1beta1::QuerySupplyOfResponse> {
     let raw = to_vec::<QueryRequest<Empty>>(&QueryRequest::Stargate {
         path,
         data: encoded_query_data.into(),
@@ -625,25 +631,32 @@ pub fn make_stargate_query(
             let str = value.to_base64();
             deps.api
                 .debug(format!("WASMDEBUG: make_stargate_query: {:?}", str).as_str());
-            from_utf8(value.as_slice())
-                .map(|s| s.to_string())
-                .map_err(|_e| StdError::generic_err("Unable to encode from utf8"))
+            // from_utf8(value.as_slice())
+            //     .map(|s| s.to_string())
+            //     .map_err(|_e| StdError::generic_err("Unable to encode from utf8"))
+            let res =
+                bank::v1beta1::QuerySupplyOfResponse::decode(&value[..]).map_err(|decode_err| {
+                    StdError::generic_err(format!("Decode error: {:?}", decode_err))
+                })?;
+            Ok(res)
         }
     }
 }
 
-fn query_bank_supply_of(deps: Deps, denom: String) -> StdResult<Binary> {
+fn query_bank_supply_of(
+    deps: Deps,
+    denom: String,
+) -> StdResult<bank::v1beta1::QuerySupplyOfResponse> {
     let msg = bank::v1beta1::QuerySupplyOfRequest { denom };
     let resp = make_stargate_query(
         deps,
-        "/cosmos.bank.v1beta1.Query/SupplyOf".to_string(),  
+        "/cosmos.bank.v1beta1.Query/SupplyOf".to_string(),
         Message::encode_to_vec(&msg),
-    )?;
-
-    Ok(to_binary(&resp)?)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+    );
+    resp
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]                                                                                                                                                                                                      
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
     let storage_version: ContractVersion = get_contract_version(deps.storage)?;
 

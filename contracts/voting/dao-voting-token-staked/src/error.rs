@@ -47,6 +47,9 @@ pub enum ContractError {
     #[error("Got a submessage reply with unknown id: {id}")]
     UnknownReplyId { id: u64 },
 
+    #[error("Got supply : {supply}")]
+    InvalidTokenSupply { supply: String },
+
     #[error("Factory message must serialize to WasmMsg::Execute")]
     UnsupportedFactoryMsg {},
 
