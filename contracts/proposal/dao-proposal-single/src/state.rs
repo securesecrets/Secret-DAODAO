@@ -3,12 +3,11 @@ use cw_hooks::Hooks;
 use dao_voting::{
     pre_propose::ProposalCreationPolicy, threshold::Threshold, veto::VetoConfig, voting::Vote,
 };
+use schemars::JsonSchema;
 use secret_storage_plus::Item;
-use secret_toolkit::storage::Keymap;
+use secret_toolkit::{serialization::Json, storage::Keymap};
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
-
 
 use crate::proposal::SingleChoiceProposal;
 
@@ -75,8 +74,8 @@ pub struct Config {
 pub const CONFIG: Item<Config> = Item::new("config_v2");
 /// The number of proposals that have been created.
 pub const PROPOSAL_COUNT: Item<u64> = Item::new("proposal_count");
-pub static  PROPOSALS: Keymap<u64, SingleChoiceProposal> = Keymap::new(b"proposals_v2");
-pub static  BALLOTS: Keymap<(u64, Addr), Ballot> = Keymap::new(b"ballots");
+pub static PROPOSALS: Keymap<u64, SingleChoiceProposal, Json> = Keymap::new(b"proposals_v2");
+pub static BALLOTS: Keymap<(u64, Addr), Ballot, Json> = Keymap::new(b"ballots");
 /// Consumers of proposal state change hooks.
 pub const PROPOSAL_HOOKS: Hooks = Hooks::new("proposal_hooks");
 /// Consumers of vote hooks.
@@ -84,21 +83,3 @@ pub const VOTE_HOOKS: Hooks = Hooks::new("vote_hooks");
 /// The address of the pre-propose module associated with this
 /// proposal module (if any).
 pub const CREATION_POLICY: Item<ProposalCreationPolicy> = Item::new("creation_policy");
-
-
-pub const TEST: Keymap<u64,Test>=Keymap::new(b"test");
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
-pub struct Test {
-    /// The threshold a proposal must reach to complete.
-    pub threshold: TestEnum,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
-pub enum TestEnum {
-    A,
-    B,
-    C
-}

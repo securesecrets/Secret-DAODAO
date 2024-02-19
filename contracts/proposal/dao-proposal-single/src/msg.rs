@@ -1,12 +1,12 @@
-use cosmwasm_schema:: QueryResponses;
+use cosmwasm_schema::QueryResponses;
 use dao_dao_macros::proposal_module_query;
 use dao_voting::{
     pre_propose::PreProposeInfo, proposal::SingleChoiceProposeMsg, threshold::Threshold,
     veto::VetoConfig, voting::Vote,
 };
+use schemars::JsonSchema;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]

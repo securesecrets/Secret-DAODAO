@@ -1,8 +1,8 @@
 use crate::proposal::SingleChoiceProposal;
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 use cosmwasm_std::{Addr, Uint128};
 use dao_voting::voting::Vote;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// Information about a proposal returned by proposal queries.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

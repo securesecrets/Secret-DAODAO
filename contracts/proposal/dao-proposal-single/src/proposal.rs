@@ -1,6 +1,3 @@
-use std::ops::Add;
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 use crate::query::ProposalResponse;
 use crate::state::PROPOSAL_COUNT;
 use cosmwasm_std::{Addr, BlockInfo, CosmosMsg, Decimal, Empty, StdResult, Storage, Uint128};
@@ -8,8 +5,10 @@ use dao_voting::status::Status;
 use dao_voting::threshold::{PercentageThreshold, Threshold};
 use dao_voting::veto::VetoConfig;
 use dao_voting::voting::{does_vote_count_fail, does_vote_count_pass, Votes};
+use schemars::JsonSchema;
 use secret_utils::Expiration;
-
+use serde::{Deserialize, Serialize};
+use std::ops::Add;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
