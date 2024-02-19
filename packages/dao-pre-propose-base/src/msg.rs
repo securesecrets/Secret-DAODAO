@@ -1,11 +1,13 @@
-use cosmwasm_schema::{cw_serde, schemars::JsonSchema, QueryResponses};
+use cosmwasm_schema::{schemars::JsonSchema, QueryResponses};
 use cw_denom::UncheckedDenom;
 use dao_voting::{
     deposit::{CheckedDepositInfo, UncheckedDepositInfo},
     status::Status,
 };
+use serde::{Deserialize, Serialize};
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct InstantiateMsg<InstantiateExt> {
     /// Information about the deposit requirements for this
     /// module. None if no deposit.
@@ -19,7 +21,8 @@ pub struct InstantiateMsg<InstantiateExt> {
     pub extension: InstantiateExt,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg<ProposalMessage, ExecuteExt> {
     /// Creates a new proposal in the pre-propose module. MSG will be
     /// serialized and used as the proposal creation message.
@@ -89,7 +92,8 @@ pub enum ExecuteMsg<ProposalMessage, ExecuteExt> {
     },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 #[derive(QueryResponses)]
 pub enum QueryMsg<QueryExt>
 where
@@ -119,7 +123,8 @@ where
     QueryExtension { msg: QueryExt },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct DepositInfoResponse {
     /// The deposit that has been paid for the specified proposal.
     pub deposit_info: Option<CheckedDepositInfo>,

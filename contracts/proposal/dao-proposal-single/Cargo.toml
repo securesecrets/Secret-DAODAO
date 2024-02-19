@@ -33,6 +33,8 @@ dao-interface = { workspace = true }
 dao-voting = { workspace = true }
 cw-hooks = { workspace = true }
 dao-hooks = { workspace = true }
+serde ={ workspace=true }
+schemars ={ workspace = true }
 
 # cw-utils-v1 = { workspace = true}
 # voting-v1 = { workspace = true }

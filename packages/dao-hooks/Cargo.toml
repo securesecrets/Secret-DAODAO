@@ -14,3 +14,6 @@ cw4 = { path="../cw4-1.1.2/"}
 cw-hooks = { workspace = true }
 dao-pre-propose-base = { workspace = true }
 dao-voting = { workspace = true }
+serde ={ workspace=true }
+schemars ={ workspace = true }
+

@@ -1,14 +1,15 @@
 use std::marker::PhantomData;
 
-use cosmwasm_schema::cw_serde;
 use cw_hooks::Hooks;
 use cosmwasm_std::Addr;
+use schemars::JsonSchema;
 use secret_storage_plus::{Item, Map};
 
 use dao_voting::deposit::CheckedDepositInfo;
+use serde::{Deserialize, Serialize};
 
-#[cw_serde]
-pub struct Config {
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]pub struct Config {
     /// Information about the deposit required to create a
     /// proposal. If `None`, no deposit is required.
     pub deposit_info: Option<CheckedDepositInfo>,

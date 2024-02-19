@@ -1,6 +1,7 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Deps, MessageInfo, StdError};
+use schemars::JsonSchema;
 use secret_utils::Duration;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -33,7 +34,8 @@ pub enum VetoError {
     Unauthorized {},
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct VetoConfig {
     /// The time duration to lock a proposal for after its expiration to allow
     /// the vetoer to veto.

@@ -1,12 +1,15 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema:: QueryResponses;
 use dao_dao_macros::proposal_module_query;
 use dao_voting::{
     pre_propose::PreProposeInfo, proposal::SingleChoiceProposeMsg, threshold::Threshold,
     veto::VetoConfig, voting::Vote,
 };
 use secret_utils::Duration;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct InstantiateMsg {
     /// The threshold a proposal must reach to complete.
     pub threshold: Threshold,
@@ -48,7 +51,8 @@ pub struct InstantiateMsg {
     pub dao_code_hash: String,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     /// Creates a proposal in the module.
     Propose(SingleChoiceProposeMsg),
@@ -149,7 +153,8 @@ pub enum ExecuteMsg {
 }
 
 #[proposal_module_query]
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Gets the proposal module's config.
@@ -214,7 +219,8 @@ pub enum QueryMsg {
     VoteHooks {},
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum MigrateMsg {
     FromV1 {
         /// This field was not present in DAO DAO v1. To migrate, a

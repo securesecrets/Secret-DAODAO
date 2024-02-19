@@ -1,4 +1,4 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema:: QueryResponses;
 use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Uint128};
 use schemars::JsonSchema;
 use secret_utils::Duration;
@@ -7,7 +7,8 @@ use crate::state::Config;
 use crate::{migrate_msg::MigrateParams, query::SubDao, state::ModuleInstantiateInfo};
 
 /// Information about an item to be stored in the items list.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct InitialItem {
     /// The name of the item.
     pub key: String,
@@ -15,7 +16,8 @@ pub struct InitialItem {
     pub value: String,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct InstantiateMsg {
     /// Optional Admin with the ability to execute DAO messages
     /// directly. Useful for building SubDAOs controlled by a parent
@@ -51,6 +53,8 @@ pub struct InstantiateMsg {
     pub initial_items: Option<Vec<InitialItem>>,
     /// Implements the DAO Star standard: <https://daostar.one/EIP>
     pub dao_uri: Option<String>,
+    pub snip20_code_hash: String,
+    pub snip721_code_hash: String,
 }
 
 
@@ -59,7 +63,6 @@ pub struct InstantiateMsg {
 #[serde(rename_all = "snake_case")]
 pub struct Snip20ReceiveMsg {
     pub sender: Addr,
-    pub code_hash: String,
     pub from: Addr,
     pub amount: Uint128,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -67,7 +70,8 @@ pub struct Snip20ReceiveMsg {
     pub msg: Option<Binary>,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum Snip721ReceiveMsg {
     /// ReceiveNft may be a HandleMsg variant of any contract that wants to implement a receiver
     /// interface.  BatchReceiveNft, which is more informative and more efficient, is preferred over
@@ -76,8 +80,6 @@ pub enum Snip721ReceiveMsg {
     ReceiveNft {
         /// previous owner of sent token
         sender: Addr,
-        /// code hash
-        code_hash: String,
         /// token that was sent
         token_id: String,
         /// optional message to control receiving logic
@@ -89,8 +91,6 @@ pub enum Snip721ReceiveMsg {
     BatchReceiveNft {
         /// address that sent the tokens.  There is no ReceiveNft field equivalent to this
         sender: Addr,
-          /// code hash
-          code_hash: String,
         /// previous owner of sent tokens.  This is equivalent to the ReceiveNft `sender` field
         from: Addr,
         /// tokens that were sent
@@ -100,7 +100,8 @@ pub enum Snip721ReceiveMsg {
     },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     /// Callable by the Admin, if one is configured.
     /// Executes messages in order.
@@ -151,13 +152,13 @@ pub enum ExecuteMsg {
     UpdateConfig { config: Config },
     /// Updates the list of cw20 tokens this contract has registered.
     UpdateSnip20List {
-        to_add: Vec<(String,String)>,// with code hashes
-        to_remove: Vec<(String,String)>,// with code hashes
+        to_add: Vec<String>,
+        to_remove: Vec<String>,
     },
     /// Updates the list of cw721 tokens this contract has registered.
     UpdateSnip721List {
-        to_add: Vec<(String,String)>,// with code hashes
-        to_remove: Vec<(String,String)>,// with code hashes
+        to_add: Vec<String>,
+        to_remove: Vec<String>,
     },
     /// Updates the governance contract's governance modules. Module
     /// instantiate info in `to_add` is used to create new modules and
@@ -179,7 +180,8 @@ pub enum ExecuteMsg {
     },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Get's the DAO's admin. Returns `Addr`.
@@ -278,7 +280,8 @@ pub enum QueryMsg {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum MigrateMsg {
     FromV1 {
         dao_uri: Option<String>,

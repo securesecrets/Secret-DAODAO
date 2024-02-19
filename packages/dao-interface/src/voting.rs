@@ -1,8 +1,11 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema:: QueryResponses;
 use cosmwasm_std::Uint128;
 use secret_cw2::ContractVersion;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 #[derive(QueryResponses)]
 pub enum Query {
     /// Returns the token contract address, if set.
@@ -33,34 +36,40 @@ pub enum Query {
     IsActive {},
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ActiveThresholdQuery {
     ActiveThreshold {},
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct VotingPowerAtHeightResponse {
     pub power: Uint128,
     pub height: u64,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct TotalPowerAtHeightResponse {
     pub power: Uint128,
     pub height: u64,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct InfoResponse {
     pub info: ContractVersion,
 }
 
-#[cw_serde]
-pub struct IsActiveResponse {
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]pub struct IsActiveResponse {
+
     pub active: bool,
 }
 
-#[cw_serde]
-pub struct DenomResponse {
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]pub struct DenomResponse {
+
     pub denom: String,
 }

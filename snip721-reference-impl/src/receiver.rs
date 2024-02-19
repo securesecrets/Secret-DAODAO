@@ -28,8 +28,6 @@ pub enum Snip721ReceiveMsg {
     ReceiveNft {
         /// previous owner of sent token
         sender: Addr,
-        /// code hash
-        code_hash: String,
         /// token that was sent
         token_id: String,
         /// optional message to control receiving logic
@@ -41,8 +39,6 @@ pub enum Snip721ReceiveMsg {
     BatchReceiveNft {
         /// address that sent the tokens.  There is no ReceiveNft field equivalent to this
         sender: Addr,
-          /// code hash
-          code_hash: String,
         /// previous owner of sent tokens.  This is equivalent to the ReceiveNft `sender` field
         from: Addr,
         /// tokens that were sent
@@ -68,7 +64,6 @@ impl HandleCallback for Snip721ReceiveMsg {
 /// * `contract_addr` - address of the contract that was sent the token
 pub fn receive_nft_msg(
     sender: Addr,
-    code_hash: String,
     token_id: String,
     msg: Option<Binary>,
     callback_code_hash: String,
@@ -76,7 +71,6 @@ pub fn receive_nft_msg(
 ) -> StdResult<CosmosMsg> {
     let msg = Snip721ReceiveMsg::ReceiveNft {
         sender,
-        code_hash,
         token_id,
         msg,
     };
@@ -97,7 +91,6 @@ pub fn receive_nft_msg(
 /// * `contract_addr` - address of the contract that was sent the token
 pub fn batch_receive_nft_msg(
     sender: Addr,
-    code_hash: String,
     from: Addr,
     token_ids: Vec<String>,
     msg: Option<Binary>,
@@ -106,7 +99,6 @@ pub fn batch_receive_nft_msg(
 ) -> StdResult<CosmosMsg> {
     let msg = Snip721ReceiveMsg::BatchReceiveNft {
         sender,
-        code_hash,
         from,
         token_ids,
         msg,

@@ -1,9 +1,11 @@
-use cosmwasm_schema::cw_serde;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, WasmMsg};
 use secret_toolkit::utils::InitCallback;
 
 /// Top level config type for core module.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct Config {
     /// The name of the contract.
     pub name: String,
@@ -23,7 +25,8 @@ pub struct Config {
 }
 
 /// Top level type describing a proposal module.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct ProposalModule {
     /// The address of the proposal module.
     pub address: Addr,
@@ -34,14 +37,16 @@ pub struct ProposalModule {
     pub status: ProposalModuleStatus,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct VotingModuleInfo{
     pub addr: Addr,
     pub code_hash: String,
 }
 
 /// The status of a proposal module.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ProposalModuleStatus {
     Enabled,
     Disabled,
@@ -49,7 +54,8 @@ pub enum ProposalModuleStatus {
 
 /// Information about the CosmWasm level admin of a contract. Used in
 /// conjunction with `ModuleInstantiateInfo` to instantiate modules.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum Admin {
     /// Set the admin to a specified address.
     Address { addr: String },
@@ -58,8 +64,9 @@ pub enum Admin {
 }
 
 /// Information needed to instantiate a module.
-#[cw_serde]
-pub struct ModuleInstantiateInfo {
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]pub struct ModuleInstantiateInfo {
+
     /// Code ID of the contract to be instantiated.
     pub code_id: u64,
     /// Code Hash of the contract to be instantiated.
@@ -96,7 +103,8 @@ impl ModuleInstantiateInfo {
 }
 
 /// Callbacks to be executed when a module is instantiated
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct ModuleInstantiateCallback {
     pub msgs: Vec<CosmosMsg>,
 }

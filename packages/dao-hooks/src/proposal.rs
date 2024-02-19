@@ -1,4 +1,5 @@
-use cosmwasm_schema::cw_serde;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use cw_hooks::Hooks;
 use dao_voting::{
     pre_propose::ProposalCreationPolicy,
@@ -10,7 +11,8 @@ use cosmwasm_std::{to_binary, Empty, StdResult, Storage, SubMsg, WasmMsg};
 /// An enum representing proposal hook messages.
 /// Either a new propsoal hook, fired when a new proposal is created,
 /// or a proposal status hook, fired when a proposal changes status.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ProposalHookMsg {
     NewProposal {
         id: u64,
@@ -129,7 +131,8 @@ pub fn proposal_completed_hooks(
     Ok(hooks)
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ProposalHookExecuteMsg {
     ProposalHook(ProposalHookMsg),
 }

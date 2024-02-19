@@ -4104,7 +4104,7 @@ pub struct CacheReceiverInfo {
 #[allow(clippy::too_many_arguments)]
 fn receiver_callback_msgs(
     deps: &mut DepsMut,
-    env: Env,
+    _env: Env,
     contract_human: &str,
     contract: &CanonicalAddr,
     receiver_info: Option<ReceiverInfo>,
@@ -4146,7 +4146,6 @@ fn receiver_callback_msgs(
         if impl_batch {
             callbacks.push(batch_receive_nft_msg(
                 sender.clone(),
-                env.contract.code_hash.clone(),
                 deps.api.addr_humanize(&send_from.owner)?,
                 send_from.token_ids,
                 msg.clone(),
@@ -4158,7 +4157,6 @@ fn receiver_callback_msgs(
             for token_id in send_from.token_ids.into_iter() {
                 callbacks.push(receive_nft_msg(
                     deps.api.addr_humanize(&send_from.owner)?,
-                    env.contract.code_hash.clone(),
                     token_id,
                     msg.clone(),
                     code_hash.clone(),

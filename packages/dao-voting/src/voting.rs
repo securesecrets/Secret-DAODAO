@@ -1,7 +1,8 @@
-use cosmwasm_schema::cw_serde;
 use dao_interface::voting;
 use cosmwasm_std::{Addr, Decimal, Deps, StdResult, Uint128, Uint256};
+use schemars::JsonSchema;
 use secret_utils::Duration;
+use serde::{Deserialize, Serialize};
 
 use crate::threshold::PercentageThreshold;
 
@@ -9,14 +10,16 @@ use crate::threshold::PercentageThreshold;
 // up properly.
 const PRECISION_FACTOR: u128 = 10u128.pow(9);
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct Votes {
     pub yes: Uint128,
     pub no: Uint128,
     pub abstain: Uint128,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 #[derive(Copy)]
 #[repr(u8)]
 pub enum Vote {

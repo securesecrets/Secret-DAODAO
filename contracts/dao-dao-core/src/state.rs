@@ -47,12 +47,15 @@ pub static ITEMS: Keymap<String, String> = Keymap::new(b"items");
 
 /// Set of snip20 tokens that have been registered with this contract's
 /// treasury.
-pub static SNIP20_LIST: Keymap<(Addr, String), Empty> = Keymap::new(b"snip20s");
+pub const SNIP20_LIST: Keymap<Addr, Empty> = Keymap::new(b"snip20s");
 /// Set of snip721 tokens that have been registered with this contract's
 /// treasury.b
-pub static SNIP721_LIST: Keymap<(Addr, String), Empty> = Keymap::new(b"snip721s");
+pub const SNIP721_LIST: Keymap<Addr, Empty> = Keymap::new(b"snip721s");
 
 /// List of SubDAOs associated to this DAO. Each SubDAO has an optional charter.
-pub static  SUBDAO_LIST: Keymap<Addr, Option<String>> = Keymap::new(b"sub_daos");
+pub const  SUBDAO_LIST: Keymap<Addr, Option<String>> = Keymap::new(b"sub_daos");
 
 pub const TOKEN_VIEWING_KEY: Item<String> = Item::new("token_viewing_key");
+
+pub const SNIP20_CODE_HASH: Item<String>= Item::new("snip20_code_hash");
+pub const SNIP721_CODE_HASH: Item<String>= Item::new("snip721_code_hash");

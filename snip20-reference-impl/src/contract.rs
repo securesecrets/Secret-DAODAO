@@ -1290,7 +1290,7 @@ fn try_batch_transfer(
 #[allow(clippy::too_many_arguments)]
 fn try_add_receiver_api_callback(
     storage: &dyn Storage,
-    env: Env,
+    _env: Env,
     messages: &mut Vec<CosmosMsg>,
     recipient: Addr,
     recipient_code_hash: Option<String>,
@@ -1301,7 +1301,7 @@ fn try_add_receiver_api_callback(
     memo: Option<String>,
 ) -> StdResult<()> {
     if let Some(receiver_hash) = recipient_code_hash {
-        let receiver_msg = Snip20ReceiveMsg::new(sender,env.contract.code_hash, from, amount, memo, msg);
+        let receiver_msg = Snip20ReceiveMsg::new(sender, from, amount, memo, msg);
         let callback_msg = receiver_msg.into_cosmos_msg(receiver_hash, recipient)?;
 
         messages.push(callback_msg);
@@ -1310,7 +1310,7 @@ fn try_add_receiver_api_callback(
 
     let receiver_hash = ReceiverHashStore::may_load(storage, &recipient)?;
     if let Some(receiver_hash) = receiver_hash {
-        let receiver_msg = Snip20ReceiveMsg::new(sender,env.contract.code_hash, from, amount, memo, msg);
+        let receiver_msg = Snip20ReceiveMsg::new(sender, from, amount, memo, msg);
         let callback_msg = receiver_msg.into_cosmos_msg(receiver_hash, recipient)?;
 
         messages.push(callback_msg);
@@ -2495,7 +2495,6 @@ mod tests {
                 code_hash: "this_is_a_hash_of_a_code".to_string(),
                 msg: Snip20ReceiveMsg::new(
                     Addr::unchecked("bob".to_string()),
-                    "code_hash".to_string(),
                     Addr::unchecked("bob".to_string()),
                     Uint128::new(100),
                     Some("my memo".to_string()),
@@ -3059,7 +3058,6 @@ mod tests {
         let send_msg = Binary::from(r#"{ "some_msg": { "some_key": "some_val" } }"#.as_bytes());
         let snip20_msg = Snip20ReceiveMsg::new(
             Addr::unchecked("alice".to_string()),
-            "code_hash".to_string(),
             Addr::unchecked("bob".to_string()),
             Uint128::new(2000),
             Some("my memo".to_string()),

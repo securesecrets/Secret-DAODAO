@@ -25,9 +25,7 @@ use secret_toolkit::{storage::Keymap, utils::HandleCallback, utils::InitCallback
 use secret_utils::{parse_reply_instantiate_data, Duration};
 
 use crate::state::{
-    ACTIVE_PROPOSAL_MODULE_COUNT, ADMIN, CONFIG, ITEMS, NOMINATED_ADMIN, PAUSED, PROPOSAL_MODULES,
-    SNIP20_LIST, SNIP721_LIST, SUBDAO_LIST, TOKEN_VIEWING_KEY, TOTAL_PROPOSAL_MODULE_COUNT,
-    VOTING_MODULE,
+    ACTIVE_PROPOSAL_MODULE_COUNT, ADMIN, CONFIG, ITEMS, NOMINATED_ADMIN, PAUSED, PROPOSAL_MODULES, SNIP20_CODE_HASH, SNIP20_LIST, SNIP721_CODE_HASH, SNIP721_LIST, SUBDAO_LIST, TOKEN_VIEWING_KEY, TOTAL_PROPOSAL_MODULE_COUNT, VOTING_MODULE
 };
 use crate::{error::ContractError, snip20_msg};
 
@@ -118,6 +116,9 @@ pub fn instantiate(
 
     TOTAL_PROPOSAL_MODULE_COUNT.save(deps.storage, &0)?;
     ACTIVE_PROPOSAL_MODULE_COUNT.save(deps.storage, &0)?;
+
+    SNIP20_CODE_HASH.save(deps.storage, &msg.snip20_code_hash)?;
+    SNIP721_CODE_HASH.save(deps.storage, &msg.snip721_code_hash)?;
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
@@ -420,58 +421,55 @@ pub fn execute_update_proposal_modules(
 /// that will be added.
 fn do_update_addr_list(
     deps: DepsMut,
-    map: &Keymap<(Addr, String), Empty>,
-    to_add: Vec<(String, String)>, // with code hashes
-    // to_add_code_hashes: Vec<String>,
-    to_remove: Vec<(String, String)>,
-    verify: impl Fn(&Addr, &String, Deps) -> StdResult<()>,
+    map: Keymap<Addr, Empty>,
+    to_add: Vec<String>,
+    to_remove: Vec<String>,
+    verify: impl Fn(&Addr, Deps) -> StdResult<()>,
 ) -> Result<(), ContractError> {
-    // let to_add = to_add
-    //     .into_iter()
-    //     .map(|(a,c)| deps.api.addr_validate(&a))
-    //     .collect::<Result<Vec<(_,_)>, _>>()?;
+    let to_add = to_add
+        .into_iter()
+        .map(|a| deps.api.addr_validate(&a))
+        .collect::<Result<Vec<_>, _>>()?;
 
-    // let to_remove = to_remove
-    //     .into_iter()
-    //     .map(|a| deps.api.addr_validate(&a))
-    //     .collect::<Result<Vec<_>, _>>()?;
+    let to_remove = to_remove
+        .into_iter()
+        .map(|a| deps.api.addr_validate(&a))
+        .collect::<Result<Vec<_>, _>>()?;
 
-    for (addr, code_hash) in to_add {
-        verify(&deps.api.addr_validate(&addr)?, &code_hash, deps.as_ref())?;
-        map.insert(
-            deps.storage,
-            &(deps.api.addr_validate(&addr)?, code_hash),
-            &Empty {},
-        )?;
+    for addr in to_add {
+        verify(&addr, deps.as_ref())?;
+        map.insert(deps.storage, &addr, &Empty {})?;
     }
-    for (addr, code_hash) in to_remove {
-        map.remove(deps.storage, &(deps.api.addr_validate(&addr)?, code_hash))?;
+    for addr in to_remove {
+        map.remove(deps.storage, &addr)?;
     }
 
     Ok(())
 }
 
+
 pub fn execute_update_snip20_list(
     deps: DepsMut,
     env: Env,
     sender: Addr,
-    to_add: Vec<(String, String)>,
-    to_remove: Vec<(String, String)>,
+    to_add: Vec<String>,
+    to_remove: Vec<String>,
 ) -> Result<Response, ContractError> {
     if env.contract.address != sender {
         return Err(ContractError::Unauthorized {});
     }
     do_update_addr_list(
         deps,
-        &SNIP20_LIST,
+        SNIP20_LIST,
         to_add,
         to_remove,
-        |addr, code_hash, deps| {
+        |addr, deps| {
             // Perform a balance query here as this is the query performed
             // by the `Cw20Balances` query.
             let viewing_key = TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
+            let snip20_code_hash =SNIP20_CODE_HASH.load(deps.storage)?;
             let _info: snip20_reference_impl::msg::Balance = deps.querier.query_wasm_smart(
-                code_hash,
+                snip20_code_hash,
                 addr,
                 &snip20_reference_impl::msg::QueryMsg::Balance {
                     address: env.contract.address.to_string(),
@@ -488,20 +486,21 @@ pub fn execute_update_snip721_list(
     deps: DepsMut,
     env: Env,
     sender: Addr,
-    to_add: Vec<(String, String)>,
-    to_remove: Vec<(String, String)>,
+    to_add: Vec<String>,
+    to_remove: Vec<String>,
 ) -> Result<Response, ContractError> {
     if env.contract.address != sender {
         return Err(ContractError::Unauthorized {});
     }
     do_update_addr_list(
         deps,
-        &SNIP721_LIST,
+        SNIP721_LIST,
         to_add,
         to_remove,
-        |addr, code_hash, deps| {
+        |addr, deps| {
+            let snip721_code_hash=SNIP721_CODE_HASH.load(deps.storage)?;
             let _info: snip721_reference_impl::msg::ContractInfo = deps.querier.query_wasm_smart(
-                code_hash,
+                snip721_code_hash,
                 addr,
                 &snip721_reference_impl::msg::QueryMsg::ContractInfo {},
             )?;
@@ -575,15 +574,17 @@ pub fn execute_update_sub_daos_list(
         .add_attribute("sender", sender))
 }
 
+
 pub fn execute_receive_snip20(
     deps: DepsMut,
     sender: Addr,
-    wrapper: Snip20ReceiveMsg,
+    _wrapper: Snip20ReceiveMsg,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     if !config.automatically_add_snip20s {
         Ok(Response::new())
     } else {
+        let snip20_code_hash=SNIP20_CODE_HASH.load(deps.storage)?;
         // Create Snip20 Token viewing key
         let gen_viewing_key_msg = snip20_msg::Snip20ExecuteMsg::CreateViewingKey {
             entropy: "entropy".to_string(),
@@ -591,7 +592,7 @@ pub fn execute_receive_snip20(
         };
         let submsg = SubMsg::reply_always(
             gen_viewing_key_msg.to_cosmos_msg(
-                wrapper.code_hash.clone(),
+                snip20_code_hash.clone(),
                 sender.clone().to_string(),
                 None,
             )?,
@@ -599,7 +600,7 @@ pub fn execute_receive_snip20(
         );
         SNIP20_LIST.insert(
             deps.storage,
-            &(sender.clone(), wrapper.code_hash),
+            &sender.clone(),
             &Empty {},
         )?;
         Ok(Response::new()
@@ -620,12 +621,11 @@ pub fn execute_receive_snip721(
     } else {
         if let Snip721ReceiveMsg::ReceiveNft {
             sender,
-            code_hash,
             token_id: _,
             msg: _,
         } = wrapper
         {
-            SNIP721_LIST.insert(deps.storage, &(sender.clone(), code_hash), &Empty {})?;
+            SNIP721_LIST.insert(deps.storage, &(sender.clone()), &Empty {})?;
         }
         Ok(Response::new()
             .add_attribute("action", "receive_cw721")
@@ -894,12 +894,12 @@ pub fn query_cw20_list(
     //     SNIP20_LIST.get_len(deps.storage).unwrap_or_default(),
     // )?)
 
-    let mut res:Vec<(String,String)>=Vec::new();
+    let mut res:Vec<String>=Vec::new();
     let mut start=start_after.clone();
     let binding = &SNIP20_LIST;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
-        let ((addr,code_hash), _) = item?;
+        let (addr, _) = item?;
         if let Some(start_after) = &start {
             if &addr == start_after {
                 // If we found the start point, reset it to start iterating
@@ -907,7 +907,7 @@ pub fn query_cw20_list(
             }
         }
         if start.is_none() {
-            res.push((addr.to_string(),code_hash));
+            res.push(addr.to_string());
             if res.len() >= limit.unwrap() as usize {
                 break; // Break out of loop if limit reached
             }
@@ -928,12 +928,12 @@ pub fn query_cw721_list(
     //     SNIP721_LIST.get_len(deps.storage).unwrap_or_default(),
     // )?)
 
-    let mut res:Vec<(String,String)>=Vec::new();
+    let mut res:Vec<String>=Vec::new();
     let mut start=start_after.clone();
     let binding = &SNIP721_LIST;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
-        let ((addr,code_hash), _) = item?;
+        let (addr, _) = item?;
         if let Some(start_after) = &start {
             if &addr == start_after {
                 // If we found the start point, reset it to start iterating
@@ -941,7 +941,7 @@ pub fn query_cw721_list(
             }
         }
         if start.is_none() {
-            res.push((addr.to_string(),code_hash));
+            res.push(addr.to_string());
             if res.len() >= limit.unwrap() as usize {
                 break; // Break out of loop if limit reached
             }
@@ -957,12 +957,12 @@ pub fn query_cw20_balances(
     limit: Option<u32>,
 ) -> StdResult<Binary> {
    
-    let mut res:Vec<(String,String)>=Vec::new();
+    let mut res:Vec<String>=Vec::new();
     let mut start=start_after.clone();
     let binding = &SNIP20_LIST;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
-        let ((addr,code_hash), _) = item?;
+        let (addr, _) = item?;
         if let Some(start_after) = &start {
             if &addr == start_after {
                 // If we found the start point, reset it to start iterating
@@ -970,18 +970,19 @@ pub fn query_cw20_balances(
             }
         }
         if start.is_none() {
-            res.push((addr.to_string(),code_hash));
+            res.push(addr.to_string());
             if res.len() >= limit.unwrap() as usize {
                 break; // Break out of loop if limit reached
             }
         }
     }
+    let snip20_code_hash=SNIP20_CODE_HASH.load(deps.storage)?;
     let balances = res
         .into_iter()
-        .map(|(addr, code_hash)| {
+        .map(|addr| {
             let viewing_key = TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
             let balance: snip20_reference_impl::msg::Balance = deps.querier.query_wasm_smart(
-                code_hash.clone(),
+                snip20_code_hash.clone(),
                 addr.clone(),
                 &snip20_reference_impl::msg::QueryMsg::Balance {
                     address: env.contract.address.to_string(),

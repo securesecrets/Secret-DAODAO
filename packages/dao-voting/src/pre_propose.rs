@@ -1,13 +1,16 @@
 //! Types related to the pre-propose module. Motivation:
 //! <https://github.com/DA0-DA0/dao-contracts/discussions/462>.
 
-use cosmwasm_schema::cw_serde;
 use dao_interface::state::ModuleInstantiateInfo;
 use cosmwasm_std::{Addr, Empty, StdResult, SubMsg};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use crate::reply::pre_propose_module_instantiation_id;
 
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum PreProposeInfo {
     /// Anyone may create a proposal free of charge.
     AnyoneMayPropose {},
@@ -16,7 +19,9 @@ pub enum PreProposeInfo {
     ModuleMayPropose { info: ModuleInstantiateInfo },
 }
 
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ProposalCreationPolicy {
     /// Anyone may create a proposal, free of charge.
     Anyone {},

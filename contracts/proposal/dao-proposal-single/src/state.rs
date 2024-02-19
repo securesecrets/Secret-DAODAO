@@ -1,4 +1,3 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
 use cw_hooks::Hooks;
 use dao_voting::{
@@ -7,11 +6,15 @@ use dao_voting::{
 use secret_storage_plus::Item;
 use secret_toolkit::storage::Keymap;
 use secret_utils::Duration;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
+
 
 use crate::proposal::SingleChoiceProposal;
 
 /// A vote cast for a proposal.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct Ballot {
     /// The amount of voting power behind the vote.
     pub power: Uint128,
@@ -26,7 +29,8 @@ pub struct Ballot {
 }
 
 /// The governance module's configuration.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct Config {
     /// The threshold a proposal must reach to complete.
     pub threshold: Threshold,
@@ -80,3 +84,21 @@ pub const VOTE_HOOKS: Hooks = Hooks::new("vote_hooks");
 /// The address of the pre-propose module associated with this
 /// proposal module (if any).
 pub const CREATION_POLICY: Item<ProposalCreationPolicy> = Item::new("creation_policy");
+
+
+pub const TEST: Keymap<u64,Test>=Keymap::new(b"test");
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Test {
+    /// The threshold a proposal must reach to complete.
+    pub threshold: TestEnum,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum TestEnum {
+    A,
+    B,
+    C
+}

@@ -12,7 +12,6 @@ use secret_toolkit::utils::space_pad;
 #[serde(rename_all = "snake_case")]
 pub struct Snip20ReceiveMsg {
     pub sender: Addr,
-    // pub code_hash: String,
     pub from: Addr,
     pub amount: Uint128,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -23,7 +22,6 @@ pub struct Snip20ReceiveMsg {
 impl Snip20ReceiveMsg {
     pub fn new(
         sender: Addr,
-        code_hash: String,
         from: Addr,
         amount: Uint128,
         memo: Option<String>,
@@ -31,7 +29,6 @@ impl Snip20ReceiveMsg {
     ) -> Self {
         Self {
             sender,
-            code_hash,
             from,
             amount,
             memo,

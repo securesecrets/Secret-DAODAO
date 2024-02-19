@@ -10,7 +10,7 @@ members = [
   # "./contracts/voting/*",
   "./packages/*",
   "./snip20-reference-impl/",
-  "./snip721-reference-impl/"
+  "./snip721-reference-impl/",
 
   # "ci/*",
 ]
@@ -159,9 +159,9 @@ secret-multi-test = {path = "./packages/multi-test/"}
 
 cosmwasm-std = { package = "secret-cosmwasm-std", version = "1.1.11",features = ["stargate","staking","ibc3","random"] }
 cosmwasm-storage = { package = "secret-cosmwasm-storage", version = "1.1.11" }
-schemars = { version = "0.8.11" }
-serde = { version = "1.0" }
-thiserror = { version = "1.0" }
+schemars = "0.8.1"
+serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.21" }
 cosmwasm-schema = { git = "https://github.com/scrtlabs/cosmwasm/", branch = "secret" }
 snip20-reference-impl ={ path = "./snip20-reference-impl/"}
 snip721-reference-impl = {path="./snip721-reference-impl/"}
