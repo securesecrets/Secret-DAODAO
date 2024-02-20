@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cw_utils::Duration;
+use secret_utils::Duration;
 use dao_dao_macros::proposal_module_query;
 use dao_voting::{
     multiple_choice::{MultipleChoiceOptions, MultipleChoiceVote, VotingStrategy},
@@ -44,6 +44,9 @@ pub struct InstantiateMsg {
     /// During this period an oversight account (`veto.vetoer`) can
     /// veto the proposal.
     pub veto: Option<VetoConfig>,
+
+    // dao code hash
+    pub code_hash: String
 }
 
 #[cw_serde]
@@ -120,6 +123,9 @@ pub enum ExecuteMsg {
         /// The address if tge DAO that this governance module is
         /// associated with.
         dao: String,
+        /// The code hash if tge DAO that this governance module is
+        /// associated with.
+        code_hash: String,
         /// If set to true proposals will be closed if their execution
         /// fails. Otherwise, proposals will remain open after execution
         /// failure. For example, with this enabled a proposal to send 5

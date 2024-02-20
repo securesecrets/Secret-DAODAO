@@ -1,8 +1,7 @@
 use std::ops::Add;
 
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, BlockInfo, StdError, StdResult, Uint128};
-use cw_utils::Expiration;
+use secret_utils::Expiration;
 use dao_voting::{
     multiple_choice::{
         CheckedMultipleChoiceOption, MultipleChoiceOptionType, MultipleChoiceVotes, VotingStrategy,
@@ -13,8 +12,12 @@ use dao_voting::{
 };
 
 use crate::query::ProposalResponse;
+use serde::{Serialize,Deserialize};
+use schemars::JsonSchema;
 
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct MultipleChoiceProposal {
     /// The title of the proposal
     pub title: String,

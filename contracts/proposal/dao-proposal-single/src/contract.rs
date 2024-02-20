@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
-    StdResult, Storage, SubMsg, WasmMsg,
+    StdResult, Storage, SubMsg,
 };
 use cw_hooks::Hooks;
 use dao_hooks::proposal::{
@@ -23,6 +23,7 @@ use dao_voting::threshold::Threshold;
 use dao_voting::veto::{VetoConfig, VetoError};
 use dao_voting::voting::{get_total_power, get_voting_power, validate_voting_period, Vote, Votes};
 use secret_cw2::set_contract_version;
+use secret_toolkit::utils::HandleCallback;
 use secret_utils::{parse_reply_instantiate_data, Duration};
 
 // use crate::msg::MigrateMsg;
@@ -378,7 +379,7 @@ pub fn execute_execute(
             deps.as_ref(),
             config.code_hash.clone(),
             info.sender.clone(),
-            &config.dao,
+            &config.dao.clone(),
             Some(prop.start_height),
         )?;
 
@@ -431,21 +432,16 @@ pub fn execute_execute(
 
     let response = {
         if !prop.msgs.is_empty() {
-            let execute_message = WasmMsg::Execute {
-                code_hash: config.code_hash.clone(),
-                contract_addr: config.dao.to_string(),
-                msg: to_binary(&dao_interface::msg::ExecuteMsg::ExecuteProposalHook {
+            let execute_message = dao_interface::msg::ExecuteMsg::ExecuteProposalHook {
                     msgs: prop.msgs,
-                })?,
-                funds: vec![],
-            };
+                };
             match config.close_proposal_on_execution_failure {
                 true => {
                     let masked_proposal_id = mask_proposal_execution_proposal_id(proposal_id);
                     Response::default()
-                        .add_submessage(SubMsg::reply_on_error(execute_message, masked_proposal_id))
+                        .add_submessage(SubMsg::reply_on_error(execute_message.to_cosmos_msg(config.code_hash.clone(), config.dao.clone().into_string(), None)?, masked_proposal_id))
                 }
-                false => Response::default().add_message(execute_message),
+                false => Response::default().add_message(execute_message.to_cosmos_msg(config.code_hash.clone(), config.dao.clone().into_string(), None)?),
             }
         } else {
             Response::default()
@@ -923,8 +919,8 @@ pub fn query_dao(deps: Deps) -> StdResult<Binary> {
 }
 
 pub fn query_proposal(deps: Deps, env: Env, id: u64) -> StdResult<Binary> {
-    let proposal = PROPOSALS.get(deps.storage, &id).unwrap();
-    to_binary(&proposal.into_response(&env.block, id)?)
+    let proposal = PROPOSALS.get(deps.storage, &id);
+    to_binary(&proposal.unwrap().into_response(&env.block, id)?)
 }
 
 pub fn query_creation_policy(deps: Deps) -> StdResult<Binary> {
@@ -1027,13 +1023,12 @@ pub fn query_next_proposal_id(deps: Deps) -> StdResult<Binary> {
 pub fn query_vote(deps: Deps, proposal_id: u64, voter: String) -> StdResult<Binary> {
     let voter = deps.api.addr_validate(&voter)?;
     let ballot = BALLOTS
-        .get(deps.storage, &(proposal_id, voter.clone()))
-        .unwrap();
+        .get(deps.storage, &(proposal_id, voter.clone()));
     let vote = VoteInfo {
         voter,
-        vote: ballot.vote,
-        power: ballot.power,
-        rationale: ballot.rationale,
+        vote: ballot.clone().unwrap().vote,
+        power: ballot.clone().unwrap().power,
+        rationale: ballot.unwrap().rationale,
     };
     to_binary(&VoteResponse { vote: Some(vote) })
 }

@@ -39,8 +39,11 @@ dao-interface = { workspace = true }
 dao-voting = { workspace = true }
 cw-hooks = { workspace = true }
 dao-hooks = { workspace = true }
-dao-pre-propose-multiple = { workspace = true }
+# dao-pre-propose-multiple = { workspace = true }
 voting-v1 = { workspace = true }
+secret-toolkit = { workspace = true }
+serde ={ workspace=true }
+schemars ={ workspace = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }

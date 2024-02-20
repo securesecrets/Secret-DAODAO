@@ -1,6 +1,7 @@
 use cosmwasm_schema:: QueryResponses;
 use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Uint128};
 use schemars::JsonSchema;
+use secret_toolkit::utils::HandleCallback;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
 use crate::state::Config;
@@ -178,6 +179,10 @@ pub enum ExecuteMsg {
         to_add: Vec<SubDao>,
         to_remove: Vec<String>,
     },
+}
+
+impl HandleCallback for ExecuteMsg {
+    const BLOCK_SIZE: usize=256;
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
