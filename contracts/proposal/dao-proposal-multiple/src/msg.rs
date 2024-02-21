@@ -46,7 +46,7 @@ pub struct InstantiateMsg {
     pub veto: Option<VetoConfig>,
 
     // dao code hash
-    pub code_hash: String
+    pub code_hash: String                                        
 }
 
 #[cw_serde]

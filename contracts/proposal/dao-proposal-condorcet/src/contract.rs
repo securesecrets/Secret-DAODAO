@@ -1,10 +1,10 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
 };
 
-use cw2::set_contract_version;
+use secret_cw2::set_contract_version;
 use dao_voting::reply::TaggedReplyId;
 use dao_voting::voting::{get_total_power, get_voting_power};
 
@@ -104,15 +104,14 @@ fn execute_propose(
     choices: Vec<Choice>,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
-    let sender_voting_power = get_voting_power(deps.as_ref(), info.sender.clone(), &dao, None)?;
+    let config = CONFIG.load(deps.storage)?;
+    let sender_voting_power = get_voting_power(deps.as_ref(), config.dao_code_hash.clone(),info.sender.clone(), &dao, None)?;
     if sender_voting_power.is_zero() {
         return Err(ContractError::ZeroVotingPower {});
     }
 
-    let config = CONFIG.load(deps.storage)?;
-
     let id = next_proposal_id(deps.storage)?;
-    let total_power = get_total_power(deps.as_ref(), &dao, None)?;
+    let total_power = get_total_power(deps.as_ref(), config.dao_code_hash.clone(),&dao, None)?;
 
     if choices.is_empty() {
         return Err(ContractError::ZeroChoices {});
@@ -128,11 +127,11 @@ fn execute_propose(
         env.block.height,
         config.voting_period.after(&env.block),
     );
-    TALLY.save(deps.storage, id, &tally)?;
+    TALLY.insert(deps.storage, &id, &tally)?;
 
     let mut proposal = Proposal::new(&env.block, &config, info.sender, id, choices, total_power);
     proposal.update_status(&env.block, &tally);
-    PROPOSAL.save(deps.storage, id, &proposal)?;
+    PROPOSAL.insert(deps.storage, &id, &proposal)?;
 
     Ok(Response::default()
         .add_attribute("method", "propose")
@@ -147,26 +146,27 @@ fn execute_vote(
     proposal_id: u32,
     vote: Vec<u32>,
 ) -> Result<Response, ContractError> {
-    let tally = TALLY.load(deps.storage, proposal_id)?;
+    let tally = TALLY.get(deps.storage, &proposal_id);
     let sender_power = get_voting_power(
         deps.as_ref(),
+        CONFIG.load(deps.storage)?.dao_code_hash.clone(),
         info.sender.clone(),
         &DAO.load(deps.storage)?,
-        Some(tally.start_height),
+        Some(tally.clone().unwrap().start_height),
     )?;
     if sender_power.is_zero() {
         Err(ContractError::ZeroVotingPower {})
-    } else if VOTE.has(deps.storage, (proposal_id, info.sender.clone())) {
+    } else if VOTE.contains(deps.storage, &(proposal_id, info.sender.clone())) {
         Err(ContractError::Voted {})
-    } else if tally.expired(&env.block) {
+    } else if tally.clone().unwrap().expired(&env.block) {
         Err(ContractError::Expired {})
     } else {
-        let vote = Vote::new(vote, tally.candidates())?;
-        VOTE.save(deps.storage, (proposal_id, info.sender.clone()), &vote)?;
+        let vote = Vote::new(vote, tally.clone().unwrap().candidates())?;
+        VOTE.insert(deps.storage, &(proposal_id, info.sender.clone()), &vote)?;
 
-        let mut tally = tally;
-        tally.add_vote(vote, sender_power);
-        TALLY.save(deps.storage, proposal_id, &tally)?;
+        let  tally = tally;
+        tally.clone().unwrap().add_vote(vote, sender_power);
+        TALLY.insert(deps.storage, &proposal_id, &tally.clone().unwrap())?;
 
         Ok(Response::default()
             .add_attribute("method", "vote")
@@ -182,22 +182,23 @@ fn execute_execute(
     info: MessageInfo,
     proposal_id: u32,
 ) -> Result<Response, ContractError> {
-    let tally = TALLY.load(deps.storage, proposal_id)?;
+    let tally = TALLY.get(deps.storage, &proposal_id);
     let dao = DAO.load(deps.storage)?;
     let sender_power = get_voting_power(
         deps.as_ref(),
+        CONFIG.load(deps.storage)?.dao_code_hash.clone(),
         info.sender.clone(),
         &dao,
-        Some(tally.start_height),
+        Some(tally.clone().unwrap().start_height),
     )?;
     if sender_power.is_zero() {
         return Err(ContractError::ZeroVotingPower {});
     }
 
-    let mut proposal = PROPOSAL.load(deps.storage, proposal_id)?;
-    if let Status::Passed { winner } = proposal.update_status(&env.block, &tally) {
-        let msgs = proposal.set_executed(dao, winner)?;
-        PROPOSAL.save(deps.storage, proposal_id, &proposal)?;
+    let  proposal = PROPOSAL.get(deps.storage, &proposal_id);
+    if let Status::Passed { winner } = proposal.clone().unwrap().update_status(&env.block, &tally.clone().unwrap()) {
+        let msgs = proposal.clone().unwrap().set_executed(dao, CONFIG.load(deps.storage)?.dao_code_hash.clone(),winner)?;
+        PROPOSAL.insert(deps.storage,&proposal_id, &proposal.clone().unwrap())?;
 
         Ok(Response::default()
             .add_attribute("method", "execute")
@@ -215,11 +216,11 @@ fn execute_close(
     info: MessageInfo,
     proposal_id: u32,
 ) -> Result<Response, ContractError> {
-    let tally = TALLY.load(deps.storage, proposal_id)?;
-    let mut proposal = PROPOSAL.load(deps.storage, proposal_id)?;
-    if let Status::Rejected = proposal.update_status(&env.block, &tally) {
-        proposal.set_closed();
-        PROPOSAL.save(deps.storage, proposal_id, &proposal)?;
+    let tally = TALLY.get(deps.storage, &proposal_id);
+    let  proposal = PROPOSAL.get(deps.storage, &proposal_id);
+    if let Status::Rejected = proposal.clone().unwrap().update_status(&env.block, &tally.unwrap()) {
+        proposal.clone().unwrap().set_closed();
+        PROPOSAL.insert(deps.storage, &proposal_id, &proposal.clone().unwrap())?;
 
         Ok(Response::default()
             .add_attribute("method", "close")
@@ -249,16 +250,16 @@ fn execute_set_config(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Proposal { id } => {
-            let mut proposal = PROPOSAL.load(deps.storage, id)?;
-            let tally = TALLY.load(deps.storage, id)?;
-            proposal.update_status(&env.block, &tally);
-            to_json_binary(&ProposalResponse { proposal, tally })
+            let  proposal = PROPOSAL.get(deps.storage, &id);
+            let tally = TALLY.get(deps.storage, &id);
+            proposal.clone().unwrap().update_status(&env.block, &tally.clone().unwrap());
+            to_binary(&ProposalResponse { proposal:proposal.unwrap(), tally:tally.unwrap() })
         }
-        QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
-        QueryMsg::NextProposalId {} => to_json_binary(&next_proposal_id(deps.storage)?),
-        QueryMsg::Dao {} => to_json_binary(&DAO.load(deps.storage)?),
-        QueryMsg::Info {} => to_json_binary(&dao_interface::voting::InfoResponse {
-            info: cw2::get_contract_version(deps.storage)?,
+        QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::NextProposalId {} => to_binary(&next_proposal_id(deps.storage)?),
+        QueryMsg::Dao {} => to_binary(&DAO.load(deps.storage)?),
+        QueryMsg::Info {} => to_binary(&dao_interface::voting::InfoResponse {
+            info: secret_cw2::get_contract_version(deps.storage)?,
         }),
     }
 }
@@ -268,9 +269,9 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
     let repl = TaggedReplyId::new(msg.id)?;
     match repl {
         TaggedReplyId::FailedProposalExecution(proposal_id) => {
-            let mut proposal = PROPOSAL.load(deps.storage, proposal_id as u32)?;
-            proposal.set_execution_failed();
-            PROPOSAL.save(deps.storage, proposal_id as u32, &proposal)?;
+            let  proposal = PROPOSAL.get(deps.storage, &(proposal_id as u32));
+            proposal.clone().unwrap().set_execution_failed();
+            PROPOSAL.insert(deps.storage, &(proposal_id as u32), &proposal.clone().unwrap())?;
 
             Ok(Response::default()
                 .add_attribute("proposal_execution_failed", proposal_id.to_string())

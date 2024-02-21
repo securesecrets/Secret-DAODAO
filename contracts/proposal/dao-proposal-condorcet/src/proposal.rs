@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_json_binary, Addr, BlockInfo, StdResult, SubMsg, Uint128, WasmMsg};
-use cw_utils::Expiration;
+use cosmwasm_std::{to_binary, Addr, BlockInfo, StdResult, SubMsg, Uint128, WasmMsg};
+use secret_utils::Expiration;
 use dao_voting::{
     reply::mask_proposal_execution_proposal_id, threshold::PercentageThreshold,
     voting::does_vote_count_pass,
@@ -153,15 +153,16 @@ impl Proposal {
 
     /// Sets the proposal's status to executed and returns a
     /// submessage to be executed.
-    pub(crate) fn set_executed(&mut self, dao: Addr, winner: u32) -> StdResult<SubMsg> {
+    pub(crate) fn set_executed(&mut self, dao: Addr,dao_code_hash: String, winner: u32) -> StdResult<SubMsg> {
         debug_assert_eq!(self.last_status, Status::Passed { winner });
 
         self.last_status = Status::Executed;
 
         let msgs = self.choices[winner as usize].msgs.clone();
         let core_exec = WasmMsg::Execute {
+            code_hash:dao_code_hash,
             contract_addr: dao.into_string(),
-            msg: to_json_binary(&dao_interface::msg::ExecuteMsg::ExecuteProposalHook { msgs })?,
+            msg: to_binary(&dao_interface::msg::ExecuteMsg::ExecuteProposalHook { msgs })?,
             funds: vec![],
         };
         Ok(if self.close_on_execution_failure {

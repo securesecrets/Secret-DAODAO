@@ -1714,10 +1714,6 @@ version = "2.4.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema 1.1.11",
- "cw-multi-test",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
  "cw4",
  "cw4-group",
  "dao-dao-core",
@@ -1726,7 +1722,14 @@ dependencies = [
  "dao-testing",
  "dao-voting 2.4.0",
  "dao-voting-cw4",
+ "schemars",
  "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit",
+ "secret-utils",
+ "serde",
  "thiserror",
 ]
 
