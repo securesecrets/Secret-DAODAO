@@ -4,7 +4,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
 };
-use cw2::set_contract_version;
+use secret_cw2::set_contract_version;
 
 use dao_pre_propose_base::{
     error::PreProposeError,
@@ -85,7 +85,7 @@ pub fn execute(
             }),
         },
         ExecuteMsg::Extension { msg } => ExecuteInternal::Extension { msg },
-        ExecuteMsg::Withdraw { denom } => ExecuteInternal::Withdraw { denom },
+        ExecuteMsg::Withdraw { denom, key } => ExecuteInternal::Withdraw { denom, key },
         ExecuteMsg::UpdateConfig {
             deposit_info,
             open_proposal_submission,
