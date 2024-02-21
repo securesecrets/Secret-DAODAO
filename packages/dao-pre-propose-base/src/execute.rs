@@ -55,7 +55,9 @@ where
 
         let deposit_info = msg
             .deposit_info
-            .map(|info| info.into_checked(deps.as_ref(), dao.clone(),env.contract.code_hash.clone()))
+            .map(|info| {
+                info.into_checked(deps.as_ref(), dao.clone(), env.contract.code_hash.clone())
+            })
             .transpose()?;
 
         let config = Config {
@@ -88,7 +90,9 @@ where
             ExecuteMsg::UpdateConfig {
                 deposit_info,
                 open_proposal_submission,
-            } => self.execute_update_config(deps, info, env,deposit_info, open_proposal_submission),
+            } => {
+                self.execute_update_config(deps, info, env, deposit_info, open_proposal_submission)
+            }
             ExecuteMsg::Withdraw { denom, key } => {
                 self.execute_withdraw(deps.as_ref(), env, info, denom, key)
             }
@@ -101,7 +105,13 @@ where
             ExecuteMsg::ProposalCompletedHook {
                 proposal_id,
                 new_status,
-            } => self.execute_proposal_completed_hook(deps.as_ref(), info, env,proposal_id, new_status),
+            } => self.execute_proposal_completed_hook(
+                deps.as_ref(),
+                info,
+                env,
+                proposal_id,
+                new_status,
+            ),
 
             ExecuteMsg::Extension { .. } => Ok(Response::default()),
         }
@@ -114,13 +124,21 @@ where
         info: MessageInfo,
         msg: ProposalMessage,
     ) -> Result<Response, PreProposeError> {
-        self.check_can_submit(deps.as_ref(), info.sender.clone(), env.contract.code_hash.clone())?;
+        self.check_can_submit(
+            deps.as_ref(),
+            info.sender.clone(),
+            env.contract.code_hash.clone(),
+        )?;
 
         let config = self.config.load(deps.storage)?;
 
         let deposit_messages = if let Some(ref deposit_info) = config.deposit_info {
             deposit_info.check_native_deposit_paid(&info)?;
-            deposit_info.get_take_deposit_messages(env.contract.code_hash.clone(),&info.sender, &env.contract.address.clone())?
+            deposit_info.get_take_deposit_messages(
+                env.contract.code_hash.clone(),
+                &info.sender,
+                &env.contract.address.clone(),
+            )?
         } else {
             vec![]
         };
@@ -134,9 +152,9 @@ where
             &proposal_module,
             &dao_interface::proposal::Query::NextProposalId {},
         )?;
-        self.deposits.save(
+        self.deposits.insert(
             deps.storage,
-            next_id,
+            &next_id,
             &(config.deposit_info, info.sender.clone()),
         )?;
 
@@ -184,7 +202,7 @@ where
             Err(PreProposeError::NotDao {})
         } else {
             let deposit_info = deposit_info
-                .map(|d| d.into_checked(deps.as_ref(), dao,env.contract.code_hash.clone()))
+                .map(|d| d.into_checked(deps.as_ref(), dao, env.contract.code_hash.clone()))
                 .transpose()?;
             self.config.save(
                 deps.storage,
@@ -231,8 +249,11 @@ where
                     if balance.is_zero() {
                         Err(PreProposeError::NothingToWithdraw {})
                     } else {
-                        let withdraw_message =
-                            denom.get_transfer_to_message(env.contract.code_hash.clone(), &dao, balance)?;
+                        let withdraw_message = denom.get_transfer_to_message(
+                            env.contract.code_hash.clone(),
+                            &dao,
+                            balance,
+                        )?;
                         Ok(Response::default()
                             .add_message(withdraw_message)
                             .add_attribute("method", "withdraw")
@@ -315,7 +336,7 @@ where
             return Err(PreProposeError::NotCompleted { status: new_status });
         }
 
-        match self.deposits.may_load(deps.storage, id)? {
+        match self.deposits.get(deps.storage, &id) {
             Some((deposit_info, proposer)) => {
                 let messages = if let Some(ref deposit_info) = deposit_info {
                     // Determine if refund can be issued
@@ -332,11 +353,13 @@ where
                         };
 
                     if should_refund_to_proposer {
-                        deposit_info.get_return_deposit_message(&proposer,env.contract.code_hash.clone())?
+                        deposit_info
+                            .get_return_deposit_message(&proposer, env.contract.code_hash.clone())?
                     } else {
                         // If the proposer doesn't get the deposit, the DAO does.
                         let dao = self.dao.load(deps.storage)?;
-                        deposit_info.get_return_deposit_message(&dao,env.contract.code_hash.clone())?
+                        deposit_info
+                            .get_return_deposit_message(&dao, env.contract.code_hash.clone())?
                     }
                 } else {
                     // No deposit info for this proposal. Nothing to do.
@@ -391,7 +414,8 @@ where
             QueryMsg::Dao {} => to_binary(&self.dao.load(deps.storage)?),
             QueryMsg::Config {} => to_binary(&self.config.load(deps.storage)?),
             QueryMsg::DepositInfo { proposal_id } => {
-                let (deposit_info, proposer) = self.deposits.load(deps.storage, proposal_id)?;
+                let (deposit_info, proposer) =
+                    self.deposits.get(deps.storage, &proposal_id).unwrap();
                 to_binary(&DepositInfoResponse {
                     deposit_info,
                     proposer,
