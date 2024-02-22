@@ -3,9 +3,8 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg, WasmMsg,
 };
-
-use cw2::set_contract_version;
-use cw_utils::parse_reply_instantiate_data;
+use secret_cw2::set_contract_version;
+use secret_utils::parse_reply_instantiate_data;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
@@ -38,8 +37,9 @@ pub fn execute(
         ExecuteMsg::InstantiateContractWithSelfAdmin {
             instantiate_msg: msg,
             code_id,
+            code_hash,
             label,
-        } => instantiate_contract(env, info, msg, code_id, label),
+        } => instantiate_contract(env, info, msg, code_id, code_hash,label),
     }
 }
 
@@ -48,12 +48,14 @@ pub fn instantiate_contract(
     info: MessageInfo,
     instantiate_msg: Binary,
     code_id: u64,
+    code_hash: String,
     label: String,
 ) -> Result<Response, ContractError> {
     // Instantiate the specified contract with factory as the admin.
     let instantiate = WasmMsg::Instantiate {
         admin: Some(env.contract.address.to_string()),
         code_id,
+        code_hash,
         msg: instantiate_msg,
         funds: info.funds,
         label,

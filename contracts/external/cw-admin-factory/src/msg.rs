@@ -11,6 +11,7 @@ pub enum ExecuteMsg {
     InstantiateContractWithSelfAdmin {
         instantiate_msg: Binary,
         code_id: u64,
+        code_hash: String,
         label: String,
     },
 }

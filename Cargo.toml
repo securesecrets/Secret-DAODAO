@@ -1,13 +1,13 @@
 [workspace]
 exclude = ["ci/configs/", "wasmvm/libwasmvm"]
 members = [
-  # "./contracts/dao-dao-core",
-  # "./contracts/external/*",
-  # "./contracts/proposal/*",
-  # "./contracts/pre-propose/*",
+  "./contracts/dao-dao-core/",
+  "./contracts/external/cw-admin-factory/",
+  "./contracts/proposal/*",
+  "./contracts/pre-propose/*",
   "./contracts/staking/*",
   # "./contracts/test/*",
-  # "./contracts/voting/*",
+  "./contracts/voting/*",
   "./packages/*",
   "./snip20-reference-impl/",
   "./snip721-reference-impl/",

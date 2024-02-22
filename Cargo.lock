@@ -862,6 +862,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-admin-factory"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "cw20-base 1.1.2",
+ "dao-dao-core",
+ "dao-interface",
+ "secret-cosmwasm-std",
+ "secret-cosmwasm-storage",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-utils",
+ "thiserror",
+]
+
+[[package]]
 name = "cw-controllers"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1638,6 +1655,59 @@ dependencies = [
  "secret-toolkit",
  "secret-utils",
  "serde",
+]
+
+[[package]]
+name = "dao-pre-propose-approval-single"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "cw-denom",
+ "cw-multi-test",
+ "cw-paginate-storage 2.4.0",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "cw20 1.1.2",
+ "cw20-base 1.1.2",
+ "cw4-group",
+ "dao-dao-core",
+ "dao-hooks",
+ "dao-interface",
+ "dao-pre-propose-base",
+ "dao-proposal-single",
+ "dao-testing",
+ "dao-voting 2.4.0",
+ "dao-voting-cw4",
+ "dao-voting-snip20-staked",
+ "secret-cosmwasm-std",
+ "thiserror",
+]
+
+[[package]]
+name = "dao-pre-propose-approver"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "cw-denom",
+ "cw-multi-test",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "cw20 1.1.2",
+ "cw20-base 1.1.2",
+ "cw4-group",
+ "dao-dao-core",
+ "dao-hooks",
+ "dao-interface",
+ "dao-pre-propose-approval-single",
+ "dao-pre-propose-base",
+ "dao-proposal-single",
+ "dao-testing",
+ "dao-voting 2.4.0",
+ "dao-voting-cw4",
+ "dao-voting-snip20-staked",
+ "secret-cosmwasm-std",
 ]
 
 [[package]]
