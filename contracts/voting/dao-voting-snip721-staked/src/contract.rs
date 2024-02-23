@@ -12,6 +12,7 @@ use dao_voting::threshold::{
     assert_valid_absolute_count_threshold, assert_valid_percentage_threshold, ActiveThreshold,
     ActiveThresholdResponse,
 };
+use cw_hooks::HookItem;
 use schemars::JsonSchema;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::{HandleCallback, InitCallback};
@@ -25,7 +26,7 @@ use crate::msg::{
 use crate::snip721;
 use crate::state::{
     register_staked_nft, register_unstaked_nfts, Config, NftBalancesStore, StakedNftsTotalStore,
-    ACTIVE_THRESHOLD, CONFIG, DAO, HOOKS, INITIAL_NFTS, MAX_CLAIMS, NFT_CLAIMS
+    ACTIVE_THRESHOLD, CONFIG, DAO, HOOKS, INITIAL_NFTS, MAX_CLAIMS, NFT_CLAIMS,
 };
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:dao-voting-snip721-staked";
@@ -228,8 +229,10 @@ pub fn execute(
         ExecuteMsg::Unstake { token_ids } => execute_unstake(deps, env, info, token_ids),
         ExecuteMsg::ClaimNfts {} => execute_claim_nfts(deps, env, info),
         ExecuteMsg::UpdateConfig { duration } => execute_update_config(info, deps, duration),
-        ExecuteMsg::AddHook { addr } => execute_add_hook(deps, info, addr),
-        ExecuteMsg::RemoveHook { addr } => execute_remove_hook(deps, info, addr),
+        ExecuteMsg::AddHook { addr, code_hash } => execute_add_hook(deps, info, addr, code_hash),
+        ExecuteMsg::RemoveHook { addr, code_hash } => {
+            execute_remove_hook(deps, info, addr, code_hash)
+        }
         ExecuteMsg::UpdateActiveThreshold { new_threshold } => {
             execute_update_active_threshold(deps, env, info, new_threshold)
         }
@@ -261,13 +264,8 @@ pub fn execute_stake(
                 sender.clone(),
                 token_id.clone(),
             )?;
-            let hook_msgs = stake_nft_hook_msgs(
-                HOOKS,
-                deps.storage,
-                sender.clone(),
-                token_id.clone(),
-                env.contract.code_hash.clone(),
-            )?;
+            let hook_msgs =
+                stake_nft_hook_msgs(HOOKS, deps.storage, sender.clone(), token_id.clone())?;
             Ok(Response::default()
                 .add_submessages(hook_msgs)
                 .add_attribute("action", "stake")
@@ -326,13 +324,8 @@ pub fn execute_unstake(
     // so if we reach this point in execution, we may safely create
     // claims.
 
-    let hook_msgs = unstake_nft_hook_msgs(
-        HOOKS,
-        deps.storage,
-        info.sender.clone(),
-        token_ids.clone(),
-        env.contract.code_hash.clone(),
-    )?;
+    let hook_msgs =
+        unstake_nft_hook_msgs(HOOKS, deps.storage, info.sender.clone(), token_ids.clone())?;
 
     let config = CONFIG.load(deps.storage)?;
     match config.unstaking_duration {
@@ -458,6 +451,7 @@ pub fn execute_add_hook(
     deps: DepsMut,
     info: MessageInfo,
     addr: String,
+    code_hash: String,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
 
@@ -466,8 +460,14 @@ pub fn execute_add_hook(
         return Err(ContractError::Unauthorized {});
     }
 
-    let hook = deps.api.addr_validate(&addr)?;
-    HOOKS.add_hook(deps.storage, hook)?;
+    let address = deps.api.addr_validate(&addr)?;
+    HOOKS.add_hook(
+        deps.storage,
+        HookItem {
+            addr: address,
+            code_hash,
+        },
+    )?;
 
     Ok(Response::default()
         .add_attribute("action", "add_hook")
@@ -478,6 +478,7 @@ pub fn execute_remove_hook(
     deps: DepsMut,
     info: MessageInfo,
     addr: String,
+    code_hash: String,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
 
@@ -486,8 +487,14 @@ pub fn execute_remove_hook(
         return Err(ContractError::Unauthorized {});
     }
 
-    let hook = deps.api.addr_validate(&addr)?;
-    HOOKS.remove_hook(deps.storage, hook)?;
+    let address = deps.api.addr_validate(&addr)?;
+    HOOKS.remove_hook(
+        deps.storage,
+        HookItem {
+            addr: address,
+            code_hash,
+        },
+    )?;
 
     Ok(Response::default()
         .add_attribute("action", "remove_hook")

@@ -28,7 +28,7 @@ pub enum ProposalCreationPolicy {
     /// Only ADDR may create proposals. It is expected that ADDR is a
     /// pre-propose module, though we only require that it is a valid
     /// address.
-    Module { addr: Addr },
+    Module { addr: Addr, code_hash:String },
 }
 
 impl ProposalCreationPolicy {
@@ -37,7 +37,7 @@ impl ProposalCreationPolicy {
     pub fn is_permitted(&self, creator: &Addr) -> bool {
         match self {
             Self::Anyone {} => true,
-            Self::Module { addr } => creator == addr,
+            Self::Module { addr,code_hash:_ } => creator == addr,
         }
     }
 }
@@ -99,6 +99,7 @@ mod tests {
     fn test_module_is_permitted() {
         let policy = ProposalCreationPolicy::Module {
             addr: Addr::unchecked("deposit_module"),
+            code_hash: "code_hash".to_string()
         };
         assert!(!policy.is_permitted(&Addr::unchecked("👩‍👩‍👧‍👦")));
         assert!(policy.is_permitted(&Addr::unchecked("deposit_module")));

@@ -7,13 +7,14 @@ use cosmwasm_std::{
     DepsMut, Empty, Env, MessageInfo, QueryRequest, Reply, Response, StdError, StdResult, SubMsg,
     SystemResult, Uint128, Uint256, WasmMsg,
 };
+use cw_hooks::HookItem;
 // use cw_tokenfactory_issuer::msg::{
 //     DenomUnit, ExecuteMsg as IssuerExecuteMsg, Metadata,
 // };
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_interface::{
     // state::ModuleInstantiateCallback,
-    token:: TokenFactoryCallback,
+    token::TokenFactoryCallback,
     voting::{
         DenomResponse, IsActiveResponse, TotalPowerAtHeightResponse, VotingPowerAtHeightResponse,
     },
@@ -176,8 +177,12 @@ pub fn execute(
         ExecuteMsg::UpdateActiveThreshold { new_threshold } => {
             execute_update_active_threshold(deps, env, info, new_threshold)
         }
-        ExecuteMsg::AddHook { addr } => execute_add_hook(deps, env, info, addr),
-        ExecuteMsg::RemoveHook { addr } => execute_remove_hook(deps, env, info, addr),
+        ExecuteMsg::AddHook { addr, code_hash } => {
+            execute_add_hook(deps, env, info, addr, code_hash)
+        }
+        ExecuteMsg::RemoveHook { addr, code_hash } => {
+            execute_remove_hook(deps, env, info, addr, code_hash)
+        }
     }
 }
 
@@ -220,13 +225,7 @@ pub fn execute_stake(
     )?;
 
     // Add stake hook messages
-    let hook_msgs = stake_hook_msgs(
-        HOOKS,
-        deps.storage,
-        info.sender.clone(),
-        amount,
-        env.contract.code_hash,
-    )?;
+    let hook_msgs = stake_hook_msgs(HOOKS, deps.storage, info.sender.clone(), amount)?;
 
     Ok(Response::new()
         .add_submessages(hook_msgs)
@@ -266,13 +265,7 @@ pub fn execute_unstake(
     )?;
 
     // Add unstake hook messages
-    let hook_msgs = unstake_hook_msgs(
-        HOOKS,
-        deps.storage,
-        info.sender.clone(),
-        amount,
-        env.contract.code_hash,
-    )?;
+    let hook_msgs = unstake_hook_msgs(HOOKS, deps.storage, info.sender.clone(), amount)?;
 
     let config = CONFIG.load(deps.storage)?;
     let denom = DENOM.load(deps.storage)?;
@@ -394,14 +387,21 @@ pub fn execute_add_hook(
     _env: Env,
     info: MessageInfo,
     addr: String,
+    code_hash: String,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
     if info.sender != dao {
         return Err(ContractError::Unauthorized {});
     }
 
-    let hook = deps.api.addr_validate(&addr)?;
-    HOOKS.add_hook(deps.storage, hook)?;
+    let address = deps.api.addr_validate(&addr)?;
+    HOOKS.add_hook(
+        deps.storage,
+        HookItem {
+            addr: address,
+            code_hash,
+        },
+    )?;
     Ok(Response::new()
         .add_attribute("action", "add_hook")
         .add_attribute("hook", addr))
@@ -412,14 +412,21 @@ pub fn execute_remove_hook(
     _env: Env,
     info: MessageInfo,
     addr: String,
+    code_hash: String,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
     if info.sender != dao {
         return Err(ContractError::Unauthorized {});
     }
 
-    let hook = deps.api.addr_validate(&addr)?;
-    HOOKS.remove_hook(deps.storage, hook)?;
+    let address = deps.api.addr_validate(&addr)?;
+    HOOKS.remove_hook(
+        deps.storage,
+        HookItem {
+            addr: address,
+            code_hash,
+        },
+    )?;
     Ok(Response::new()
         .add_attribute("action", "remove_hook")
         .add_attribute("hook", addr))

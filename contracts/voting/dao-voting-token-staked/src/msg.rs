@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Binary, Uint128};
+use cw_hooks::HookItem;
 use dao_dao_macros::{active_query, native_token_query, voting_module_query};
 // use dao_interface::token::NewTokenInfo;
 use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
@@ -53,9 +54,9 @@ pub enum ExecuteMsg {
         new_threshold: Option<ActiveThreshold>,
     },
     /// Adds a hook that fires on staking / unstaking
-    AddHook { addr: String },
+    AddHook { addr: String, code_hash: String },
     /// Removes a hook that fires on staking / unstaking
-    RemoveHook { addr: String },
+    RemoveHook { addr: String, code_hash: String },
 }
 
 #[native_token_query]
@@ -97,5 +98,5 @@ pub struct StakerBalanceResponse {
 
 #[cw_serde]
 pub struct GetHooksResponse {
-    pub hooks: Vec<String>,
+    pub hooks: Vec<HookItem>,
 }

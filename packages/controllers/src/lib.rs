@@ -20,4 +20,4 @@ mod hooks;
 
 pub use admin::{Admin, AdminError, AdminResponse};
 pub use claim::{Claim, Claims, ClaimsResponse};
-pub use hooks::{HookError, Hooks, HooksResponse};
+pub use hooks::{HookError, Hooks, HooksResponse,HookItem};

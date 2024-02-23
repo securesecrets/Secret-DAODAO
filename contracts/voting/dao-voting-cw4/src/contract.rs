@@ -95,7 +95,7 @@ pub fn instantiate(
 
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
-                .add_submessage(sub_msg))
+                .add_submessage(sub_msg).set_data(to_binary(&env.contract.code_hash.clone())))
         }
         GroupContract::Existing { address, code_hash } => {
             let group_contract = deps.api.addr_validate(&address.clone())?;
@@ -123,7 +123,7 @@ pub fn instantiate(
 
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
-                .add_attribute("group_contract", group_contract.to_string()))
+                .add_attribute("group_contract", group_contract.to_string()).set_data(to_binary(&env.contract.code_hash.clone())))
         }
     }
 }

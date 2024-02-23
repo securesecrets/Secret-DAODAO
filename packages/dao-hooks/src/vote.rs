@@ -24,7 +24,6 @@ pub fn new_vote_hooks(
     proposal_id: u64,
     voter: String,
     vote: String,
-    code_hash: String,
 ) -> StdResult<Vec<SubMsg>> {
     let msg = to_binary(&VoteHookExecuteMsg::VoteHook(VoteHookMsg::NewVote {
         proposal_id,
@@ -32,10 +31,10 @@ pub fn new_vote_hooks(
         vote,
     }))?;
     let mut index: u64 = 0;
-    hooks.prepare_hooks(storage, |a| {
+    hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
-            contract_addr: a.to_string(),
-            code_hash:code_hash.clone(),
+            contract_addr: hook_item.addr.to_string(),
+            code_hash:hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };

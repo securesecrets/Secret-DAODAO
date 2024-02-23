@@ -33,7 +33,6 @@ pub fn new_proposal_hooks(
     storage: &dyn Storage,
     id: u64,
     proposer: &str,
-    code_hash: String,
 ) -> StdResult<Vec<SubMsg>> {
     let msg = to_binary(&ProposalHookExecuteMsg::ProposalHook(
         ProposalHookMsg::NewProposal {
@@ -43,10 +42,10 @@ pub fn new_proposal_hooks(
     ))?;
 
     let mut index: u64 = 0;
-    let messages = hooks.prepare_hooks(storage, |a| {
+    let messages = hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
-            contract_addr: a.to_string(),
-            code_hash:code_hash.clone(),
+            contract_addr: hook_item.addr.to_string(),
+            code_hash:hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };
@@ -68,7 +67,6 @@ pub fn proposal_status_changed_hooks(
     id: u64,
     old_status: String,
     new_status: String,
-    code_hash: String,
 ) -> StdResult<Vec<SubMsg>> {
     if old_status == new_status {
         return Ok(vec![]);
@@ -82,10 +80,10 @@ pub fn proposal_status_changed_hooks(
         },
     ))?;
     let mut index: u64 = 0;
-    let messages = hooks.prepare_hooks(storage, |a| {
+    let messages = hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
-            contract_addr: a.to_string(),
-            code_hash:code_hash.clone(),
+            contract_addr: hook_item.addr.to_string(),
+            code_hash:hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };
@@ -107,12 +105,11 @@ pub fn proposal_completed_hooks(
     proposal_creation_policy: ProposalCreationPolicy,
     proposal_id: u64,
     new_status: Status,
-    code_hash: String,
 ) -> StdResult<Vec<SubMsg>> {
     let mut hooks: Vec<SubMsg> = vec![];
     match proposal_creation_policy {
         ProposalCreationPolicy::Anyone {} => (),
-        ProposalCreationPolicy::Module { addr } => {
+        ProposalCreationPolicy::Module { addr,code_hash } => {
             let msg = to_binary(&PreProposeHookMsg::ProposalCompletedHook {
                 proposal_id,
                 new_status,

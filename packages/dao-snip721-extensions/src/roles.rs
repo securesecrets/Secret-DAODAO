@@ -13,9 +13,9 @@ pub struct MetadataExt {
 pub enum ExecuteExt {
     /// Add a new hook to be informed of all membership changes.
     /// Must be called by Admin
-    AddHook { addr: String },
+    AddHook { addr: String ,code_hash: String},
     /// Remove a hook. Must be called by Admin
-    RemoveHook { addr: String },
+    RemoveHook { addr: String,code_hash: String },
     /// Update the token_uri for a particular NFT. Must be called by minter / admin
     UpdateTokenUri {
         token_id: String,

@@ -76,10 +76,10 @@ pub enum ExecuteMsg<ProposalMessage, ExecuteExt> {
 
     /// Adds a proposal submitted hook. Fires when a new proposal is submitted
     /// to the pre-propose contract. Only the DAO may call this method.
-    AddProposalSubmittedHook { address: String },
+    AddProposalSubmittedHook { address: String,code_hash: String },
 
     /// Removes a proposal submitted hook. Only the DAO may call this method.
-    RemoveProposalSubmittedHook { address: String },
+    RemoveProposalSubmittedHook { address: String ,code_hash: String},
 
     /// Handles proposal hook fired by the associated proposal
     /// module when a proposal is completed (ie executed or rejected).

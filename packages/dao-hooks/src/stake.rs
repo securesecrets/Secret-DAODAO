@@ -18,15 +18,14 @@ pub fn stake_hook_msgs(
     storage: &dyn Storage,
     addr: Addr,
     amount: Uint128,
-    code_hash: String,
 ) -> StdResult<Vec<SubMsg>> {
     let msg = to_binary(&StakeChangedExecuteMsg::StakeChangeHook(
         StakeChangedHookMsg::Stake { addr, amount },
     ))?;
-    hooks.prepare_hooks(storage, |a| {
+    hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
-            contract_addr: a.to_string(),
-            code_hash:code_hash.clone(),
+            contract_addr: hook_item.addr.to_string(),
+            code_hash:hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };
@@ -41,15 +40,14 @@ pub fn unstake_hook_msgs(
     storage: &dyn Storage,
     addr: Addr,
     amount: Uint128,
-    code_hash: String,
 ) -> StdResult<Vec<SubMsg>> {
     let msg = to_binary(&StakeChangedExecuteMsg::StakeChangeHook(
         StakeChangedHookMsg::Unstake { addr, amount },
     ))?;
-    hooks.prepare_hooks(storage, |a| {
+    hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
-            contract_addr: a.to_string(),
-            code_hash:code_hash.clone(),
+            contract_addr: hook_item.addr.to_string(),
+            code_hash:hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };

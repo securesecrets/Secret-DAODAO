@@ -3,6 +3,7 @@ use cosmwasm_std::{
     to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
 };
 
+use cw_hooks::HookItem;
 use secret_cw2::set_contract_version;
 
 use cw_denom::UncheckedDenom;
@@ -91,11 +92,11 @@ where
             ExecuteMsg::Withdraw { denom, key } => {
                 self.execute_withdraw(deps.as_ref(), env, info, denom, key)
             }
-            ExecuteMsg::AddProposalSubmittedHook { address } => {
-                self.execute_add_proposal_submitted_hook(deps, info, address)
+            ExecuteMsg::AddProposalSubmittedHook { address,code_hash } => {
+                self.execute_add_proposal_submitted_hook(deps, info, address,code_hash)
             }
-            ExecuteMsg::RemoveProposalSubmittedHook { address } => {
-                self.execute_remove_proposal_submitted_hook(deps, info, address)
+            ExecuteMsg::RemoveProposalSubmittedHook { address,code_hash } => {
+                self.execute_remove_proposal_submitted_hook(deps, info, address,code_hash)
             }
             ExecuteMsg::ProposalCompletedHook {
                 proposal_id,
@@ -148,10 +149,10 @@ where
 
         let hooks_msgs = self
             .proposal_submitted_hooks
-            .prepare_hooks(deps.storage, |a| {
+            .prepare_hooks(deps.storage, |hook_item| {
                 let execute = WasmMsg::Execute {
-                    contract_addr: a.into_string(),
-                    code_hash: env.contract.code_hash.clone(),
+                    contract_addr: hook_item.addr.into_string(),
+                    code_hash: hook_item.code_hash.clone(),
                     msg: to_binary(&msg)?,
                     funds: vec![],
                 };
@@ -248,6 +249,7 @@ where
         deps: DepsMut,
         info: MessageInfo,
         address: String,
+        code_hash: String
     ) -> Result<Response, PreProposeError> {
         let dao = self.dao.load(deps.storage)?;
         if info.sender != dao {
@@ -255,7 +257,10 @@ where
         }
 
         let addr = deps.api.addr_validate(&address)?;
-        self.proposal_submitted_hooks.add_hook(deps.storage, addr)?;
+        self.proposal_submitted_hooks.add_hook(deps.storage, HookItem{
+            addr,
+            code_hash,
+        })?;
 
         Ok(Response::default())
     }
@@ -265,6 +270,7 @@ where
         deps: DepsMut,
         info: MessageInfo,
         address: String,
+        code_hash: String
     ) -> Result<Response, PreProposeError> {
         let dao = self.dao.load(deps.storage)?;
         if info.sender != dao {
@@ -276,7 +282,10 @@ where
 
         // Remove the hook
         self.proposal_submitted_hooks
-            .remove_hook(deps.storage, addr)?;
+            .remove_hook(deps.storage, HookItem{
+                addr,
+                code_hash,
+            })?;
 
         Ok(Response::default())
     }

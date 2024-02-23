@@ -96,10 +96,10 @@ pub enum ExecuteMsg {
     UpdateConfig { duration: Option<Duration> },
     /// Adds a hook which is called on staking / unstaking events.
     /// Only callable by the DAO that initialized this voting contract.
-    AddHook { addr: String },
+    AddHook { addr: String, code_hash: String },
     /// Removes a hook which is called on staking / unstaking events.
     /// Only callable by the DAO that initialized this voting contract.
-    RemoveHook { addr: String },
+    RemoveHook { addr: String, code_hash: String },
     /// Sets the active threshold to a new value.
     /// Only callable by the DAO that initialized this voting contract.
     UpdateActiveThreshold {

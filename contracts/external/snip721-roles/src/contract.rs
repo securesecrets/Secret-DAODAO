@@ -12,6 +12,7 @@ use cw4::{
     TotalWeightResponse,
 };
 use schemars::JsonSchema;
+use secret_cw_controllers::HookItem;
 use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
 // use cw721_base::Cw721Contract;
@@ -200,8 +201,12 @@ pub fn execute(
             }
         },
         ExecuteMsg::ExtensionExecute(extension_msg) => match extension_msg {
-            ExecuteExt::AddHook { addr } => execute_add_hook(deps, info, addr),
-            ExecuteExt::RemoveHook { addr } => execute_remove_hook(deps, info, addr),
+            ExecuteExt::AddHook { addr, code_hash } => {
+                execute_add_hook(deps, info, addr, code_hash)
+            }
+            ExecuteExt::RemoveHook { addr, code_hash } => {
+                execute_remove_hook(deps, info, addr, code_hash)
+            }
             ExecuteExt::UpdateTokenUri {
                 token_id,
                 token_uri,
@@ -276,7 +281,7 @@ pub fn execute_mint(
     let msgs = HOOKS.prepare_hooks(deps.storage, |h| {
         diffs
             .clone()
-            .into_cosmos_msg(h, env.contract.code_hash.clone())
+            .into_cosmos_msg(h.addr, h.code_hash)
             .map(SubMsg::new)
     })?;
 
@@ -393,7 +398,7 @@ pub fn execute_burn(
     let msgs = HOOKS.prepare_hooks(deps.storage, |h| {
         diffs
             .clone()
-            .into_cosmos_msg(h, env.contract.code_hash.clone())
+            .into_cosmos_msg(h.addr, h.code_hash)
             .map(SubMsg::new)
     })?;
 
@@ -509,9 +514,16 @@ pub fn execute_add_hook(
     deps: DepsMut,
     _info: MessageInfo,
     addr: String,
+    code_hash: String,
 ) -> Result<Response, ContractError> {
-    let hook = deps.api.addr_validate(&addr)?;
-    HOOKS.add_hook(deps.storage, hook)?;
+    let address = deps.api.addr_validate(&addr)?;
+    HOOKS.add_hook(
+        deps.storage,
+        HookItem {
+            addr: address,
+            code_hash,
+        },
+    )?;
 
     Ok(Response::default()
         .add_attribute("action", "add_hook")
@@ -522,9 +534,16 @@ pub fn execute_remove_hook(
     deps: DepsMut,
     _info: MessageInfo,
     addr: String,
+    code_hash: String,
 ) -> Result<Response, ContractError> {
-    let hook = deps.api.addr_validate(&addr)?;
-    HOOKS.remove_hook(deps.storage, hook)?;
+    let address = deps.api.addr_validate(&addr)?;
+    HOOKS.remove_hook(
+        deps.storage,
+        HookItem {
+            addr: address,
+            code_hash,
+        },
+    )?;
 
     Ok(Response::default()
         .add_attribute("action", "remove_hook")
@@ -802,7 +821,7 @@ pub fn execute_update_token_weight(
     let msgs = HOOKS.prepare_hooks(deps.storage, |h| {
         diffs
             .clone()
-            .into_cosmos_msg(h, env.contract.code_hash.clone())
+            .into_cosmos_msg(h.addr, h.code_hash)
             .map(SubMsg::new)
     })?;
 

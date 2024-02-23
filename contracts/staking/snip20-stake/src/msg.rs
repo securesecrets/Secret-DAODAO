@@ -1,5 +1,6 @@
 use cosmwasm_schema::QueryResponses;
 use cosmwasm_std::{Addr, Binary, Uint128};
+use cw_hooks::HookItem;
 // use snip20_reference_impl::receiver::Snip20ReceiveMsg;
 use cw_ownable::cw_ownable_execute;
 use schemars::JsonSchema;
@@ -39,20 +40,14 @@ pub enum ExecuteMsg {
     Unstake { amount: Uint128 },
     Claim {},
     UpdateConfig { duration: Option<Duration> },
-    AddHook { addr: String },
-    RemoveHook { addr: String },
+    AddHook { addr: String, code_hash: String },
+    RemoveHook { addr: String, code_hash: String },
     CreateViewingKey { entropy: String },
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
 pub struct CreateViewingKeyResponse {
     pub key: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-pub struct InstantiateAnswer {
-    pub contract_address: String,
-    pub code_hash: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -139,7 +134,7 @@ pub struct TotalValueResponse {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct GetHooksResponse {
-    pub hooks: Vec<String>,
+    pub hooks: Vec<HookItem>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

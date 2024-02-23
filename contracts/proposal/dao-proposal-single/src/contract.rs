@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
     StdResult, Storage, SubMsg,
 };
-use cw_hooks::Hooks;
+use cw_hooks::{HookItem, Hooks};
 use dao_hooks::proposal::{
     new_proposal_hooks, proposal_completed_hooks, proposal_status_changed_hooks,
 };
@@ -144,15 +144,15 @@ pub fn execute(
         ExecuteMsg::UpdatePreProposeInfo { info: new_info } => {
             execute_update_proposal_creation_policy(deps, info, new_info)
         }
-        ExecuteMsg::AddProposalHook { address } => {
-            execute_add_proposal_hook(deps, env, info, address)
+        ExecuteMsg::AddProposalHook { address,code_hash } => {
+            execute_add_proposal_hook(deps, env, info, address,code_hash)
         }
-        ExecuteMsg::RemoveProposalHook { address } => {
-            execute_remove_proposal_hook(deps, env, info, address)
+        ExecuteMsg::RemoveProposalHook { address,code_hash } => {
+            execute_remove_proposal_hook(deps, env, info, address,code_hash)
         }
-        ExecuteMsg::AddVoteHook { address } => execute_add_vote_hook(deps, env, info, address),
-        ExecuteMsg::RemoveVoteHook { address } => {
-            execute_remove_vote_hook(deps, env, info, address)
+        ExecuteMsg::AddVoteHook { address,code_hash } => execute_add_vote_hook(deps, env, info, address,code_hash),
+        ExecuteMsg::RemoveVoteHook { address,code_hash } => {
+            execute_remove_vote_hook(deps, env, info, address,code_hash)
         }
         ExecuteMsg::Veto { proposal_id } => execute_veto(deps, env, info, proposal_id),
     }
@@ -271,7 +271,6 @@ pub fn execute_propose(
         deps.storage,
         id,
         proposer.as_str(),
-        env.contract.code_hash.clone(),
     )?;
 
     Ok(Response::default()
@@ -341,7 +340,6 @@ pub fn execute_veto(
         proposal_id,
         old_status.to_string(),
         prop.status.to_string(),
-        env.contract.code_hash.clone(),
     )?;
 
     // Add prepropose / deposit module hook which will handle deposit refunds.
@@ -350,7 +348,6 @@ pub fn execute_veto(
         proposal_creation_policy,
         proposal_id,
         prop.status,
-        env.contract.code_hash.clone(),
     )?;
 
     Ok(Response::new()
@@ -455,7 +452,6 @@ pub fn execute_execute(
         proposal_id,
         old_status.to_string(),
         prop.status.to_string(),
-        env.contract.code_hash.clone(),
     )?;
 
     // Add prepropose / deposit module hook which will handle deposit refunds.
@@ -464,7 +460,6 @@ pub fn execute_execute(
         proposal_creation_policy,
         proposal_id,
         prop.status,
-        env.contract.code_hash.clone(),
     )?;
 
     Ok(response
@@ -589,7 +584,6 @@ pub fn execute_vote(
         proposal_id,
         old_status.to_string(),
         new_status.to_string(),
-        env.contract.code_hash.clone(),
     )?;
 
     let vote_hooks = new_vote_hooks(
@@ -598,7 +592,6 @@ pub fn execute_vote(
         proposal_id,
         info.sender.to_string(),
         vote.to_string(),
-        env.contract.code_hash.clone(),
     )?;
 
     Ok(Response::default()
@@ -683,7 +676,6 @@ pub fn execute_close(
         proposal_id,
         old_status.to_string(),
         prop.status.to_string(),
-        env.contract.code_hash.clone(),
     )?;
 
     // Add prepropose / deposit module hook which will handle deposit refunds.
@@ -692,7 +684,6 @@ pub fn execute_close(
         proposal_creation_policy,
         proposal_id,
         prop.status,
-        env.contract.code_hash.clone(),
     )?;
 
     Ok(Response::default()
@@ -778,9 +769,13 @@ pub fn add_hook(
     hooks: Hooks,
     storage: &mut dyn Storage,
     validated_address: Addr,
+    code_hash: String
 ) -> Result<(), ContractError> {
     hooks
-        .add_hook(storage, validated_address)
+        .add_hook(storage, HookItem{
+            addr:validated_address,
+            code_hash
+        })
         .map_err(ContractError::HookError)?;
     Ok(())
 }
@@ -788,10 +783,14 @@ pub fn add_hook(
 pub fn remove_hook(
     hooks: Hooks,
     storage: &mut dyn Storage,
-    validate_address: Addr,
+    validated_address: Addr,
+    code_hash: String
 ) -> Result<(), ContractError> {
     hooks
-        .remove_hook(storage, validate_address)
+        .remove_hook(storage, HookItem{
+            addr:validated_address,
+            code_hash
+        })
         .map_err(ContractError::HookError)?;
     Ok(())
 }
@@ -801,6 +800,7 @@ pub fn execute_add_proposal_hook(
     _env: Env,
     info: MessageInfo,
     address: String,
+    code_hash: String
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     if config.dao != info.sender {
@@ -810,7 +810,7 @@ pub fn execute_add_proposal_hook(
 
     let validated_address = deps.api.addr_validate(&address)?;
 
-    add_hook(PROPOSAL_HOOKS, deps.storage, validated_address)?;
+    add_hook(PROPOSAL_HOOKS, deps.storage, validated_address,code_hash)?;
 
     Ok(Response::default()
         .add_attribute("action", "add_proposal_hook")
@@ -822,6 +822,7 @@ pub fn execute_remove_proposal_hook(
     _env: Env,
     info: MessageInfo,
     address: String,
+    code_hash: String
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     if config.dao != info.sender {
@@ -831,7 +832,7 @@ pub fn execute_remove_proposal_hook(
 
     let validated_address = deps.api.addr_validate(&address)?;
 
-    remove_hook(PROPOSAL_HOOKS, deps.storage, validated_address)?;
+    remove_hook(PROPOSAL_HOOKS, deps.storage, validated_address,code_hash)?;
 
     Ok(Response::default()
         .add_attribute("action", "remove_proposal_hook")
@@ -843,6 +844,7 @@ pub fn execute_add_vote_hook(
     _env: Env,
     info: MessageInfo,
     address: String,
+    code_hash: String
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     if config.dao != info.sender {
@@ -852,7 +854,7 @@ pub fn execute_add_vote_hook(
 
     let validated_address = deps.api.addr_validate(&address)?;
 
-    add_hook(VOTE_HOOKS, deps.storage, validated_address)?;
+    add_hook(VOTE_HOOKS, deps.storage, validated_address,code_hash)?;
 
     Ok(Response::default()
         .add_attribute("action", "add_vote_hook")
@@ -864,6 +866,7 @@ pub fn execute_remove_vote_hook(
     _env: Env,
     info: MessageInfo,
     address: String,
+    code_hash: String
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     if config.dao != info.sender {
@@ -873,7 +876,7 @@ pub fn execute_remove_vote_hook(
 
     let validated_address = deps.api.addr_validate(&address)?;
 
-    remove_hook(VOTE_HOOKS, deps.storage, validated_address)?;
+    remove_hook(VOTE_HOOKS, deps.storage, validated_address,code_hash)?;
 
     Ok(Response::default()
         .add_attribute("action", "remove_vote_hook")
@@ -1208,12 +1211,12 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 .add_attribute("error", msg.result.into_result().err().unwrap_or_default()))
         }
         TaggedReplyId::FailedProposalHook(idx) => {
-            let addr = PROPOSAL_HOOKS.remove_hook_by_index(deps.storage, idx)?;
-            Ok(Response::new().add_attribute("removed_proposal_hook", format!("{addr}:{idx}")))
+            let hook_item = PROPOSAL_HOOKS.remove_hook_by_index(deps.storage, idx)?;
+            Ok(Response::new().add_attribute("removed_proposal_hook", format!("{0}:{idx}", hook_item.addr)))
         }
         TaggedReplyId::FailedVoteHook(idx) => {
-            let addr = VOTE_HOOKS.remove_hook_by_index(deps.storage, idx)?;
-            Ok(Response::new().add_attribute("removed_vote_hook", format!("{addr}:{idx}")))
+            let hook_item = VOTE_HOOKS.remove_hook_by_index(deps.storage, idx)?;
+            Ok(Response::new().add_attribute("removed_vote_hook", format!("{0}:{idx}", hook_item.addr)))
         }
         TaggedReplyId::PreProposeModuleInstantiation => {
             let res = parse_reply_instantiate_data(msg)?;

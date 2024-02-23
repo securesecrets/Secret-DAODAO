@@ -566,7 +566,7 @@ pub fn execute_update_sub_daos_list(
 
     for subdao in to_add {
         let addr = deps.api.addr_validate(&subdao.addr)?;
-        SUBDAO_LIST.insert(deps.storage, &addr, &subdao.charter)?;
+        SUBDAO_LIST.insert(deps.storage, &addr, &subdao)?;
     }
 
     Ok(Response::default()
@@ -1007,12 +1007,12 @@ pub fn query_list_sub_daos(
         .map(|addr| deps.api.addr_validate(&addr))
         .transpose()?;
 
-        let mut subdaos:Vec<(Addr,Option<String>)>=Vec::new();
+        let mut subdaos:Vec<(Addr,SubDao)>=Vec::new();
         let mut start=start_at.clone();
         let binding = &SUBDAO_LIST;
         let iter = binding.iter(deps.storage)?;
         for item in iter {
-            let (addr,value ) = item?;
+            let (addr,subdao ) = item?;
             if let Some(start_at) = &start {
                 if &addr == start_at {
                     // If we found the start point, reset it to start iterating
@@ -1020,7 +1020,7 @@ pub fn query_list_sub_daos(
                 }
             }
             if start.is_none() {
-                subdaos.push((addr,value));
+                subdaos.push((addr,subdao));
                 if subdaos.len() >= limit.unwrap() as usize {
                     break; // Break out of loop if limit reached
                 }
@@ -1029,9 +1029,10 @@ pub fn query_list_sub_daos(
 
     let subdaos: Vec<SubDao> = subdaos
         .into_iter()
-        .map(|(address, charter)| SubDao {
+        .map(|(address, subdao)| SubDao {
             addr: address.into_string(),
-            charter,
+            code_hash:subdao.code_hash,
+            charter:subdao.charter,
         })
         .collect();
 

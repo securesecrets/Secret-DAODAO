@@ -72,6 +72,7 @@ pub struct AdminNominationResponse {
 pub struct SubDao {
     /// The contract address of the SubDAO
     pub addr: String,
+    pub code_hash: String,
     /// The purpose/constitution for the SubDAO
     pub charter: Option<String>,
 }

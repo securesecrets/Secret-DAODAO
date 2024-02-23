@@ -17,6 +17,7 @@ use dao_voting::threshold::ActiveThreshold;
 use dao_voting::threshold::ActiveThresholdResponse;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::{HandleCallback, InitCallback};
+use secret_utils::parse_reply_instantiate_data;
 
 use std::convert::TryInto;
 
@@ -516,19 +517,20 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
         },
         INSTANTIATE_STAKING_REPLY_ID => match msg.result {
             SubMsgResult::Ok(res) => {
-                let staking_init_response: snip20_stake::msg::InstantiateAnswer =
+                let staking_code_hash: String =
                     from_binary(&res.data.unwrap())?;
+                let staking_address = parse_reply_instantiate_data(msg);
 
                 let mut staking_contract = STAKING_CONTRACT.load(deps.storage).unwrap_or_default();
 
-                staking_contract.addr = staking_init_response.contract_address.clone();
-                staking_contract.code_hash = staking_init_response.code_hash;
+                staking_contract.addr = staking_address.unwrap().contract_address.clone();
+                staking_contract.code_hash = staking_code_hash;
 
                 STAKING_CONTRACT.save(deps.storage, &staking_contract)?;
 
                 Ok(Response::new().add_attribute(
                     "staking contract address ",
-                    staking_init_response.contract_address,
+                    staking_address.unwrap().contract_address,
                 ))
             }
             SubMsgResult::Err(_) => Err(ContractError::StakingInstantiateError {}),

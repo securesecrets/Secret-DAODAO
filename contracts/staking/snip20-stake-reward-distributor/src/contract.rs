@@ -75,7 +75,7 @@ pub fn instantiate(
         .add_attribute("staking_addr", staking_addr.into_string())
         .add_attribute("reward_token", reward_token.into_string())
         .add_attribute("reward_rate", msg.reward_rate)
-        .add_submessage(submsg))
+        .add_submessage(submsg).set_data(to_binary(&env.contract.code_hash.clone())))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

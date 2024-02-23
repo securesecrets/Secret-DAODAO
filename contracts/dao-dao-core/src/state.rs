@@ -1,5 +1,5 @@
 use cosmwasm_std::{Addr, Empty};
-use dao_interface::state::{Config, ProposalModule, VotingModuleInfo};
+use dao_interface::{query::SubDao, state::{Config, ProposalModule, VotingModuleInfo}};
 use secret_storage_plus::Item;
 use secret_toolkit::storage::Keymap;
 use secret_utils::Expiration;
@@ -53,7 +53,7 @@ pub const SNIP20_LIST: Keymap<Addr, Empty> = Keymap::new(b"snip20s");
 pub const SNIP721_LIST: Keymap<Addr, Empty> = Keymap::new(b"snip721s");
 
 /// List of SubDAOs associated to this DAO. Each SubDAO has an optional charter.
-pub const  SUBDAO_LIST: Keymap<Addr, Option<String>> = Keymap::new(b"sub_daos");
+pub const  SUBDAO_LIST: Keymap<Addr, SubDao> = Keymap::new(b"sub_daos");
 
 pub const TOKEN_VIEWING_KEY: Item<String> = Item::new("token_viewing_key");
 

@@ -1,7 +1,7 @@
 use crate::math;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, ReceiveMsg};
 use crate::msg::{
-    GetHooksResponse, InstantiateAnswer, ListStakersResponse, QueryMsg, Snip20ReceiveMsg,
+    GetHooksResponse, ListStakersResponse, QueryMsg, Snip20ReceiveMsg,
     StakedBalanceAtHeightResponse, StakedValueResponse, StakerBalanceResponse,
     TotalStakedAtHeightResponse, TotalValueResponse,
 };
@@ -14,6 +14,7 @@ use cosmwasm_std::{
     entry_point, from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo,
     Response, StdError, StdResult, Uint128,
 };
+use cw_hooks::HookItem;
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_voting::duration::validate_duration;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
@@ -70,10 +71,7 @@ pub fn instantiate(
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    Ok(Response::new().set_data(to_binary(&InstantiateAnswer {
-        contract_address: env.contract.address.to_string(),
-        code_hash: env.contract.code_hash,
-    })?))
+    Ok(Response::new().set_data(to_binary(&env.contract.code_hash)?))
 }
 
 #[entry_point]
@@ -88,8 +86,12 @@ pub fn execute(
         ExecuteMsg::Unstake { amount } => execute_unstake(deps, env, info, amount),
         ExecuteMsg::Claim {} => execute_claim(deps, env, info),
         ExecuteMsg::UpdateConfig { duration } => execute_update_config(info, deps, duration),
-        ExecuteMsg::AddHook { addr } => execute_add_hook(deps, env, info, addr),
-        ExecuteMsg::RemoveHook { addr } => execute_remove_hook(deps, env, info, addr),
+        ExecuteMsg::AddHook { addr, code_hash } => {
+            execute_add_hook(deps, env, info, addr, code_hash)
+        }
+        ExecuteMsg::RemoveHook { addr, code_hash } => {
+            execute_remove_hook(deps, env, info, addr, code_hash)
+        }
         ExecuteMsg::UpdateOwnership(action) => execute_update_owner(deps, info, env, action),
         ExecuteMsg::CreateViewingKey { entropy } => try_create_key(deps, env, info, entropy),
     }
@@ -170,13 +172,7 @@ pub fn execute_stake(
             .checked_add(amount_to_stake)
             .map_err(StdError::overflow)?,
     )?;
-    let hook_msgs = stake_hook_msgs(
-        HOOKS,
-        deps.storage,
-        sender.clone(),
-        amount_to_stake,
-        env.contract.code_hash,
-    )?;
+    let hook_msgs = stake_hook_msgs(HOOKS, deps.storage, sender.clone(), amount_to_stake)?;
     Ok(Response::new()
         .add_submessages(hook_msgs)
         .add_attribute("action", "stake")
@@ -227,13 +223,7 @@ pub fn execute_unstake(
             .checked_sub(amount_to_claim)
             .map_err(StdError::overflow)?,
     )?;
-    let hook_msgs = unstake_hook_msgs(
-        HOOKS,
-        deps.storage,
-        info.sender.clone(),
-        amount,
-        env.contract.code_hash.clone(),
-    )?;
+    let hook_msgs = unstake_hook_msgs(HOOKS, deps.storage, info.sender.clone(), amount)?;
     match config.unstaking_duration {
         None => {
             let snip_send_msg = Transfer {
@@ -331,10 +321,17 @@ pub fn execute_add_hook(
     _env: Env,
     info: MessageInfo,
     addr: String,
+    code_hash: String,
 ) -> Result<Response, ContractError> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let hook = deps.api.addr_validate(&addr)?;
-    HOOKS.add_hook(deps.storage, hook)?;
+    let address = deps.api.addr_validate(&addr)?;
+    HOOKS.add_hook(
+        deps.storage,
+        HookItem {
+            addr: address,
+            code_hash,
+        },
+    )?;
     Ok(Response::new()
         .add_attribute("action", "add_hook")
         .add_attribute("hook", addr))
@@ -345,10 +342,17 @@ pub fn execute_remove_hook(
     _env: Env,
     info: MessageInfo,
     addr: String,
+    code_hash: String,
 ) -> Result<Response, ContractError> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let hook = deps.api.addr_validate(&addr)?;
-    HOOKS.remove_hook(deps.storage, hook)?;
+    let address = deps.api.addr_validate(&addr)?;
+    HOOKS.remove_hook(
+        deps.storage,
+        HookItem {
+            addr: address,
+            code_hash,
+        },
+    )?;
     Ok(Response::new()
         .add_attribute("action", "remove_hook")
         .add_attribute("hook", addr))
@@ -391,7 +395,12 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             address,
             height,
         } => to_binary(&query_staked_balance_at_height(
-            deps, env, key, contract_address,address, height,
+            deps,
+            env,
+            key,
+            contract_address,
+            address,
+            height,
         )?),
         QueryMsg::TotalStakedAtHeight { height } => {
             to_binary(&query_total_staked_at_height(deps, env, height)?)
@@ -400,7 +409,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_staked_value(deps, env, key, address)?)
         }
         QueryMsg::TotalValue {} => to_binary(&query_total_value(deps, env)?),
-        QueryMsg::Claims {key,address, contract_address } => to_binary(&query_claims(deps, key, address,contract_address)?),
+        QueryMsg::Claims {
+            key,
+            address,
+            contract_address,
+        } => to_binary(&query_claims(deps, key, address, contract_address)?),
         QueryMsg::GetHooks {} => to_binary(&query_hooks(deps)?),
         QueryMsg::ListStakers {} => query_list_stakers(deps),
         QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
@@ -415,11 +428,14 @@ pub fn query_staked_balance_at_height(
     address: String,
     height: Option<u64>,
 ) -> StdResult<StakedBalanceAtHeightResponse> {
-    if contract_address.is_some(){
-        authenticate(deps, deps.api.addr_validate(&contract_address.unwrap())?, key)?;
-    }
-    else {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
+    if contract_address.is_some() {
+        authenticate(
+            deps,
+            deps.api.addr_validate(&contract_address.unwrap())?,
+            key,
+        )?;
+    } else {
+        authenticate(deps, deps.api.addr_validate(&address)?, key)?;
     }
 
     let address = deps.api.addr_validate(&address)?;
@@ -481,13 +497,20 @@ pub fn query_config(deps: Deps) -> StdResult<Config> {
     Ok(config)
 }
 
-pub fn query_claims(deps: Deps, key: String, address: String,contract_address: Option<String>) -> StdResult<ClaimsResponse> {
-    if contract_address.is_some(){
-        authenticate(deps, deps.api.addr_validate(&contract_address.unwrap())?, key)?;
-    }
-    else{
+pub fn query_claims(
+    deps: Deps,
+    key: String,
+    address: String,
+    contract_address: Option<String>,
+) -> StdResult<ClaimsResponse> {
+    if contract_address.is_some() {
+        authenticate(
+            deps,
+            deps.api.addr_validate(&contract_address.unwrap())?,
+            key,
+        )?;
+    } else {
         authenticate(deps, deps.api.addr_validate(&address)?, key)?;
-
     }
 
     CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)
