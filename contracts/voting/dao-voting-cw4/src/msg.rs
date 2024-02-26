@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use dao_dao_macros::voting_module_query;
+use dao_interface::state::AnyContractInfo;
 
 #[cw_serde]
 pub enum GroupContract {
@@ -17,6 +18,7 @@ pub enum GroupContract {
 #[cw_serde]
 pub struct InstantiateMsg {
     pub group_contract: GroupContract,
+    pub dao_code_hash: String,
 }
 
 #[cw_serde]
@@ -26,7 +28,7 @@ pub enum ExecuteMsg {}
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(AnyContractInfo)]
     GroupContract {},
 }
 

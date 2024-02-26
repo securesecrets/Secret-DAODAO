@@ -5,26 +5,32 @@ use cosmwasm_std::{
     from_binary, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
     SubMsg, SubMsgResult, Uint128,
 };
-use cw4::{Member, MemberListResponse, MemberResponse, TotalWeightResponse};
+use cw4::{MemberListResponse, MemberResponse, TotalWeightResponse};
+use cw4_group::msg::InstantiateMsgResponse;
+// use cw4_group::msg::InstantiateMsg as Cw4GroupInstantiateMsg;
+use dao_interface::state::AnyContractInfo;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, GroupContract, InstantiateMsg, MigrateMsg, QueryMsg};
-use crate::state::{Config, DAO, GROUP_CONTRACT};
+use crate::state::{DAO, GROUP_CONTRACT};
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:dao-voting-cw4";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const INSTANTIATE_GROUP_REPLY_ID: u64 = 0;
 
+// #[cw_serde]
+// pub struct Cw4GroupInstantiateMsg {
+//     /// The admin is the only account that can update the group state.
+//     /// Omit it to make the group immutable.
+//     pub admin: Option<String>,
+//     pub members: Vec<Member>,
+// }
+
 #[cw_serde]
-pub struct Cw4GroupInstantiateMsg {
-    /// The admin is the only account that can update the group state.
-    /// Omit it to make the group immutable.
-    pub admin: Option<String>,
-    pub members: Vec<Member>,
-}
+struct Cw4GroupInstantiateMsg(cw4_group::msg::InstantiateMsg);
 
 impl InitCallback for Cw4GroupInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
@@ -39,7 +45,13 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    DAO.save(deps.storage, &info.sender)?;
+    DAO.save(
+        deps.storage,
+        &AnyContractInfo {
+            code_hash: msg.dao_code_hash,
+            addr: info.sender.clone(),
+        },
+    )?;
 
     match msg.group_contract {
         GroupContract::New {
@@ -78,10 +90,10 @@ pub fn instantiate(
             // Instantiate group contract, set DAO as admin.
             // Voting module contracts are instantiated by the main dao-dao-core
             // contract, so the Admin is set to info.sender.
-            let msg = Cw4GroupInstantiateMsg {
+            let msg = Cw4GroupInstantiateMsg(cw4_group::msg::InstantiateMsg {
                 admin: Some(info.sender.to_string()),
                 members: initial_members,
-            };
+            });
             let sub_msg = SubMsg::reply_always(
                 msg.to_cosmos_msg(
                     Some(info.sender.to_string()),
@@ -95,7 +107,11 @@ pub fn instantiate(
 
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
-                .add_submessage(sub_msg).set_data(to_binary(&env.contract.code_hash.clone())))
+                .add_submessage(sub_msg)
+                .set_data(to_binary(&InstantiateMsgResponse {
+                    code_hash: env.contract.code_hash,
+                    address: env.contract.address.to_string(),
+                })?))
         }
         GroupContract::Existing { address, code_hash } => {
             let group_contract = deps.api.addr_validate(&address.clone())?;
@@ -114,16 +130,20 @@ pub fn instantiate(
                 return Err(ContractError::NoMembers {});
             }
 
-            let data = Config {
-                group_contract_address: address.clone(),
-                group_contract_code_hash: code_hash.clone(),
+            let data = AnyContractInfo {
+                addr: deps.api.addr_validate(&address)?,
+                code_hash: code_hash.clone(),
             };
 
             GROUP_CONTRACT.save(deps.storage, &data)?;
 
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
-                .add_attribute("group_contract", group_contract.to_string()).set_data(to_binary(&env.contract.code_hash.clone())))
+                .add_attribute("group_contract", group_contract.to_string())
+                .set_data(to_binary(&InstantiateMsgResponse {
+                    code_hash: env.contract.code_hash,
+                    address: env.contract.address.to_string(),
+                })?))
         }
     }
 }
@@ -160,8 +180,8 @@ pub fn query_voting_power_at_height(
     let addr = deps.api.addr_validate(&address)?.to_string();
     let group_contract = GROUP_CONTRACT.load(deps.storage)?;
     let res: MemberResponse = deps.querier.query_wasm_smart(
-        group_contract.group_contract_code_hash,
-        group_contract.group_contract_address,
+        group_contract.code_hash,
+        group_contract.addr,
         &cw4_group::msg::QueryMsg::Member {
             addr,
             at_height: height,
@@ -177,8 +197,8 @@ pub fn query_voting_power_at_height(
 pub fn query_total_power_at_height(deps: Deps, env: Env, height: Option<u64>) -> StdResult<Binary> {
     let group_contract = GROUP_CONTRACT.load(deps.storage)?;
     let res: TotalWeightResponse = deps.querier.query_wasm_smart(
-        group_contract.group_contract_code_hash,
-        group_contract.group_contract_address,
+        group_contract.code_hash,
+        group_contract.addr,
         &cw4_group::msg::QueryMsg::TotalWeight { at_height: height },
     )?;
     to_binary(&dao_interface::voting::TotalPowerAtHeightResponse {
@@ -218,9 +238,9 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
 
                 GROUP_CONTRACT.save(
                     deps.storage,
-                    &Config {
-                        group_contract_address: data.address.clone(),
-                        group_contract_code_hash: data.code_hash,
+                    &AnyContractInfo {
+                        addr: deps.api.addr_validate(&data.address)?,
+                        code_hash: data.code_hash,
                     },
                 )?;
                 Ok(Response::default().add_attribute("group_contract", data.address.clone()))

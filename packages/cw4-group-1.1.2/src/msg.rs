@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cw4::Member;
+use secret_cw_controllers::HookItem;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -28,9 +29,9 @@ pub enum ExecuteMsg {
         add: Vec<Member>,
     },
     /// Add a new hook to be informed of all membership changes. Must be called by Admin
-    AddHook { addr: String },
+    AddHook { hook: HookItem },
     /// Remove a hook. Must be called by Admin
-    RemoveHook { addr: String },
+    RemoveHook { hook: HookItem },
 }
 
 #[cw_serde]

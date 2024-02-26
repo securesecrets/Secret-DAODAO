@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, WasmMsg};
+use schemars::JsonSchema;
 use secret_toolkit::utils::InitCallback;
+use serde::{Deserialize, Serialize};
 
 /// Top level config type for core module.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -30,6 +30,7 @@ pub struct Config {
 pub struct ProposalModule {
     /// The address of the proposal module.
     pub address: Addr,
+    pub code_hash: String,
     /// The URL prefix of this proposal module as derived from the module ID.
     /// Prefixes are mapped to letters, e.g. 0 is 'A', and 26 is 'AA'.
     pub prefix: String,
@@ -39,7 +40,14 @@ pub struct ProposalModule {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
-pub struct VotingModuleInfo{
+pub struct VotingModuleInfo {
+    pub addr: Addr,
+    pub code_hash: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct AnyContractInfo {
     pub addr: Addr,
     pub code_hash: String,
 }
@@ -65,8 +73,8 @@ pub enum Admin {
 
 /// Information needed to instantiate a module.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]pub struct ModuleInstantiateInfo {
-
+#[serde(rename_all = "snake_case")]
+pub struct ModuleInstantiateInfo {
     /// Code ID of the contract to be instantiated.
     pub code_id: u64,
     /// Code Hash of the contract to be instantiated.
@@ -82,12 +90,25 @@ pub enum Admin {
     pub label: String,
 }
 
-impl InitCallback for ModuleInstantiateInfo{
-    const BLOCK_SIZE: usize=256;
-}
+// impl InitCallback for ModuleInstantiateInfo {
+//     const BLOCK_SIZE: usize = 256;
+// }
 
 impl ModuleInstantiateInfo {
     pub fn into_wasm_msg(self, dao: Addr) -> WasmMsg {
+        WasmMsg::Instantiate {
+            admin: self.admin.map(|admin| match admin {
+                Admin::Address { addr } => addr,
+                Admin::CoreModule {} => dao.into_string(),
+            }),
+            code_id: self.code_id,
+            code_hash: self.code_hash,
+            msg: self.msg,
+            funds: self.funds,
+            label: self.label,
+        }
+    }
+    pub fn to_cosmos_msg(self, dao: Addr) -> WasmMsg {
         WasmMsg::Instantiate {
             admin: self.admin.map(|admin| match admin {
                 Admin::Address { addr } => addr,

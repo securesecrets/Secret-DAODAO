@@ -23,45 +23,20 @@ license = "Apache-2.0"
 repository = "https://github.com/CosmWasm/cw-plus"
 
 [lib]
-crate-type = [
-    "cdylib",
-    "rlib",
-]
+crate-type = ["cdylib", "rlib"]
 
-[dependencies.cosmwasm-schema]
-workspace=true
-
-[dependencies.cosmwasm-std]
-workspace=true
-
-[dependencies.secret-cw-controllers]
-workspace=true
-
-[dependencies.secret-storage-plus]
-workspace=true
-
-[dependencies.secret-utils]
-workspace=true
-
-[dependencies.secret-cw2]
-workspace=true
-
-[dependencies.cw4]
-workspace=true
-
-[dependencies.schemars]
-workspace=true
-
-[dependencies.serde]
-workspace=true
-
-[dependencies.secret-toolkit]
-workspace=true
-
-
-[dependencies.thiserror]
-workspace=true
-
+[dependencies]
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+secret-cw-controllers = { workspace = true }
+secret-storage-plus = { workspace = true }
+secret-utils = { workspace = true }
+secret-cw2 = { workspace = true }
+cw4 = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+secret-toolkit = { workspace = true }
+thiserror = { workspace = true }
 
 [features]
 backtraces = ["cosmwasm-std/backtraces"]

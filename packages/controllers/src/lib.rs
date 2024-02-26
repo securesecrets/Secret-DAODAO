@@ -17,7 +17,9 @@ Supported controllers:
 mod admin;
 mod claim;
 mod hooks;
+mod replies;
 
 pub use admin::{Admin, AdminError, AdminResponse};
 pub use claim::{Claim, Claims, ClaimsResponse};
-pub use hooks::{HookError, Hooks, HooksResponse,HookItem};
+pub use hooks::{HookError, HookItem, Hooks, HooksResponse};
+pub use replies::{ReplyError, ReplyEvent, ReplyIds};

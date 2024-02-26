@@ -1,7 +1,11 @@
 use cosmwasm_std::{Addr, Empty};
-use dao_interface::{query::SubDao, state::{Config, ProposalModule, VotingModuleInfo}};
+use dao_interface::{
+    query::SubDao,
+    state::{Config, ProposalModule, VotingModuleInfo},
+};
+use secret_cw_controllers::ReplyIds;
 use secret_storage_plus::Item;
-use secret_toolkit::storage::Keymap;
+use secret_toolkit::{serialization::Json, storage::Keymap};
 use secret_utils::Expiration;
 
 /// The admin of the contract. Typically a DAO. The contract admin may
@@ -34,7 +38,8 @@ pub const VOTING_MODULE: Item<VotingModuleInfo> = Item::new("voting_module");
 /// The proposal modules associated with this contract.
 /// When we change the data format of this map, we update the key (previously "proposal_modules")
 /// to create a new namespace for the changed state.
-pub static PROPOSAL_MODULES: Keymap<Addr, ProposalModule> = Keymap::new(b"proposal_modules_v2");
+pub static PROPOSAL_MODULES: Keymap<Addr, ProposalModule, Json> =
+    Keymap::new(b"proposal_modules_v2");
 
 /// The count of active proposal modules associated with this contract.
 pub const ACTIVE_PROPOSAL_MODULE_COUNT: Item<u32> = Item::new("active_proposal_module_count");
@@ -43,19 +48,21 @@ pub const ACTIVE_PROPOSAL_MODULE_COUNT: Item<u32> = Item::new("active_proposal_m
 pub const TOTAL_PROPOSAL_MODULE_COUNT: Item<u32> = Item::new("total_proposal_module_count");
 
 // General purpose KV store for DAO associated state.
-pub static ITEMS: Keymap<String, String> = Keymap::new(b"items");
+pub static ITEMS: Keymap<String, String, Json> = Keymap::new(b"items");
 
 /// Set of snip20 tokens that have been registered with this contract's
 /// treasury.
-pub const SNIP20_LIST: Keymap<Addr, Empty> = Keymap::new(b"snip20s");
+pub const SNIP20_LIST: Keymap<Addr, Empty, Json> = Keymap::new(b"snip20s");
 /// Set of snip721 tokens that have been registered with this contract's
 /// treasury.b
-pub const SNIP721_LIST: Keymap<Addr, Empty> = Keymap::new(b"snip721s");
+pub const SNIP721_LIST: Keymap<Addr, Empty, Json> = Keymap::new(b"snip721s");
 
 /// List of SubDAOs associated to this DAO. Each SubDAO has an optional charter.
-pub const  SUBDAO_LIST: Keymap<Addr, SubDao> = Keymap::new(b"sub_daos");
+pub const SUBDAO_LIST: Keymap<Addr, SubDao, Json> = Keymap::new(b"sub_daos");
 
 pub const TOKEN_VIEWING_KEY: Item<String> = Item::new("token_viewing_key");
 
-pub const SNIP20_CODE_HASH: Item<String>= Item::new("snip20_code_hash");
-pub const SNIP721_CODE_HASH: Item<String>= Item::new("snip721_code_hash");
+pub const SNIP20_CODE_HASH: Item<String> = Item::new("snip20_code_hash");
+pub const SNIP721_CODE_HASH: Item<String> = Item::new("snip721_code_hash");
+
+pub const REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");

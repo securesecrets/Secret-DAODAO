@@ -1593,9 +1593,7 @@ dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-core",
  "cw-paginate-storage 2.4.0",
- "cw20 1.1.2",
  "cw20-base 1.1.2",
- "cw721 0.18.0",
  "cw721-base 0.18.0",
  "dao-dao-macros",
  "dao-interface",
@@ -1603,6 +1601,7 @@ dependencies = [
  "dao-voting-cw20-balance",
  "schemars",
  "secret-cosmwasm-std",
+ "secret-cw-controllers",
  "secret-cw2",
  "secret-multi-test",
  "secret-storage-plus",
@@ -3876,10 +3875,11 @@ dependencies = [
 name = "secret-cw-controllers"
 version = "1.0.1"
 dependencies = [
- "cosmwasm-schema 1.5.0",
+ "cosmwasm-schema 1.1.11",
  "schemars",
  "secret-cosmwasm-std",
  "secret-storage-plus",
+ "secret-toolkit",
  "secret-utils",
  "serde",
  "thiserror",

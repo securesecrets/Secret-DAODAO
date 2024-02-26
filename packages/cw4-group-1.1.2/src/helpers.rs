@@ -4,7 +4,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{to_binary, Addr, CosmosMsg, StdResult, WasmMsg};
 use cw4::{Cw4Contract, Member};
 
-use crate::{msg::ExecuteMsg, ContractError};
+use crate::{msg::ExecuteMsg, error::ContractError};
 
 /// Cw4GroupContract is a wrapper around Cw4Contract that provides a lot of helpers
 /// for working with cw4-group contracts.

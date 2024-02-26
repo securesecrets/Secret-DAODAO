@@ -19,16 +19,16 @@ library = []
 [dependencies]
 cosmwasm-std = { workspace = true }
 cosmwasm-storage = { workspace = true }
+cosmwasm-schema = { workspace = true }
 secret-storage-plus = { workspace = true }
 secret-cw2 = { workspace = true }
 secret-utils = { workspace = true }
-cosmwasm-schema = { workspace = true }
 thiserror = { workspace = true }
 dao-dao-macros = { workspace = true }
 dao-interface = { workspace = true }
 cw4 = { workspace = true }
-cw4-group = { workspace = true }
-secret-toolkit ={ workspace = true }
+cw4-group = { workspace = true, features = ["library"] }
+secret-toolkit = { workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

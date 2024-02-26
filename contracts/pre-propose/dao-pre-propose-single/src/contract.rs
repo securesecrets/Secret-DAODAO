@@ -93,11 +93,11 @@ pub fn execute(
             deposit_info,
             open_proposal_submission,
         },
-        ExecuteMsg::AddProposalSubmittedHook { address } => {
-            ExecuteInternal::AddProposalSubmittedHook { address }
+        ExecuteMsg::AddProposalSubmittedHook { address, code_hash } => {
+            ExecuteInternal::AddProposalSubmittedHook { address, code_hash }
         }
-        ExecuteMsg::RemoveProposalSubmittedHook { address } => {
-            ExecuteInternal::RemoveProposalSubmittedHook { address }
+        ExecuteMsg::RemoveProposalSubmittedHook { address, code_hash } => {
+            ExecuteInternal::RemoveProposalSubmittedHook { address, code_hash }
         }
         ExecuteMsg::ProposalCompletedHook {
             proposal_id,

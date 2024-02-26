@@ -24,14 +24,14 @@ repository = "https://github.com/DA0-DA0/dao-contracts"
 version = "2.4.0"
 
 [profile.release]
-codegen-units = 1
-debug = false
-debug-assertions = false
-incremental = false
-lto = true
 opt-level = 3
-panic = 'abort'
+debug = false
 rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
 # Please do not disable these. Doing so will cause overflow checks in
 # all workspace members to stop working. Overflows should be errors.
 overflow-checks = true
@@ -50,8 +50,8 @@ cw2 = "1.1"
 cw20 = "1.1"
 cw20-base = "1.1"
 cw3 = "1.1"
-cw4 = {path = "./packages/cw4-1.1.2/"}
-cw4-group = {path = "./packages/cw4-group-1.1.2/"}
+cw4 = { path = "./packages/cw4-1.1.2/" }
+cw4-group = { path = "./packages/cw4-group-1.1.2/" }
 cw721 = "0.18"
 cw721-base = "0.18"
 env_logger = "0.10"
@@ -142,28 +142,33 @@ voting-v1 = { package = "dao-voting", version = "0.1.0" }
 
 
 # cosmwasm-storage = { version = "1.1.11", package = "secret-cosmwasm-storage", default-features = false }
-secret-utils = { path="./packages/utils/"}
+secret-utils = { path = "./packages/utils/" }
 # cosmwasm-std = { version = "1.1.11", package = "secret-cosmwasm-std", default-features = false }
 secret-toolkit = { version = "0.10.0", default-features = false, features = [
-    "utils",
-    "serialization",
-    "viewing-key",
-    "permit",
-    "storage",
-    "snip20",
-    "snip721"
+  "utils",
+  "serialization",
+  "viewing-key",
+  "permit",
+  "storage",
+  "snip20",
+  "snip721",
 ] }
-secret-storage-plus = { path = "./packages/storage-plus/"}
-secret-cw-controllers = { path = "./packages/controllers/"}
-secret-cw2 = { path="./packages/cw2/" }
-secret-multi-test = {path = "./packages/multi-test/"}
+secret-storage-plus = { path = "./packages/storage-plus/" }
+secret-cw-controllers = { path = "./packages/controllers/" }
+secret-cw2 = { path = "./packages/cw2/" }
+secret-multi-test = { path = "./packages/multi-test/" }
 
-cosmwasm-std = { package = "secret-cosmwasm-std", version = "1.1.11",features = ["stargate","staking","ibc3","random"] }
+cosmwasm-std = { package = "secret-cosmwasm-std", version = "1.1.11", features = [
+  "stargate",
+  "staking",
+  "ibc3",
+  "random",
+] }
 cosmwasm-storage = { package = "secret-cosmwasm-storage", version = "1.1.11" }
 schemars = "0.8.12"
 serde = { version = "1.0.158", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.21" }
 cosmwasm-schema = { git = "https://github.com/scrtlabs/cosmwasm/", branch = "secret" }
-snip20-reference-impl ={ path = "./snip20-reference-impl/"}
-snip721-reference-impl = {path="./snip721-reference-impl/"}
+snip20-reference-impl = { path = "./snip20-reference-impl/" }
+snip721-reference-impl = { path = "./snip721-reference-impl/" }
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }

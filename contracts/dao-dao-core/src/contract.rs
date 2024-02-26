@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply,
-    Response, StdError, StdResult, SubMsg,
+    Response, StdError, StdResult, SubMsg, SubMsgResult,
 };
 // use cw_paginate_storage::{paginate_map, paginate_map_keys, paginate_map_values};
 use dao_interface::{
@@ -21,21 +21,19 @@ use dao_interface::{
     voting,
 };
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
-use secret_toolkit::{storage::Keymap, utils::HandleCallback, utils::InitCallback};
-use secret_utils::{parse_reply_instantiate_data, Duration};
+use secret_cw_controllers::ReplyEvent;
+use secret_toolkit::{serialization::Json, storage::Keymap, utils::HandleCallback};
+use secret_utils::{parse_reply_event_for_contract_address, Duration};
 
 use crate::state::{
-    ACTIVE_PROPOSAL_MODULE_COUNT, ADMIN, CONFIG, ITEMS, NOMINATED_ADMIN, PAUSED, PROPOSAL_MODULES, SNIP20_CODE_HASH, SNIP20_LIST, SNIP721_CODE_HASH, SNIP721_LIST, SUBDAO_LIST, TOKEN_VIEWING_KEY, TOTAL_PROPOSAL_MODULE_COUNT, VOTING_MODULE
+    ACTIVE_PROPOSAL_MODULE_COUNT, ADMIN, CONFIG, ITEMS, NOMINATED_ADMIN, PAUSED, PROPOSAL_MODULES,
+    REPLY_IDS, SNIP20_CODE_HASH, SNIP20_LIST, SNIP721_CODE_HASH, SNIP721_LIST, SUBDAO_LIST,
+    TOKEN_VIEWING_KEY, TOTAL_PROPOSAL_MODULE_COUNT, VOTING_MODULE,
 };
 use crate::{error::ContractError, snip20_msg};
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:dao-dao-core";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-const PROPOSAL_MODULE_REPLY_ID: u64 = 0;
-const VOTE_MODULE_INSTANTIATE_REPLY_ID: u64 = 1;
-const VOTE_MODULE_UPDATE_REPLY_ID: u64 = 2;
-const SNIP20_VIEWING_KEY_REPLY_ID: u64 = 3;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -45,7 +43,6 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
     let config = Config {
         name: msg.clone().name,
         description: msg.clone().description,
@@ -67,36 +64,34 @@ pub fn instantiate(
 
     // Adding code hash here only as we don't know what voting module we are using as we are providing it in binary
     let voting_code_hash = msg.clone().voting_module_instantiate_info.code_hash;
-    let voting_module_info = VotingModuleInfo {
-        addr: Addr::unchecked(""),
-        code_hash: voting_code_hash,
-    };
-    VOTING_MODULE.save(deps.storage, &voting_module_info)?;
-    let vote_module_msg = msg.clone().voting_module_instantiate_info.to_cosmos_msg(
-        Some(env.contract.address.clone().to_string()),
-        env.contract.address.clone().to_string(),
-        msg.clone().voting_module_instantiate_info.code_id,
-        msg.clone().voting_module_instantiate_info.code_hash,
-        None,
+
+    let vote_module_msg = msg
+        .clone()
+        .voting_module_instantiate_info
+        .to_cosmos_msg(env.contract.address.clone());
+    let reply_id = REPLY_IDS.add_event(
+        deps.storage,
+        ReplyEvent::VotingModuleInstantiate {
+            code_hash: voting_code_hash,
+        },
     )?;
-    let vote_module_msg: SubMsg<Empty> =
-        SubMsg::reply_on_success(vote_module_msg, VOTE_MODULE_INSTANTIATE_REPLY_ID);
+    let vote_module_msg: SubMsg<Empty> = SubMsg::reply_on_success(vote_module_msg, reply_id);
 
     let proposal_module_msgs: Vec<SubMsg<Empty>> = msg
         .proposal_modules_instantiate_info
         .into_iter()
         .map(|info| {
-            info.clone()
-                .to_cosmos_msg(
-                    Some(env.contract.address.clone().to_string()),
-                    env.contract.address.clone().to_string(),
-                    info.clone().code_id,
-                    info.clone().code_hash,
-                    None,
+            let wasm = info.clone().to_cosmos_msg(env.contract.address.clone());
+            let reply_id = REPLY_IDS
+                .add_event(
+                    deps.storage,
+                    ReplyEvent::ProposalModuleInstantiate {
+                        code_hash: info.code_hash,
+                    },
                 )
-                .unwrap()
+                .unwrap();
+            SubMsg::reply_on_success(wasm, reply_id)
         })
-        .map(|wasm| SubMsg::reply_on_success(wasm, PROPOSAL_MODULE_REPLY_ID))
         .collect();
     if proposal_module_msgs.is_empty() {
         return Err(ContractError::NoActiveProposalModules {});
@@ -348,18 +343,15 @@ pub fn execute_update_voting_module(
     if env.contract.address != sender {
         return Err(ContractError::Unauthorized {});
     }
-    let mut current = VOTING_MODULE.load(deps.storage)?;
-    current.code_hash = module.clone().code_hash;
-    VOTING_MODULE.save(deps.storage, &current)?;
 
-    let wasm = module.clone().to_cosmos_msg(
-        Some(env.contract.address.clone().to_string()),
-        env.contract.address.to_string(),
-        module.clone().code_id,
-        module.clone().code_hash,
-        None,
+    let wasm = module.clone().to_cosmos_msg(env.contract.address);
+    let reply_id = REPLY_IDS.add_event(
+        deps.storage,
+        ReplyEvent::VotingModuleInstantiate {
+            code_hash: module.code_hash,
+        },
     )?;
-    let submessage = SubMsg::reply_on_success(wasm, VOTE_MODULE_UPDATE_REPLY_ID);
+    let submessage = SubMsg::reply_on_success(wasm, reply_id);
 
     Ok(Response::default()
         .add_attribute("action", "execute_update_voting_module")
@@ -408,8 +400,18 @@ pub fn execute_update_proposal_modules(
 
     let to_add: Vec<SubMsg<Empty>> = to_add
         .into_iter()
-        .map(|info| info.into_wasm_msg(env.contract.address.clone()))
-        .map(|wasm| SubMsg::reply_on_success(wasm, PROPOSAL_MODULE_REPLY_ID))
+        .map(|info| {
+            let wasm = info.clone().into_wasm_msg(env.contract.address.clone());
+            let reply_id = REPLY_IDS
+                .add_event(
+                    deps.storage,
+                    ReplyEvent::ProposalModuleInstantiate {
+                        code_hash: info.code_hash,
+                    },
+                )
+                .unwrap();
+            SubMsg::reply_on_success(wasm, reply_id)
+        })
         .collect();
 
     Ok(Response::default()
@@ -421,7 +423,7 @@ pub fn execute_update_proposal_modules(
 /// that will be added.
 fn do_update_addr_list(
     deps: DepsMut,
-    map: Keymap<Addr, Empty>,
+    map: Keymap<Addr, Empty, Json>,
     to_add: Vec<String>,
     to_remove: Vec<String>,
     verify: impl Fn(&Addr, Deps) -> StdResult<()>,
@@ -447,7 +449,6 @@ fn do_update_addr_list(
     Ok(())
 }
 
-
 pub fn execute_update_snip20_list(
     deps: DepsMut,
     env: Env,
@@ -458,27 +459,21 @@ pub fn execute_update_snip20_list(
     if env.contract.address != sender {
         return Err(ContractError::Unauthorized {});
     }
-    do_update_addr_list(
-        deps,
-        SNIP20_LIST,
-        to_add,
-        to_remove,
-        |addr, deps| {
-            // Perform a balance query here as this is the query performed
-            // by the `Cw20Balances` query.
-            let viewing_key = TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
-            let snip20_code_hash =SNIP20_CODE_HASH.load(deps.storage)?;
-            let _info: snip20_reference_impl::msg::Balance = deps.querier.query_wasm_smart(
-                snip20_code_hash,
-                addr,
-                &snip20_reference_impl::msg::QueryMsg::Balance {
-                    address: env.contract.address.to_string(),
-                    key: viewing_key,
-                },
-            )?;
-            Ok(())
-        },
-    )?;
+    do_update_addr_list(deps, SNIP20_LIST, to_add, to_remove, |addr, deps| {
+        // Perform a balance query here as this is the query performed
+        // by the `Cw20Balances` query.
+        let viewing_key = TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
+        let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
+        let _info: snip20_reference_impl::msg::Balance = deps.querier.query_wasm_smart(
+            snip20_code_hash,
+            addr,
+            &snip20_reference_impl::msg::QueryMsg::Balance {
+                address: env.contract.address.to_string(),
+                key: viewing_key,
+            },
+        )?;
+        Ok(())
+    })?;
     Ok(Response::default().add_attribute("action", "update_snip20_list"))
 }
 
@@ -492,21 +487,15 @@ pub fn execute_update_snip721_list(
     if env.contract.address != sender {
         return Err(ContractError::Unauthorized {});
     }
-    do_update_addr_list(
-        deps,
-        SNIP721_LIST,
-        to_add,
-        to_remove,
-        |addr, deps| {
-            let snip721_code_hash=SNIP721_CODE_HASH.load(deps.storage)?;
-            let _info: snip721_reference_impl::msg::ContractInfo = deps.querier.query_wasm_smart(
-                snip721_code_hash,
-                addr,
-                &snip721_reference_impl::msg::QueryMsg::ContractInfo {},
-            )?;
-            Ok(())
-        },
-    )?;
+    do_update_addr_list(deps, SNIP721_LIST, to_add, to_remove, |addr, deps| {
+        let snip721_code_hash = SNIP721_CODE_HASH.load(deps.storage)?;
+        let _info: snip721_reference_impl::msg::ContractInfo = deps.querier.query_wasm_smart(
+            snip721_code_hash,
+            addr,
+            &snip721_reference_impl::msg::QueryMsg::ContractInfo {},
+        )?;
+        Ok(())
+    })?;
     Ok(Response::default().add_attribute("action", "update_cw721_list"))
 }
 
@@ -574,7 +563,6 @@ pub fn execute_update_sub_daos_list(
         .add_attribute("sender", sender))
 }
 
-
 pub fn execute_receive_snip20(
     deps: DepsMut,
     sender: Addr,
@@ -584,25 +572,23 @@ pub fn execute_receive_snip20(
     if !config.automatically_add_snip20s {
         Ok(Response::new())
     } else {
-        let snip20_code_hash=SNIP20_CODE_HASH.load(deps.storage)?;
+        let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
         // Create Snip20 Token viewing key
         let gen_viewing_key_msg = snip20_msg::Snip20ExecuteMsg::CreateViewingKey {
             entropy: "entropy".to_string(),
             padding: None,
         };
+        let reply_id =
+            REPLY_IDS.add_event(deps.storage, ReplyEvent::Snip20ModuleCreateViewingKey {})?;
         let submsg = SubMsg::reply_always(
             gen_viewing_key_msg.to_cosmos_msg(
                 snip20_code_hash.clone(),
                 sender.clone().to_string(),
                 None,
             )?,
-            SNIP20_VIEWING_KEY_REPLY_ID,
+            reply_id,
         );
-        SNIP20_LIST.insert(
-            deps.storage,
-            &sender.clone(),
-            &Empty {},
-        )?;
+        SNIP20_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
         Ok(Response::new()
             .add_attribute("action", "receive_snip20")
             .add_attribute("token", sender)
@@ -708,7 +694,7 @@ pub fn query_proposal_modules(
     //
     // Even if this does lock up one can determine the existing
     // proposal modules by looking at past transactions on chain.
-   
+
     // let data = paginate_map_values(
     //     deps,
     //     &PROPOSAL_MODULES,
@@ -716,8 +702,8 @@ pub fn query_proposal_modules(
     //     PROPOSAL_MODULES.get_len(deps.storage).unwrap_or_default(),
     // )?;
 
-    let mut res:Vec<ProposalModule>=Vec::new();
-    let mut start=start_after.clone();
+    let mut res: Vec<ProposalModule> = Vec::new();
+    let mut start = start_after.clone();
     let binding = &PROPOSAL_MODULES;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
@@ -729,7 +715,12 @@ pub fn query_proposal_modules(
             }
         }
         if start.is_none() {
-            res.push(ProposalModule { address: module.clone().address, prefix: module.clone().prefix, status: module.clone().status });
+            res.push(ProposalModule {
+                address: module.address,
+                prefix: module.prefix,
+                status: module.status,
+                code_hash: module.code_hash,
+            });
             if res.len() >= limit.unwrap() as usize {
                 break; // Break out of loop if limit reached
             }
@@ -745,8 +736,8 @@ pub fn query_active_proposal_modules(
 ) -> StdResult<Binary> {
     // Note: this is not gas efficient as we need to potentially visit all modules in order to
     // filter out the modules with active status.
-    let mut res:Vec<ProposalModule>=Vec::new();
-    let mut start=start_after.clone();
+    let mut res: Vec<ProposalModule> = Vec::new();
+    let mut start = start_after.clone();
     let binding = &PROPOSAL_MODULES;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
@@ -758,7 +749,12 @@ pub fn query_active_proposal_modules(
             }
         }
         if start.is_none() {
-            res.push(ProposalModule { address: module.clone().address, prefix: module.clone().prefix, status: module.clone().status });
+            res.push(ProposalModule {
+                address: module.clone().address,
+                prefix: module.clone().prefix,
+                status: module.clone().status,
+                code_hash: module.code_hash,
+            });
             if res.len() >= limit.unwrap() as usize {
                 break; // Break out of loop if limit reached
             }
@@ -768,8 +764,7 @@ pub fn query_active_proposal_modules(
     let limit = limit.unwrap_or(res.len() as u32);
 
     to_binary::<Vec<ProposalModule>>(
-        &res
-            .into_iter()
+        &res.into_iter()
             .filter(|module: &ProposalModule| module.status == ProposalModuleStatus::Enabled)
             .take(limit as usize)
             .collect(),
@@ -863,7 +858,7 @@ pub fn query_list_items(
     let mut start = start_after.clone();
     let binding = &ITEMS;
     let iter = binding.iter(deps.storage)?;
-    
+
     for item in iter {
         let (key, value) = item?;
         if let Some(start_after) = &start {
@@ -894,8 +889,8 @@ pub fn query_cw20_list(
     //     SNIP20_LIST.get_len(deps.storage).unwrap_or_default(),
     // )?)
 
-    let mut res:Vec<String>=Vec::new();
-    let mut start=start_after.clone();
+    let mut res: Vec<String> = Vec::new();
+    let mut start = start_after.clone();
     let binding = &SNIP20_LIST;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
@@ -928,8 +923,8 @@ pub fn query_cw721_list(
     //     SNIP721_LIST.get_len(deps.storage).unwrap_or_default(),
     // )?)
 
-    let mut res:Vec<String>=Vec::new();
-    let mut start=start_after.clone();
+    let mut res: Vec<String> = Vec::new();
+    let mut start = start_after.clone();
     let binding = &SNIP721_LIST;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
@@ -956,9 +951,8 @@ pub fn query_cw20_balances(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-   
-    let mut res:Vec<String>=Vec::new();
-    let mut start=start_after.clone();
+    let mut res: Vec<String> = Vec::new();
+    let mut start = start_after.clone();
     let binding = &SNIP20_LIST;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
@@ -976,7 +970,7 @@ pub fn query_cw20_balances(
             }
         }
     }
-    let snip20_code_hash=SNIP20_CODE_HASH.load(deps.storage)?;
+    let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
     let balances = res
         .into_iter()
         .map(|addr| {
@@ -1003,36 +997,37 @@ pub fn query_list_sub_daos(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    let start_at = start_after.clone()
+    let start_at = start_after
+        .clone()
         .map(|addr| deps.api.addr_validate(&addr))
         .transpose()?;
 
-        let mut subdaos:Vec<(Addr,SubDao)>=Vec::new();
-        let mut start=start_at.clone();
-        let binding = &SUBDAO_LIST;
-        let iter = binding.iter(deps.storage)?;
-        for item in iter {
-            let (addr,subdao ) = item?;
-            if let Some(start_at) = &start {
-                if &addr == start_at {
-                    // If we found the start point, reset it to start iterating
-                    start = None;
-                }
-            }
-            if start.is_none() {
-                subdaos.push((addr,subdao));
-                if subdaos.len() >= limit.unwrap() as usize {
-                    break; // Break out of loop if limit reached
-                }
+    let mut subdaos: Vec<(Addr, SubDao)> = Vec::new();
+    let mut start = start_at.clone();
+    let binding = &SUBDAO_LIST;
+    let iter = binding.iter(deps.storage)?;
+    for item in iter {
+        let (addr, subdao) = item?;
+        if let Some(start_at) = &start {
+            if &addr == start_at {
+                // If we found the start point, reset it to start iterating
+                start = None;
             }
         }
+        if start.is_none() {
+            subdaos.push((addr, subdao));
+            if subdaos.len() >= limit.unwrap() as usize {
+                break; // Break out of loop if limit reached
+            }
+        }
+    }
 
     let subdaos: Vec<SubDao> = subdaos
         .into_iter()
         .map(|(address, subdao)| SubDao {
             addr: address.into_string(),
-            code_hash:subdao.code_hash,
-            charter:subdao.charter,
+            code_hash: subdao.code_hash,
+            charter: subdao.charter,
         })
         .collect();
 
@@ -1068,98 +1063,79 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    match msg.id {
-        PROPOSAL_MODULE_REPLY_ID => {
-            match msg.clone().result {
-                cosmwasm_std::SubMsgResult::Ok(_) => {
-                    let res = parse_reply_instantiate_data(msg)?;
-                    let prop_module_addr = deps.api.addr_validate(&res.contract_address)?;
-                    let total_module_count = TOTAL_PROPOSAL_MODULE_COUNT.load(deps.storage)?;
+    let reply_event = REPLY_IDS.get_event(deps.storage, msg.id)?;
+    match reply_event {
+        ReplyEvent::ProposalModuleInstantiate { code_hash } => match msg.result {
+            SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+            SubMsgResult::Ok(res) => {
+                let module_address = parse_reply_event_for_contract_address(res.events)?;
+                let prop_module_addr = deps.api.addr_validate(&module_address)?;
+                let total_module_count = TOTAL_PROPOSAL_MODULE_COUNT.load(deps.storage)?;
 
-                    let prefix = derive_proposal_module_prefix(total_module_count as usize)?;
-                    let prop_module = ProposalModule {
-                        address: prop_module_addr.clone(),
-                        status: ProposalModuleStatus::Enabled,
-                        prefix,
-                    };
+                let prefix = derive_proposal_module_prefix(total_module_count as usize)?;
+                let prop_module = ProposalModule {
+                    address: prop_module_addr.clone(),
+                    status: ProposalModuleStatus::Enabled,
+                    prefix,
+                    code_hash,
+                };
 
-                    PROPOSAL_MODULES.insert(deps.storage, &prop_module_addr, &prop_module)?;
+                PROPOSAL_MODULES.insert(deps.storage, &prop_module_addr, &prop_module)?;
 
-                    // Save active and total proposal module counts.
-                    ACTIVE_PROPOSAL_MODULE_COUNT
-                        .update::<_, StdError>(deps.storage, |count| Ok(count + 1))?;
-                    TOTAL_PROPOSAL_MODULE_COUNT.save(deps.storage, &(total_module_count + 1))?;
+                // Save active and total proposal module counts.
+                ACTIVE_PROPOSAL_MODULE_COUNT
+                    .update::<_, StdError>(deps.storage, |count| Ok(count + 1))?;
+                TOTAL_PROPOSAL_MODULE_COUNT.save(deps.storage, &(total_module_count + 1))?;
 
-                    // Check for module instantiation callbacks
-                    let callback_msgs = match res.data {
-                        Some(data) => from_binary::<ModuleInstantiateCallback>(&data)
-                            .map(|m| m.msgs)
-                            .unwrap_or_else(|_| vec![]),
-                        None => vec![],
-                    };
+                // Check for module instantiation callbacks
+                let callback_msgs = match res.data {
+                    Some(data) => from_binary::<ModuleInstantiateCallback>(&data)
+                        .map(|m| m.msgs)
+                        .unwrap_or_else(|_| vec![]),
+                    None => vec![],
+                };
 
-                    Ok(Response::default()
-                        .add_attribute("prop_module".to_string(), res.contract_address)
-                        .add_messages(callback_msgs))
-                }
-                cosmwasm_std::SubMsgResult::Err(_) => Err(ContractError::InstantiateError {}),
+                Ok(Response::default()
+                    .add_attribute("prop_module".to_string(), module_address)
+                    .add_messages(callback_msgs))
             }
-        }
-
-        VOTE_MODULE_INSTANTIATE_REPLY_ID => {
-            match msg.result {
-                cosmwasm_std::SubMsgResult::Ok(_) => {
-                    let res = parse_reply_instantiate_data(msg)?;
-                    let vote_module_addr = deps.api.addr_validate(&res.contract_address)?;
-                    let mut current = VOTING_MODULE.load(deps.storage)?;
-
-                    // Make sure a bug in instantiation isn't causing us to
-                    // make more than one voting module.
-                    if current.addr != Addr::unchecked("") {
-                        return Err(ContractError::MultipleVotingModules {});
-                    }
-                    current.addr = vote_module_addr.clone();
-
-                    VOTING_MODULE.save(deps.storage, &current)?;
-
-                    // Check for module instantiation callbacks
-                    let callback_msgs = match res.data {
-                        Some(data) => from_binary::<ModuleInstantiateCallback>(&data)
-                            .map(|m| m.msgs)
-                            .unwrap_or_else(|_| vec![]),
-                        None => vec![],
-                    };
-
-                    Ok(Response::default()
-                        .add_attribute("voting_module", vote_module_addr.clone())
-                        .add_messages(callback_msgs))
-                }
-                cosmwasm_std::SubMsgResult::Err(_) => Err(ContractError::InstantiateError {}),
-            }
-        }
-
-        VOTE_MODULE_UPDATE_REPLY_ID => match msg.result {
-            cosmwasm_std::SubMsgResult::Ok(_) => {
-                let res = parse_reply_instantiate_data(msg)?;
-                let vote_module_addr = deps.api.addr_validate(&res.contract_address)?;
-                let mut current = VOTING_MODULE.load(deps.storage)?;
-                current.addr = vote_module_addr.clone();
-                VOTING_MODULE.save(deps.storage, &current)?;
-
-                Ok(Response::default().add_attribute("voting_module", vote_module_addr.clone()))
-            }
-            cosmwasm_std::SubMsgResult::Err(_) => Err(ContractError::InstantiateError {}),
         },
-        SNIP20_VIEWING_KEY_REPLY_ID => {
+        ReplyEvent::VotingModuleInstantiate { code_hash } => match msg.result {
+            SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+            SubMsgResult::Ok(res) => {
+                let contract_address = parse_reply_event_for_contract_address(res.events)?;
+                let vote_module_addr = deps.api.addr_validate(&contract_address)?;
+
+                let voting_module = VotingModuleInfo {
+                    code_hash,
+                    addr: vote_module_addr.clone(),
+                };
+
+                VOTING_MODULE.save(deps.storage, &voting_module)?;
+
+                // Check for module instantiation callbacks
+                let callback_msgs = match res.data {
+                    Some(data) => from_binary::<ModuleInstantiateCallback>(&data)
+                        .map(|m| m.msgs)
+                        .unwrap_or_else(|_| vec![]),
+                    None => vec![],
+                };
+
+                Ok(Response::default()
+                    .add_attribute("voting_module", vote_module_addr)
+                    .add_messages(callback_msgs))
+            }
+        },
+        ReplyEvent::Snip20ModuleCreateViewingKey {} => {
             match msg.result {
-                cosmwasm_std::SubMsgResult::Ok(res) => {
+                SubMsgResult::Ok(res) => {
                     // let mut token_viewing_key=TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
                     let data: snip20_reference_impl::msg::CreateViewingKeyResponse =
                         from_binary(&res.data.unwrap())?;
                     TOKEN_VIEWING_KEY.save(deps.storage, &data.key)?;
                     Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
                 }
-                cosmwasm_std::SubMsgResult::Err(_) => Err(ContractError::TokenExecuteError {}),
+                SubMsgResult::Err(_) => Err(ContractError::TokenExecuteError {}),
             }
         }
         _ => Err(ContractError::UnknownReplyID {}),

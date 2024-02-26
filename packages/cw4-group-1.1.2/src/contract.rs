@@ -32,10 +32,12 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     create(deps, msg.admin, msg.members, env.block.height)?;
-    Ok(Response::default().set_data(to_binary(&InstantiateMsgResponse{
-        address:env.contract.address.to_string(),
-        code_hash:env.contract.code_hash,
-    })?))
+    Ok(
+        Response::default().set_data(to_binary(&InstantiateMsgResponse {
+            address: env.contract.address.to_string(),
+            code_hash: env.contract.code_hash,
+        })?),
+    )
 }
 
 // create is the instantiation logic with set_contract_version removed so it can more
@@ -84,12 +86,20 @@ pub fn execute(
         ExecuteMsg::UpdateMembers { add, remove } => {
             execute_update_members(deps, env, info, add, remove)
         }
-        ExecuteMsg::AddHook { addr } => {
-            Ok(HOOKS.execute_add_hook(&ADMIN, deps, info, api.addr_validate(&addr)?)?)
-        }
-        ExecuteMsg::RemoveHook { addr } => {
-            Ok(HOOKS.execute_remove_hook(&ADMIN, deps, info, api.addr_validate(&addr)?)?)
-        }
+        ExecuteMsg::AddHook { hook } => Ok(HOOKS.execute_add_hook(
+            &ADMIN,
+            deps,
+            info,
+            api.addr_validate(hook.addr.as_str())?,
+            hook.code_hash,
+        )?),
+        ExecuteMsg::RemoveHook { hook } => Ok(HOOKS.execute_remove_hook(
+            &ADMIN,
+            deps,
+            info,
+            api.addr_validate(hook.addr.as_str())?,
+            hook.code_hash,
+        )?),
     }
 }
 
@@ -110,9 +120,9 @@ pub fn execute_update_members(
     // make the local update
     let diff = update_members(deps.branch(), env.block.height, info.sender, add, remove)?;
     // call all registered hooks
-    let messages = HOOKS.prepare_hooks(deps.storage, |h| {
+    let messages = HOOKS.prepare_hooks(deps.storage, |hook| {
         diff.clone()
-            .into_cosmos_msg(h, env.contract.code_hash.clone())
+            .into_cosmos_msg(hook.addr, hook.code_hash)
             .map(SubMsg::new)
     })?;
     Ok(Response::new()
@@ -156,11 +166,10 @@ pub fn update_members(
         let remove_addr = deps.api.addr_validate(&remove)?;
         let old = MembersStore::load(deps.storage, remove_addr.clone());
         // Only process this if they were actually in the list before
-         let weight = old ;
-            diffs.push(MemberDiff::new(remove, Some(weight), None));
-            total = total.checked_sub(Uint64::from(weight))?;
-            MembersStore::remove(deps.storage, remove_addr.clone())?;
-        
+        let weight = old;
+        diffs.push(MemberDiff::new(remove, Some(weight), None));
+        total = total.checked_sub(Uint64::from(weight))?;
+        MembersStore::remove(deps.storage, remove_addr.clone())?;
     }
 
     TotalStore::save(deps.storage, height, total.u64())?;

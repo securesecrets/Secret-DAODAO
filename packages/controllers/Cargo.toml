@@ -11,8 +11,9 @@ homepage = "https://cosmwasm.com"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cosmwasm-std = {workspace=true}
-cosmwasm-schema = "1.1.5"
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+secret-toolkit = { workspace = true }
 cw-utils = { package = "secret-utils", path = "../utils/" }
 cw-storage-plus = { package = "secret-storage-plus", path = "../storage-plus/" }
 schemars = "0.8.1"

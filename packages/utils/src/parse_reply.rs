@@ -1,6 +1,8 @@
 use thiserror::Error;
 
-use cosmwasm_std::{Binary, Reply};
+use cosmwasm_std::{Addr, Binary, Event, Reply};
+
+use crate::event;
 
 // Protobuf wire types (https://developers.google.com/protocol-buffers/docs/encoding)
 const WIRE_TYPE_LENGTH_DELIMITED: u8 = 2;
@@ -115,6 +117,21 @@ pub fn parse_reply_instantiate_data(
     parse_instantiate_response_data(&data.0)
 }
 
+pub fn parse_reply_event_for_contract_address(
+    events: Vec<Event>,
+) -> Result<String, ParseReplyError> {
+    for event in events {
+        if event.ty == "instantiate" {
+            for attr in event.attributes {
+                if attr.key == "contract_address" {
+                    return Ok(attr.value);
+                }
+            }
+        }
+    }
+    Err(ParseReplyError::ContractAddressNotFound())
+}
+
 pub fn parse_reply_execute_data(msg: Reply) -> Result<MsgExecuteContractResponse, ParseReplyError> {
     let data = msg
         .result
@@ -162,6 +179,9 @@ pub enum ParseReplyError {
 
     #[error("Error occurred while converting from UTF-8")]
     BrokenUtf8(#[from] std::string::FromUtf8Error),
+
+    #[error("Contract Address not found")]
+    ContractAddressNotFound(),
 }
 
 #[cfg(test)]

@@ -122,7 +122,8 @@ pub fn voting_module_query(metadata: TokenStream, input: TokenStream) -> TokenSt
     let i = dao_interface_path("voting::InfoResponse");
     let vp = dao_interface_path("voting::VotingPowerAtHeightResponse");
     let tp = dao_interface_path("voting::TotalPowerAtHeightResponse");
-
+    let ci = dao_interface_path("state::AnyContractInfo");
+    
     merge_variants(
         metadata,
         input,
@@ -140,7 +141,7 @@ pub fn voting_module_query(metadata: TokenStream, input: TokenStream) -> TokenSt
                 height: ::std::option::Option<::std::primitive::u64>
             },
             /// Returns the address of the DAO this module belongs to.
-            #[returns(cosmwasm_std::Addr)]
+            #[returns(#ci)]
             Dao {},
             /// Returns contract version info.
             #[returns(#i)]
@@ -150,7 +151,6 @@ pub fn voting_module_query(metadata: TokenStream, input: TokenStream) -> TokenSt
         .into(),
     )
 }
-
 /// Adds the necessary fields to an enum such that it implements the
 /// interface needed to be a voting module with a cw20 token.
 ///
