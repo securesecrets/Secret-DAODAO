@@ -2,33 +2,33 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
-    StdResult, Storage, SubMsg,
+    StdError, StdResult, Storage, SubMsg, SubMsgResult,
 };
 use cw_hooks::{HookItem, Hooks};
 use dao_hooks::proposal::{
     new_proposal_hooks, proposal_completed_hooks, proposal_status_changed_hooks,
 };
 use dao_hooks::vote::new_vote_hooks;
-use dao_interface::state::VotingModuleInfo;
+use dao_interface::state::{AnyContractInfo, VotingModuleInfo};
 use dao_interface::voting::IsActiveResponse;
 use dao_voting::pre_propose::{PreProposeInfo, ProposalCreationPolicy};
 use dao_voting::proposal::{
     SingleChoiceProposeMsg as ProposeMsg, DEFAULT_LIMIT, MAX_PROPOSAL_SIZE,
-};
-use dao_voting::reply::{
-    failed_pre_propose_module_hook_id, mask_proposal_execution_proposal_id, TaggedReplyId,
 };
 use dao_voting::status::Status;
 use dao_voting::threshold::Threshold;
 use dao_voting::veto::{VetoConfig, VetoError};
 use dao_voting::voting::{get_total_power, get_voting_power, validate_voting_period, Vote, Votes};
 use secret_cw2::set_contract_version;
+use secret_cw_controllers::ReplyEvent;
 use secret_toolkit::utils::HandleCallback;
-use secret_utils::{parse_reply_instantiate_data, Duration};
+use secret_utils::{
+    parse_reply_event_for_contract_address, Duration,
+};
 
 // use crate::msg::MigrateMsg;
 use crate::proposal::{next_proposal_id, SingleChoiceProposal};
-use crate::state::{Config, CREATION_POLICY};
+use crate::state::{Config, CREATION_POLICY, DAO, REPLY_IDS};
 // use crate::v1_state::{
 //     v1_duration_to_v2, v1_expiration_to_v2, v1_status_to_v2, v1_threshold_to_v2, v1_votes_to_v2,
 // };
@@ -55,14 +55,20 @@ pub fn instantiate(
 
     msg.threshold.validate()?;
 
-    let dao = info.sender;
+    DAO.save(
+        deps.storage,
+        &AnyContractInfo {
+            code_hash: msg.dao_code_hash,
+            addr: info.sender.clone(),
+        },
+    )?;
 
     let (min_voting_period, max_voting_period) =
         validate_voting_period(msg.min_voting_period, msg.max_voting_period)?;
 
     let (initial_policy, pre_propose_messages) = msg
         .pre_propose_info
-        .into_initial_policy_and_messages(dao.clone())?;
+        .into_initial_policy_and_messages(deps.storage, info.sender.clone(), REPLY_IDS)?;
 
     // if veto is configured, validate its fields
     if let Some(veto_config) = &msg.veto {
@@ -74,11 +80,9 @@ pub fn instantiate(
         max_voting_period,
         min_voting_period,
         only_members_execute: msg.only_members_execute,
-        dao: dao.clone(),
         allow_revoting: msg.allow_revoting,
         close_proposal_on_execution_failure: msg.close_proposal_on_execution_failure,
         veto: msg.veto,
-        code_hash: msg.dao_code_hash,
     };
 
     // Initialize proposal count to zero so that queries return zero
@@ -90,7 +94,7 @@ pub fn instantiate(
     Ok(Response::default()
         .add_submessages(pre_propose_messages)
         .add_attribute("action", "instantiate")
-        .add_attribute("dao", dao))
+        .add_attribute("dao", info.sender.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -144,15 +148,17 @@ pub fn execute(
         ExecuteMsg::UpdatePreProposeInfo { info: new_info } => {
             execute_update_proposal_creation_policy(deps, info, new_info)
         }
-        ExecuteMsg::AddProposalHook { address,code_hash } => {
-            execute_add_proposal_hook(deps, env, info, address,code_hash)
+        ExecuteMsg::AddProposalHook { address, code_hash } => {
+            execute_add_proposal_hook(deps, env, info, address, code_hash)
         }
-        ExecuteMsg::RemoveProposalHook { address,code_hash } => {
-            execute_remove_proposal_hook(deps, env, info, address,code_hash)
+        ExecuteMsg::RemoveProposalHook { address, code_hash } => {
+            execute_remove_proposal_hook(deps, env, info, address, code_hash)
         }
-        ExecuteMsg::AddVoteHook { address,code_hash } => execute_add_vote_hook(deps, env, info, address,code_hash),
-        ExecuteMsg::RemoveVoteHook { address,code_hash } => {
-            execute_remove_vote_hook(deps, env, info, address,code_hash)
+        ExecuteMsg::AddVoteHook { address, code_hash } => {
+            execute_add_vote_hook(deps, env, info, address, code_hash)
+        }
+        ExecuteMsg::RemoveVoteHook { address, code_hash } => {
+            execute_remove_vote_hook(deps, env, info, address, code_hash)
         }
         ExecuteMsg::Veto { proposal_id } => execute_veto(deps, env, info, proposal_id),
     }
@@ -168,6 +174,7 @@ pub fn execute_propose(
     proposer: Option<String>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+    let dao_info = DAO.load(deps.storage)?;
     let proposal_creation_policy = CREATION_POLICY.load(deps.storage)?;
 
     // Check that the sender is permitted to create proposals.
@@ -189,8 +196,8 @@ pub fn execute_propose(
     };
 
     let voting_module: VotingModuleInfo = deps.querier.query_wasm_smart(
-        config.code_hash.clone(),
-        config.dao.clone(),
+        dao_info.code_hash.clone(),
+        dao_info.addr.clone(),
         &dao_interface::msg::QueryMsg::VotingModule {},
     )?;
 
@@ -213,8 +220,8 @@ pub fn execute_propose(
 
     let total_power = get_total_power(
         deps.as_ref(),
-        config.code_hash.clone(),
-        &config.dao,
+        dao_info.code_hash.clone(),
+        &dao_info.addr,
         Some(env.block.height),
     )?;
 
@@ -266,12 +273,7 @@ pub fn execute_propose(
 
     PROPOSALS.insert(deps.storage, &id, &proposal)?;
 
-    let hooks = new_proposal_hooks(
-        PROPOSAL_HOOKS,
-        deps.storage,
-        id,
-        proposer.as_str(),
-    )?;
+    let hooks = new_proposal_hooks(PROPOSAL_HOOKS, deps.storage, id, proposer.as_str())?;
 
     Ok(Response::default()
         .add_submessages(hooks)
@@ -344,11 +346,8 @@ pub fn execute_veto(
 
     // Add prepropose / deposit module hook which will handle deposit refunds.
     let proposal_creation_policy = CREATION_POLICY.load(deps.storage)?;
-    let proposal_completed_hooks = proposal_completed_hooks(
-        proposal_creation_policy,
-        proposal_id,
-        prop.status,
-    )?;
+    let proposal_completed_hooks =
+        proposal_completed_hooks(proposal_creation_policy, proposal_id, prop.status)?;
 
     Ok(Response::new()
         .add_attribute("action", "veto")
@@ -363,6 +362,7 @@ pub fn execute_execute(
     info: MessageInfo,
     proposal_id: u64,
 ) -> Result<Response, ContractError> {
+    let dao_info = DAO.load(deps.storage)?;
     let mut prop = PROPOSALS
         .get(deps.storage, &proposal_id)
         .ok_or(ContractError::NoSuchProposal { id: proposal_id })?;
@@ -374,9 +374,9 @@ pub fn execute_execute(
     if config.only_members_execute {
         let power = get_voting_power(
             deps.as_ref(),
-            config.code_hash.clone(),
+            dao_info.code_hash.clone(),
             info.sender.clone(),
-            &config.dao.clone(),
+            &dao_info.addr.clone(),
             Some(prop.start_height),
         )?;
 
@@ -429,16 +429,28 @@ pub fn execute_execute(
 
     let response = {
         if !prop.msgs.is_empty() {
-            let execute_message = dao_interface::msg::ExecuteMsg::ExecuteProposalHook {
-                    msgs: prop.msgs,
-                };
+            let execute_message =
+                dao_interface::msg::ExecuteMsg::ExecuteProposalHook { msgs: prop.msgs };
             match config.close_proposal_on_execution_failure {
                 true => {
-                    let masked_proposal_id = mask_proposal_execution_proposal_id(proposal_id);
-                    Response::default()
-                        .add_submessage(SubMsg::reply_on_error(execute_message.to_cosmos_msg(config.code_hash.clone(), config.dao.clone().into_string(), None)?, masked_proposal_id))
+                    let reply_id = REPLY_IDS.add_event(
+                        deps.storage,
+                        ReplyEvent::FailedProposalExecution { proposal_id },
+                    );
+                    Response::default().add_submessage(SubMsg::reply_on_error(
+                        execute_message.to_cosmos_msg(
+                            dao_info.code_hash.clone(),
+                            dao_info.addr.clone().into_string(),
+                            None,
+                        )?,
+                        reply_id.unwrap(),
+                    ))
                 }
-                false => Response::default().add_message(execute_message.to_cosmos_msg(config.code_hash.clone(), config.dao.clone().into_string(), None)?),
+                false => Response::default().add_message(execute_message.to_cosmos_msg(
+                    dao_info.code_hash.clone(),
+                    dao_info.addr.clone().into_string(),
+                    None,
+                )?),
             }
         } else {
             Response::default()
@@ -456,11 +468,8 @@ pub fn execute_execute(
 
     // Add prepropose / deposit module hook which will handle deposit refunds.
     let proposal_creation_policy = CREATION_POLICY.load(deps.storage)?;
-    let proposal_completed_hooks = proposal_completed_hooks(
-        proposal_creation_policy,
-        proposal_id,
-        prop.status,
-    )?;
+    let proposal_completed_hooks =
+        proposal_completed_hooks(proposal_creation_policy, proposal_id, prop.status)?;
 
     Ok(response
         .add_submessages(proposal_status_changed_hooks)
@@ -468,7 +477,7 @@ pub fn execute_execute(
         .add_attribute("action", "execute")
         .add_attribute("sender", info.sender)
         .add_attribute("proposal_id", proposal_id.to_string())
-        .add_attribute("dao", config.dao))
+        .add_attribute("dao", dao_info.addr.to_string()))
 }
 
 pub fn execute_vote(
@@ -479,7 +488,7 @@ pub fn execute_vote(
     vote: Vote,
     rationale: Option<String>,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
+    let dao_info = DAO.load(deps.storage)?;
 
     let mut prop = PROPOSALS
         .get(deps.storage, &proposal_id)
@@ -498,9 +507,9 @@ pub fn execute_vote(
 
     let vote_power = get_voting_power(
         deps.as_ref(),
-        config.code_hash.clone(),
+        dao_info.code_hash.clone(),
         info.sender.clone(),
-        &config.dao,
+        &dao_info.addr,
         Some(prop.start_height),
     )?;
     if vote_power.is_zero() {
@@ -680,11 +689,8 @@ pub fn execute_close(
 
     // Add prepropose / deposit module hook which will handle deposit refunds.
     let proposal_creation_policy = CREATION_POLICY.load(deps.storage)?;
-    let proposal_completed_hooks = proposal_completed_hooks(
-        proposal_creation_policy,
-        proposal_id,
-        prop.status,
-    )?;
+    let proposal_completed_hooks =
+        proposal_completed_hooks(proposal_creation_policy, proposal_id, prop.status)?;
 
     Ok(Response::default()
         .add_submessages(proposal_status_changed_hooks)
@@ -708,10 +714,10 @@ pub fn execute_update_config(
     close_proposal_on_execution_failure: bool,
     veto: Option<VetoConfig>,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
+    let mut dao_info = DAO.load(deps.storage)?;
 
     // Only the DAO may call this method.
-    if info.sender != config.dao {
+    if info.sender != dao_info.addr {
         return Err(ContractError::Unauthorized {});
     }
     threshold.validate()?;
@@ -733,12 +739,14 @@ pub fn execute_update_config(
             min_voting_period,
             only_members_execute,
             allow_revoting,
-            dao,
-            code_hash,
             close_proposal_on_execution_failure,
             veto,
         },
     )?;
+    dao_info.addr = dao;
+    dao_info.code_hash = code_hash;
+
+    DAO.save(deps.storage, &dao_info)?;
 
     Ok(Response::default()
         .add_attribute("action", "update_config")
@@ -750,12 +758,14 @@ pub fn execute_update_proposal_creation_policy(
     info: MessageInfo,
     new_info: PreProposeInfo,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if config.dao != info.sender {
+    let dao_info = DAO.load(deps.storage)?;
+
+    if dao_info.addr != info.sender {
         return Err(ContractError::Unauthorized {});
     }
 
-    let (initial_policy, messages) = new_info.into_initial_policy_and_messages(config.dao)?;
+    let (initial_policy, messages) =
+        new_info.into_initial_policy_and_messages(deps.storage, dao_info.addr, REPLY_IDS)?;
     CREATION_POLICY.save(deps.storage, &initial_policy)?;
 
     Ok(Response::default()
@@ -769,13 +779,16 @@ pub fn add_hook(
     hooks: Hooks,
     storage: &mut dyn Storage,
     validated_address: Addr,
-    code_hash: String
+    code_hash: String,
 ) -> Result<(), ContractError> {
     hooks
-        .add_hook(storage, HookItem{
-            addr:validated_address,
-            code_hash
-        })
+        .add_hook(
+            storage,
+            HookItem {
+                addr: validated_address,
+                code_hash,
+            },
+        )
         .map_err(ContractError::HookError)?;
     Ok(())
 }
@@ -784,13 +797,16 @@ pub fn remove_hook(
     hooks: Hooks,
     storage: &mut dyn Storage,
     validated_address: Addr,
-    code_hash: String
+    code_hash: String,
 ) -> Result<(), ContractError> {
     hooks
-        .remove_hook(storage, HookItem{
-            addr:validated_address,
-            code_hash
-        })
+        .remove_hook(
+            storage,
+            HookItem {
+                addr: validated_address,
+                code_hash,
+            },
+        )
         .map_err(ContractError::HookError)?;
     Ok(())
 }
@@ -800,17 +816,18 @@ pub fn execute_add_proposal_hook(
     _env: Env,
     info: MessageInfo,
     address: String,
-    code_hash: String
+    code_hash: String,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if config.dao != info.sender {
+    let dao_info = DAO.load(deps.storage)?;
+
+    if dao_info.addr != info.sender {
         // Only DAO can add hooks
         return Err(ContractError::Unauthorized {});
     }
 
     let validated_address = deps.api.addr_validate(&address)?;
 
-    add_hook(PROPOSAL_HOOKS, deps.storage, validated_address,code_hash)?;
+    add_hook(PROPOSAL_HOOKS, deps.storage, validated_address, code_hash)?;
 
     Ok(Response::default()
         .add_attribute("action", "add_proposal_hook")
@@ -822,17 +839,17 @@ pub fn execute_remove_proposal_hook(
     _env: Env,
     info: MessageInfo,
     address: String,
-    code_hash: String
+    code_hash: String,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if config.dao != info.sender {
+    let dao_info = DAO.load(deps.storage)?;
+    if dao_info.addr != info.sender {
         // Only DAO can remove hooks
         return Err(ContractError::Unauthorized {});
     }
 
     let validated_address = deps.api.addr_validate(&address)?;
 
-    remove_hook(PROPOSAL_HOOKS, deps.storage, validated_address,code_hash)?;
+    remove_hook(PROPOSAL_HOOKS, deps.storage, validated_address, code_hash)?;
 
     Ok(Response::default()
         .add_attribute("action", "remove_proposal_hook")
@@ -844,17 +861,17 @@ pub fn execute_add_vote_hook(
     _env: Env,
     info: MessageInfo,
     address: String,
-    code_hash: String
+    code_hash: String,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if config.dao != info.sender {
+    let dao_info = DAO.load(deps.storage)?;
+    if dao_info.addr != info.sender {
         // Only DAO can add hooks
         return Err(ContractError::Unauthorized {});
     }
 
     let validated_address = deps.api.addr_validate(&address)?;
 
-    add_hook(VOTE_HOOKS, deps.storage, validated_address,code_hash)?;
+    add_hook(VOTE_HOOKS, deps.storage, validated_address, code_hash)?;
 
     Ok(Response::default()
         .add_attribute("action", "add_vote_hook")
@@ -866,17 +883,17 @@ pub fn execute_remove_vote_hook(
     _env: Env,
     info: MessageInfo,
     address: String,
-    code_hash: String
+    code_hash: String,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if config.dao != info.sender {
+    let dao_info = DAO.load(deps.storage)?;
+    if dao_info.addr != info.sender {
         // Only DAO can remove hooks
         return Err(ContractError::Unauthorized {});
     }
 
     let validated_address = deps.api.addr_validate(&address)?;
 
-    remove_hook(VOTE_HOOKS, deps.storage, validated_address,code_hash)?;
+    remove_hook(VOTE_HOOKS, deps.storage, validated_address, code_hash)?;
 
     Ok(Response::default()
         .add_attribute("action", "remove_vote_hook")
@@ -917,8 +934,8 @@ pub fn query_config(deps: Deps) -> StdResult<Binary> {
 }
 
 pub fn query_dao(deps: Deps) -> StdResult<Binary> {
-    let config = CONFIG.load(deps.storage)?;
-    to_binary(&config.dao)
+    let dao_info = DAO.load(deps.storage)?;
+    to_binary(&dao_info)
 }
 
 pub fn query_proposal(deps: Deps, env: Env, id: u64) -> StdResult<Binary> {
@@ -1025,8 +1042,7 @@ pub fn query_next_proposal_id(deps: Deps) -> StdResult<Binary> {
 
 pub fn query_vote(deps: Deps, proposal_id: u64, voter: String) -> StdResult<Binary> {
     let voter = deps.api.addr_validate(&voter)?;
-    let ballot = BALLOTS
-        .get(deps.storage, &(proposal_id, voter.clone()));
+    let ballot = BALLOTS.get(deps.storage, &(proposal_id, voter.clone()));
     let vote = VoteInfo {
         voter,
         vote: ballot.clone().unwrap().vote,
@@ -1187,60 +1203,79 @@ pub fn query_info(deps: Deps) -> StdResult<Binary> {
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    let repl = TaggedReplyId::new(msg.id)?;
-    match repl {
-        TaggedReplyId::FailedProposalExecution(proposal_id) => {
-            // PROPOSALS.update(deps.storage, proposal_id, |prop| match prop {
-            //     Some(mut prop) => {
-            //         prop.status = Status::ExecutionFailed;
+    let repl = REPLY_IDS.get_event(deps.storage, msg.id);
+    match repl.unwrap() {
+        ReplyEvent::FailedProposalExecution { proposal_id } => match msg.clone().result {
+            SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+            SubMsgResult::Ok(_) => {
+                // PROPOSALS.update(deps.storage, proposal_id, |prop| match prop {
+                //     Some(mut prop) => {
+                //         prop.status = Status::ExecutionFailed;
 
-            //         Ok(prop)
-            //     }
-            //     None => Err(ContractError::NoSuchProposal { id: proposal_id }),
-            // })?;
-            let proposals = PROPOSALS.get(deps.storage, &proposal_id);
-            if proposals.clone().is_some() {
-                proposals.clone().unwrap().status = Status::ExecutionFailed;
-            } else {
-                return Err(ContractError::NoSuchProposal { id: proposal_id });
+                //         Ok(prop)
+                //     }
+                //     None => Err(ContractError::NoSuchProposal { id: proposal_id }),
+                // })?;
+                let proposals = PROPOSALS.get(deps.storage, &proposal_id);
+                if proposals.clone().is_some() {
+                    proposals.clone().unwrap().status = Status::ExecutionFailed;
+                } else {
+                    return Err(ContractError::NoSuchProposal { id: proposal_id });
+                }
+                PROPOSALS.insert(deps.storage, &proposal_id, &proposals.unwrap())?;
+
+                Ok(Response::new()
+                    .add_attribute("proposal_execution_failed", proposal_id.to_string())
+                    .add_attribute("error", msg.result.into_result().err().unwrap_or_default()))
             }
-            PROPOSALS.insert(deps.storage, &proposal_id, &proposals.unwrap())?;
-
-            Ok(Response::new()
-                .add_attribute("proposal_execution_failed", proposal_id.to_string())
-                .add_attribute("error", msg.result.into_result().err().unwrap_or_default()))
-        }
-        TaggedReplyId::FailedProposalHook(idx) => {
-            let hook_item = PROPOSAL_HOOKS.remove_hook_by_index(deps.storage, idx)?;
-            Ok(Response::new().add_attribute("removed_proposal_hook", format!("{0}:{idx}", hook_item.addr)))
-        }
-        TaggedReplyId::FailedVoteHook(idx) => {
-            let hook_item = VOTE_HOOKS.remove_hook_by_index(deps.storage, idx)?;
-            Ok(Response::new().add_attribute("removed_vote_hook", format!("{0}:{idx}", hook_item.addr)))
-        }
-        TaggedReplyId::PreProposeModuleInstantiation => {
-            let res = parse_reply_instantiate_data(msg)?;
-
-            let module = deps.api.addr_validate(&res.contract_address)?;
-            CREATION_POLICY.save(
-                deps.storage,
-                &ProposalCreationPolicy::Module { addr: module },
-            )?;
-
-            // per the cosmwasm docs, we shouldn't have to forward
-            // data like this, yet here we are and it does not work if
-            // we do not.
-            //
-            // <https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply>
-            match res.data {
-                Some(data) => Ok(Response::new()
-                    .add_attribute("update_pre_propose_module", res.contract_address)
-                    .set_data(data)),
-                None => Ok(Response::new()
-                    .add_attribute("update_pre_propose_module", res.contract_address)),
+        },
+        ReplyEvent::FailedProposalHook { idx } => match msg.result {
+            SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+            SubMsgResult::Ok(_) => {
+                let hook_item = PROPOSAL_HOOKS.remove_hook_by_index(deps.storage, idx)?;
+                Ok(Response::new().add_attribute(
+                    "removed_proposal_hook",
+                    format!("{0}:{idx}", hook_item.addr),
+                ))
             }
-        }
-        TaggedReplyId::FailedPreProposeModuleHook => {
+        },
+        ReplyEvent::FailedVoteHook { idx } => match msg.result {
+            SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+            SubMsgResult::Ok(_) => {
+                let hook_item = VOTE_HOOKS.remove_hook_by_index(deps.storage, idx)?;
+                Ok(Response::new()
+                    .add_attribute("removed_vote_hook", format!("{0}:{idx}", hook_item.addr)))
+            }
+        },
+        ReplyEvent::PreProposalModuleInstantiate { code_hash } => match msg.result {
+            SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+            SubMsgResult::Ok(res) => {
+                let contract_address = parse_reply_event_for_contract_address(res.events)?;
+
+                let module_addr = deps.api.addr_validate(&contract_address)?;
+                CREATION_POLICY.save(
+                    deps.storage,
+                    &ProposalCreationPolicy::Module {
+                        addr: module_addr.clone(),
+                        code_hash,
+                    },
+                )?;
+
+                // per the cosmwasm docs, we shouldn't have to forward
+                // data like this, yet here we are and it does not work if
+                // we do not.
+                //
+                // <https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply>
+                match res.data {
+                    Some(data) => Ok(Response::new()
+                        .add_attribute("update_pre_propose_module", module_addr.clone().to_string())
+                        .set_data(data)),
+                    None => Ok(Response::new()
+                        .add_attribute("update_pre_propose_module", module_addr.to_string())),
+                }
+            }
+        },
+        ReplyEvent::FailedPreProposeModuleHook {} => {
             let addr = match CREATION_POLICY.load(deps.storage)? {
                 ProposalCreationPolicy::Anyone {} => {
                     // Something is off if we're getting this
@@ -1248,10 +1283,10 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     // module installed. This should be
                     // unreachable.
                     return Err(ContractError::InvalidReplyID {
-                        id: failed_pre_propose_module_hook_id(),
+                        id: msg.id,
                     });
                 }
-                ProposalCreationPolicy::Module { addr } => {
+                ProposalCreationPolicy::Module { addr, code_hash:_ } => {
                     // If we are here, our pre-propose module has
                     // errored while receiving a proposal
                     // hook. Rest in peace pre-propose module.
@@ -1261,5 +1296,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             };
             Ok(Response::new().add_attribute("failed_prepropose_hook", format!("{addr}")))
         }
+        _ =>  Err(ContractError::UnknownReplyID {}),
     }
 }

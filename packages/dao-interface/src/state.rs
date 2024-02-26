@@ -1,6 +1,5 @@
 use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, WasmMsg};
 use schemars::JsonSchema;
-use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
 
 /// Top level config type for core module.

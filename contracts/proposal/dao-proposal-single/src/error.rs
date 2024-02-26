@@ -32,6 +32,9 @@ pub enum ContractError {
     #[error("no such proposal ({id})")]
     NoSuchProposal { id: u64 },
 
+    #[error("An unknown reply ID was received.")]
+    UnknownReplyID {},
+
     #[error("no vote exists for proposal ({id}) and voter ({voter})")]
     NoSuchVote { id: u64, voter: String },
 

@@ -1,9 +1,11 @@
 use cosmwasm_std::{Addr, Uint128};
 use cw_hooks::Hooks;
+use dao_interface::state::AnyContractInfo;
 use dao_voting::{
     pre_propose::ProposalCreationPolicy, threshold::Threshold, veto::VetoConfig, voting::Vote,
 };
 use schemars::JsonSchema;
+use secret_cw_controllers::ReplyIds;
 use secret_storage_plus::Item;
 use secret_toolkit::{serialization::Json, storage::Keymap};
 use secret_utils::Duration;
@@ -51,11 +53,6 @@ pub struct Config {
     /// vote information is not known until the time of proposal
     /// expiration.
     pub allow_revoting: bool,
-    /// The address of the DAO that this governance module is
-    /// associated with.
-    pub dao: Addr,
-    /// The DAO code hash
-    pub code_hash: String,
     /// If set to true proposals will be closed if their execution
     /// fails. Otherwise, proposals will remain open after execution
     /// failure. For example, with this enabled a proposal to send 5
@@ -83,3 +80,5 @@ pub const VOTE_HOOKS: Hooks = Hooks::new("vote_hooks");
 /// The address of the pre-propose module associated with this
 /// proposal module (if any).
 pub const CREATION_POLICY: Item<ProposalCreationPolicy> = Item::new("creation_policy");
+pub const DAO: Item<AnyContractInfo> = Item::new("dao");
+pub const REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");

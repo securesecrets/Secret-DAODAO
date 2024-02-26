@@ -35,7 +35,7 @@ cw-hooks = { workspace = true }
 dao-hooks = { workspace = true }
 serde ={ workspace=true }
 schemars ={ workspace = true }
-
+secret-cw-controllers ={ workspace = true }
 # cw-utils-v1 = { workspace = true}
 # voting-v1 = { workspace = true }
 # cw-proposal-single-v1 = { workspace = true, features = ["library"] }

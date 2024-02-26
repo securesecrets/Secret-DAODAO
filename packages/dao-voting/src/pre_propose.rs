@@ -1,12 +1,12 @@
 //! Types related to the pre-propose module. Motivation:
 //! <https://github.com/DA0-DA0/dao-contracts/discussions/462>.
 
-use dao_interface::state::ModuleInstantiateInfo;
-use cosmwasm_std::{Addr, Empty, StdResult, SubMsg};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
-use crate::reply::pre_propose_module_instantiation_id;
+use dao_interface::state::ModuleInstantiateInfo;
+use cosmwasm_std::{Addr, Empty, StdResult, Storage, SubMsg};
+use schemars::JsonSchema;
+use secret_cw_controllers::{ReplyEvent, ReplyIds};
+use serde::{Deserialize, Serialize};
 
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -45,28 +45,33 @@ impl ProposalCreationPolicy {
 impl PreProposeInfo {
     pub fn into_initial_policy_and_messages(
         self,
+        store: &mut dyn Storage,
         dao: Addr,
+        reply_id : ReplyIds,
     ) -> StdResult<(ProposalCreationPolicy, Vec<SubMsg<Empty>>)> {
         Ok(match self {
             Self::AnyoneMayPropose {} => (ProposalCreationPolicy::Anyone {}, vec![]),
-            Self::ModuleMayPropose { info } => (
+            Self::ModuleMayPropose { info } => {
+                let reply_id = reply_id.add_event(store,ReplyEvent::PreProposalModuleInstantiate { code_hash: info.clone().code_hash });
+                (
                 // Anyone can propose will be set until instantiation succeeds, then
                 // `ModuleMayPropose` will be set. This ensures that we fail open
                 // upon instantiation failure.
                 ProposalCreationPolicy::Anyone {},
                 vec![SubMsg::reply_on_success(
-                    info.into_wasm_msg(dao),
-                    pre_propose_module_instantiation_id(),
+                    info.to_cosmos_msg(dao),
+                    reply_id.unwrap(),
                 )],
-            ),
+            )
+        },
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::{to_binary, WasmMsg};
-
+    use cosmwasm_std::{to_binary, WasmMsg,testing};
+    use cosmwasm_std::testing::*;
     use super::*;
 
     #[test]
@@ -109,7 +114,7 @@ mod tests {
     fn test_pre_any_conversion() {
         let info = PreProposeInfo::AnyoneMayPropose {};
         let (policy, messages) = info
-            .into_initial_policy_and_messages(Addr::unchecked("😃"))
+            .into_initial_policy_and_messages(mock_dependencies().storage.as_mut(),Addr::unchecked("😃"),Item::new("dummmy"))
             .unwrap();
         assert_eq!(policy, ProposalCreationPolicy::Anyone {});
         assert!(messages.is_empty())
@@ -128,8 +133,8 @@ mod tests {
             },
         };
         let (policy, messages) = info
-            .into_initial_policy_and_messages(Addr::unchecked("🥵"))
-            .unwrap();
+        .into_initial_policy_and_messages(mock_dependencies().storage.as_mut(),Addr::unchecked("😃"),Item::new("dummmy"))
+        .unwrap();
 
         // In this case the package is expected to allow anyone to
         // create a proposal (fail-open), and provide some messages

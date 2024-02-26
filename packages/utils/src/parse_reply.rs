@@ -1,8 +1,6 @@
 use thiserror::Error;
 
-use cosmwasm_std::{Addr, Binary, Event, Reply};
-
-use crate::event;
+use cosmwasm_std::{Binary, Event, Reply};
 
 // Protobuf wire types (https://developers.google.com/protocol-buffers/docs/encoding)
 const WIRE_TYPE_LENGTH_DELIMITED: u8 = 2;

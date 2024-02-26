@@ -140,16 +140,16 @@ pub enum ExecuteMsg {
     /// the status of a proposal changes or a proposal is created. If
     /// a consumer contract errors when handling a hook message it
     /// will be removed from the list of consumers.
-    AddProposalHook { address: String,code_hash: String },
+    AddProposalHook { address: String, code_hash: String },
     /// Removes a consumer of proposal hooks.
-    RemoveProposalHook { address: String ,code_hash:String},
+    RemoveProposalHook { address: String, code_hash: String },
     /// Adds an address as a consumer of vote hooks. Consumers of vote
     /// hooks have hook messages executed on them whenever the a vote
     /// is cast. If a consumer contract errors when handling a hook
     /// message it will be removed from the list of consumers.
-    AddVoteHook { address: String ,code_hash: String},
+    AddVoteHook { address: String, code_hash: String },
     /// Removed a consumer of vote hooks.
-    RemoveVoteHook { address: String , code_hash: String},
+    RemoveVoteHook { address: String, code_hash: String },
 }
 
 #[proposal_module_query]
