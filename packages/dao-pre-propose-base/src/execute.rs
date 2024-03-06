@@ -8,6 +8,7 @@ use secret_cw2::set_contract_version;
 
 use cw_denom::UncheckedDenom;
 use dao_interface::voting::{Query as CwCoreQuery, VotingPowerAtHeightResponse};
+use dao_interface::state::AnyContractInfo;
 use dao_voting::{
     deposit::{DepositRefundPolicy, UncheckedDepositInfo},
     status::Status,
@@ -32,7 +33,7 @@ where
     pub fn instantiate(
         &self,
         deps: DepsMut,
-        env: Env,
+        _env: Env,
         info: MessageInfo,
         msg: InstantiateMsg<InstantiateExt>,
     ) -> Result<Response, PreProposeError> {
@@ -42,21 +43,21 @@ where
         // making limited assumptions here. The only way to associate
         // a deposit module with a proposal module is for the proposal
         // module to instantiate it.
-        self.proposal_module.save(deps.storage, &info.sender)?;
+        self.proposal_module.save(deps.storage, &AnyContractInfo { addr: info.sender.clone(), code_hash: msg.proposal_module_code_hash.clone() })?;
 
         // Query the proposal module for its DAO.
-        let dao: Addr = deps.querier.query_wasm_smart(
-            env.contract.code_hash.clone(),
+        let dao_info: AnyContractInfo = deps.querier.query_wasm_smart(
+            msg.proposal_module_code_hash.clone(),
             info.sender.clone(),
             &CwCoreQuery::Dao {},
         )?;
 
-        self.dao.save(deps.storage, &dao)?;
+        self.dao.save(deps.storage, &dao_info)?;
 
         let deposit_info = msg
             .deposit_info
             .map(|info| {
-                info.into_checked(deps.as_ref(), dao.clone(), env.contract.code_hash.clone())
+                info.into_checked(deps.as_ref(), dao_info.addr.clone(), dao_info.code_hash.clone())
             })
             .transpose()?;
 
@@ -75,7 +76,7 @@ where
                 "open_proposal_submission",
                 config.open_proposal_submission.to_string(),
             )
-            .add_attribute("dao", dao))
+            .add_attribute("dao", dao_info.addr.to_string()))
     }
 
     pub fn execute(
@@ -86,7 +87,7 @@ where
         msg: ExecuteMsg<ProposalMessage, ExecuteExt>,
     ) -> Result<Response, PreProposeError> {
         match msg {
-            ExecuteMsg::Propose { msg } => self.execute_propose(deps, env, info, msg),
+            ExecuteMsg::Propose {key, msg } => self.execute_propose(deps, env, info,key, msg),
             ExecuteMsg::UpdateConfig {
                 deposit_info,
                 open_proposal_submission,
@@ -122,12 +123,13 @@ where
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
+        key: String,
         msg: ProposalMessage,
     ) -> Result<Response, PreProposeError> {
         self.check_can_submit(
             deps.as_ref(),
             info.sender.clone(),
-            env.contract.code_hash.clone(),
+            key,
         )?;
 
         let config = self.config.load(deps.storage)?;
@@ -135,7 +137,6 @@ where
         let deposit_messages = if let Some(ref deposit_info) = config.deposit_info {
             deposit_info.check_native_deposit_paid(&info)?;
             deposit_info.get_take_deposit_messages(
-                env.contract.code_hash.clone(),
                 &info.sender,
                 &env.contract.address.clone(),
             )?
@@ -143,13 +144,13 @@ where
             vec![]
         };
 
-        let proposal_module = self.proposal_module.load(deps.storage)?;
+        let proposal_module_info = self.proposal_module.load(deps.storage)?;
 
         // Snapshot the deposit using the ID of the proposal that we
         // will create.
         let next_id = deps.querier.query_wasm_smart(
-            env.contract.code_hash.clone(),
-            &proposal_module,
+            proposal_module_info.code_hash.clone(),
+            &proposal_module_info.addr.clone().to_string(),
             &dao_interface::proposal::Query::NextProposalId {},
         )?;
         self.deposits.insert(
@@ -159,8 +160,8 @@ where
         )?;
 
         let propose_messsage = WasmMsg::Execute {
-            contract_addr: proposal_module.into_string(),
-            code_hash: env.contract.code_hash.clone(),
+            contract_addr: proposal_module_info.addr.into_string(),
+            code_hash: proposal_module_info.code_hash.clone(),
             msg: to_binary(&msg)?,
             funds: vec![],
         };
@@ -193,16 +194,16 @@ where
         &self,
         deps: DepsMut,
         info: MessageInfo,
-        env: Env,
+        _env: Env,
         deposit_info: Option<UncheckedDepositInfo>,
         open_proposal_submission: bool,
     ) -> Result<Response, PreProposeError> {
         let dao = self.dao.load(deps.storage)?;
-        if info.sender != dao {
+        if info.sender != dao.addr.clone() {
             Err(PreProposeError::NotDao {})
         } else {
             let deposit_info = deposit_info
-                .map(|d| d.into_checked(deps.as_ref(), dao, env.contract.code_hash.clone()))
+                .map(|d| d.into_checked(deps.as_ref(), dao.addr.clone(), dao.code_hash.clone()))
                 .transpose()?;
             self.config.save(
                 deps.storage,
@@ -227,11 +228,11 @@ where
         key: String,
     ) -> Result<Response, PreProposeError> {
         let dao = self.dao.load(deps.storage)?;
-        if info.sender != dao {
+        if info.sender != dao.addr.clone() {
             Err(PreProposeError::NotDao {})
         } else {
             let denom = match denom {
-                Some(denom) => Some(denom.into_checked(deps, env.contract.code_hash.clone())?),
+                Some(denom) => Some(denom.into_checked(deps)?),
                 None => {
                     let config = self.config.load(deps.storage)?;
                     config.deposit_info.map(|d| d.denom)
@@ -242,7 +243,6 @@ where
                 Some(denom) => {
                     let balance = denom.query_balance(
                         &deps.querier,
-                        env.contract.code_hash.clone(),
                         &env.contract.address,
                         key,
                     )?;
@@ -250,14 +250,13 @@ where
                         Err(PreProposeError::NothingToWithdraw {})
                     } else {
                         let withdraw_message = denom.get_transfer_to_message(
-                            env.contract.code_hash.clone(),
-                            &dao,
+                            &dao.addr.clone(),
                             balance,
                         )?;
                         Ok(Response::default()
                             .add_message(withdraw_message)
                             .add_attribute("method", "withdraw")
-                            .add_attribute("receiver", &dao)
+                            .add_attribute("receiver", &dao.addr.to_string())
                             .add_attribute("denom", denom.to_string()))
                     }
                 }
@@ -273,7 +272,7 @@ where
         code_hash: String
     ) -> Result<Response, PreProposeError> {
         let dao = self.dao.load(deps.storage)?;
-        if info.sender != dao {
+        if info.sender != dao.addr.clone() {
             return Err(PreProposeError::NotDao {});
         }
 
@@ -294,7 +293,7 @@ where
         code_hash: String
     ) -> Result<Response, PreProposeError> {
         let dao = self.dao.load(deps.storage)?;
-        if info.sender != dao {
+        if info.sender != dao.addr.clone() {
             return Err(PreProposeError::NotDao {});
         }
 
@@ -315,12 +314,12 @@ where
         &self,
         deps: Deps,
         info: MessageInfo,
-        env: Env,
+        _env: Env,
         id: u64,
         new_status: Status,
     ) -> Result<Response, PreProposeError> {
         let proposal_module = self.proposal_module.load(deps.storage)?;
-        if info.sender != proposal_module {
+        if info.sender != proposal_module.addr.clone() {
             return Err(PreProposeError::NotModule {});
         }
 
@@ -354,12 +353,12 @@ where
 
                     if should_refund_to_proposer {
                         deposit_info
-                            .get_return_deposit_message(&proposer, env.contract.code_hash.clone())?
+                            .get_return_deposit_message(&proposer)?
                     } else {
                         // If the proposer doesn't get the deposit, the DAO does.
                         let dao = self.dao.load(deps.storage)?;
                         deposit_info
-                            .get_return_deposit_message(&dao, env.contract.code_hash.clone())?
+                            .get_return_deposit_message(&dao.addr.clone())?
                     }
                 } else {
                     // No deposit info for this proposal. Nothing to do.
@@ -387,17 +386,18 @@ where
         &self,
         deps: Deps,
         who: Addr,
-        code_hash: String,
+        key: String
     ) -> Result<(), PreProposeError> {
         let config = self.config.load(deps.storage)?;
 
         if !config.open_proposal_submission {
             let dao = self.dao.load(deps.storage)?;
             let voting_power: VotingPowerAtHeightResponse = deps.querier.query_wasm_smart(
-                code_hash,
-                dao.into_string(),
+                dao.code_hash.clone(),
+                dao.addr.clone().into_string(),
                 &CwCoreQuery::VotingPowerAtHeight {
                     address: who.into_string(),
+                    key,
                     height: None,
                 },
             )?;

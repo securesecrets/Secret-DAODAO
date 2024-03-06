@@ -4,7 +4,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{to_binary, Addr, CosmosMsg, StdResult, WasmMsg};
 use cw4::{Cw4Contract, Member};
 
-use crate::{msg::ExecuteMsg, error::ContractError};
+use crate::{error::ContractError, msg::ExecuteMsg};
 
 /// Cw4GroupContract is a wrapper around Cw4Contract that provides a lot of helpers
 /// for working with cw4-group contracts.
@@ -26,7 +26,7 @@ impl Cw4GroupContract {
         Cw4GroupContract(Cw4Contract(addr))
     }
 
-    fn encode_msg(&self, msg: ExecuteMsg,code_hash: String) -> StdResult<CosmosMsg> {
+    fn encode_msg(&self, msg: ExecuteMsg, code_hash: String) -> StdResult<CosmosMsg> {
         Ok(WasmMsg::Execute {
             contract_addr: self.addr().into(),
             code_hash,
@@ -36,9 +36,14 @@ impl Cw4GroupContract {
         .into())
     }
 
-    pub fn update_members(&self, remove: Vec<String>, add: Vec<Member>,code_hash: String) -> StdResult<CosmosMsg> {
+    pub fn update_members(
+        &self,
+        remove: Vec<String>,
+        add: Vec<Member>,
+        code_hash: String,
+    ) -> StdResult<CosmosMsg> {
         let msg = ExecuteMsg::UpdateMembers { remove, add };
-        self.encode_msg(msg,code_hash)
+        self.encode_msg(msg, code_hash)
     }
 }
 

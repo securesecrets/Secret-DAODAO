@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::CustomMsg;
+use cosmwasm_std::{Addr, Api, CustomMsg, StdResult};
+use secret_toolkit::permit::Permit;
 
 #[cw_serde]
 pub struct MetadataExt {
@@ -28,6 +29,19 @@ pub enum ExecuteExt {
         token_id: String,
         role: Option<String>,
     },
+    CreateViewingKey {
+        entropy: String,
+        padding: Option<String>,
+    },
+    SetViewingKey {
+        key: String,
+        padding: Option<String>,
+    },
+    // Permit
+    RevokePermit {
+        permit_name: String,
+        padding: Option<String>,
+    },
 }
 impl CustomMsg for ExecuteExt {}
 
@@ -47,10 +61,49 @@ pub enum QueryExt {
     #[returns(cw4::MemberResponse)]
     Member {
         addr: String,
+        key: String,
         at_height: Option<u64>,
     },
     /// Shows all registered hooks.
     #[returns(secret_cw_controllers::HooksResponse)]
     Hooks {},
+    #[returns(())]
+    WithPermit {
+        permit: Permit,
+        query: QueryWithPermit,
+    },
+
 }
+
+impl QueryExt {
+    pub fn get_validation_params(&self, api: &dyn Api) -> StdResult<(Vec<Addr>, String)> {
+        match self {
+            Self::Member { addr, key, .. } => {
+                let address = api.addr_validate(addr.as_str())?;
+                Ok((vec![address], key.clone()))
+            }
+            _ => panic!("This query type does not require authentication"),
+        }
+    }
+}
+
+#[cw_serde]
+pub struct CreateViewingKey {
+    pub key: String,
+}
+
+#[cw_serde]
+pub struct ViewingKeyError {
+    pub msg: String,
+}
+
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum QueryWithPermit {
+    #[returns(dao_interface::voting::VotingPowerAtHeightResponse)]
+    Member { addr: String,
+        at_height: Option<u64>,},
+}
+
+
 impl CustomMsg for QueryExt {}

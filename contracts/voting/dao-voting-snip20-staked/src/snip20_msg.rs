@@ -2,7 +2,7 @@
 
 use cosmwasm_std::{Binary, Uint128};
 use schemars::JsonSchema;
-use secret_toolkit::utils::{HandleCallback, InitCallback};
+use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(test, derive(Eq, PartialEq))]
@@ -51,17 +51,4 @@ pub struct InitConfig {
     /// Indicated whether an admin can modify supported denoms
     /// default: False
     can_modify_denoms: Option<bool>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum Snip20ExecuteMsg {
-    CreateViewingKey {
-        entropy: String,
-        padding: Option<String>,
-    },
-}
-
-impl HandleCallback for Snip20ExecuteMsg {
-    const BLOCK_SIZE: usize = 256;
 }

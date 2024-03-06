@@ -57,6 +57,7 @@ pub enum NftContract {
 pub struct InstantiateMsg {
     /// Info about the associated NFT contract
     pub nft_contract: NftContract,
+    pub dao_code_hash: String,
 }
 
 #[cw_serde]

@@ -1,4 +1,5 @@
 use cosmwasm_std::StdError;
+use secret_utils::ParseReplyError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -8,6 +9,9 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
+
+    #[error(transparent)]
+    ParseReplyError(#[from] ParseReplyError),
 
     #[error("Initial governance token balances must not be empty")]
     InitialBalancesError {},

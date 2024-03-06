@@ -197,6 +197,7 @@ pub fn get_voting_power(
     deps: Deps,
     code_hash: String,
     address: Addr,
+    key: String,
     dao: &Addr,
     height: Option<u64>,
 ) -> StdResult<Uint128> {
@@ -206,6 +207,7 @@ pub fn get_voting_power(
         &voting::Query::VotingPowerAtHeight {
             address: address.into_string(),
             height,
+            key,
         },
     )?;
     Ok(response.power)

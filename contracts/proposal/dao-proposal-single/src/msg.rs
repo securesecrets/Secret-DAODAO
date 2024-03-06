@@ -1,10 +1,12 @@
 use cosmwasm_schema::QueryResponses;
+use cosmwasm_std::{Addr, Api, StdResult};
 use dao_dao_macros::proposal_module_query;
 use dao_voting::{
     pre_propose::PreProposeInfo, proposal::SingleChoiceProposeMsg, threshold::Threshold,
     veto::VetoConfig, voting::Vote,
 };
 use schemars::JsonSchema;
+use secret_toolkit::permit::Permit;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
 
@@ -59,6 +61,8 @@ pub enum ExecuteMsg {
     /// Votes on a proposal. Voting power is determined by the DAO's
     /// voting power module.
     Vote {
+        /// The viewing key of the sender
+        key: String,
         /// The ID of the proposal to vote on.
         proposal_id: u64,
         /// The senders position on the proposal.
@@ -77,6 +81,8 @@ pub enum ExecuteMsg {
     /// Causes the messages associated with a passed proposal to be
     /// executed by the DAO.
     Execute {
+        /// The viewing  of the sender
+        key: String,
         /// The ID of the proposal to execute.
         proposal_id: u64,
     },
@@ -150,6 +156,19 @@ pub enum ExecuteMsg {
     AddVoteHook { address: String, code_hash: String },
     /// Removed a consumer of vote hooks.
     RemoveVoteHook { address: String, code_hash: String },
+    CreateViewingKey {
+        entropy: String,
+        padding: Option<String>,
+    },
+    SetViewingKey {
+        key: String,
+        padding: Option<String>,
+    },
+    // Permit
+    RevokePermit {
+        permit_name: String,
+        padding: Option<String>,
+    },
 }
 
 #[proposal_module_query]
@@ -191,7 +210,11 @@ pub enum QueryMsg {
     },
     /// Returns a voters position on a propsal.
     #[returns(crate::query::VoteResponse)]
-    GetVote { proposal_id: u64, voter: String },
+    GetVote {
+        proposal_id: u64,
+        voter: String,
+        key: String,
+    },
     /// Lists all of the votes that have been cast on a
     /// proposal.
     #[returns(crate::query::VoteListResponse)]
@@ -217,6 +240,41 @@ pub enum QueryMsg {
     /// Lists all of the consumers of vote hooks for this module.
     #[returns(::cw_hooks::HooksResponse)]
     VoteHooks {},
+    #[returns(())]
+    WithPermit {
+        permit: Permit,
+        query: QueryWithPermit,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+#[derive(QueryResponses)]
+pub enum QueryWithPermit {
+    #[returns(crate::query::VoteResponse)]
+    GetVote { proposal_id: u64, voter: String },
+}
+
+impl QueryMsg {
+    pub fn get_validation_params(&self, api: &dyn Api) -> StdResult<(Vec<Addr>, String)> {
+        match self {
+            Self::GetVote { voter, key, .. } => {
+                let address = api.addr_validate(voter.as_str())?;
+                Ok((vec![address], key.clone()))
+            }
+            _ => panic!("This query type does not require authentication"),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+pub struct CreateViewingKey {
+    pub key: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+pub struct ViewingKeyError {
+    pub msg: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

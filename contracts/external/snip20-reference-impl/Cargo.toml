@@ -45,4 +45,3 @@ schemars = "0.8.12"
 serde = { version = "1.0.158", default-features = false, features = ["derive"] }
 base64 = "0.21.0"
 cosmwasm-schema = {workspace=true}
-

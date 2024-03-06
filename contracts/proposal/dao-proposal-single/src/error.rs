@@ -3,6 +3,7 @@ use std::u64;
 use cosmwasm_std::StdError;
 use cw_hooks::HookError;
 use dao_voting::{reply::error::TagError, veto::VetoError};
+use secret_cw_controllers::ReplyError;
 use secret_utils::ParseReplyError;
 use thiserror::Error;
 
@@ -16,6 +17,9 @@ pub enum ContractError {
 
     #[error(transparent)]
     HookError(#[from] HookError),
+
+    #[error(transparent)]
+    ReplyUdError(#[from] ReplyError),
 
     #[error(transparent)]
     VetoError(#[from] VetoError),

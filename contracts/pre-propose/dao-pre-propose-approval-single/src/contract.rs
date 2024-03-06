@@ -1,16 +1,15 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Order, Response, StdResult,
-    SubMsg, WasmMsg,
+    to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
 };
-use cw2::set_contract_version;
-use cw_paginate_storage::paginate_map_values;
+use cw_hooks::HookItem;
 use dao_pre_propose_base::{
     error::PreProposeError, msg::ExecuteMsg as ExecuteBase, state::PreProposeContract,
 };
 use dao_voting::deposit::DepositRefundPolicy;
 use dao_voting::proposal::SingleChoiceProposeMsg as ProposeMsg;
+use secret_cw2::set_contract_version;
 
 use crate::msg::{
     ApproverProposeMessage, ExecuteExt, ExecuteMsg, InstantiateExt, InstantiateMsg, ProposeMessage,
@@ -49,13 +48,13 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, PreProposeError> {
     match msg {
-        ExecuteMsg::Propose { msg } => execute_propose(deps, env, info, msg),
+        ExecuteMsg::Propose { msg, key } => execute_propose(deps, env, info, msg, key),
 
-        ExecuteMsg::AddProposalSubmittedHook { address } => {
-            execute_add_approver_hook(deps, info, address)
+        ExecuteMsg::AddProposalSubmittedHook { address, code_hash } => {
+            execute_add_approver_hook(deps, info, address, code_hash)
         }
-        ExecuteMsg::RemoveProposalSubmittedHook { address } => {
-            execute_remove_approver_hook(deps, info, address)
+        ExecuteMsg::RemoveProposalSubmittedHook { address, code_hash } => {
+            execute_remove_approver_hook(deps, info, address, code_hash)
         }
 
         ExecuteMsg::Extension { msg } => match msg {
@@ -73,11 +72,12 @@ pub fn execute_propose(
     env: Env,
     info: MessageInfo,
     msg: ProposeMessage,
+    key: String,
 ) -> Result<Response, PreProposeError> {
     let pre_propose_base = PrePropose::default();
     let config = pre_propose_base.config.load(deps.storage)?;
 
-    pre_propose_base.check_can_submit(deps.as_ref(), info.sender.clone())?;
+    pre_propose_base.check_can_submit(deps.as_ref(), info.sender.clone(), key.clone())?;
 
     // Take deposit, if configured.
     let deposit_messages = if let Some(ref deposit_info) = config.deposit_info {
@@ -109,13 +109,15 @@ pub fn execute_propose(
             .proposal_submitted_hooks
             .prepare_hooks(deps.storage, |a| {
                 let execute_msg = WasmMsg::Execute {
-                    contract_addr: a.into_string(),
-                    msg: to_json_binary(&ExecuteBase::<ApproverProposeMessage, Empty>::Propose {
+                    contract_addr: a.addr.into_string(),
+                    code_hash: a.code_hash,
+                    msg: to_binary(&ExecuteBase::<ApproverProposeMessage, Empty>::Propose {
                         msg: ApproverProposeMessage::Propose {
                             title: propose_msg_internal.title.clone(),
                             description: propose_msg_internal.description.clone(),
                             approval_id,
                         },
+                        key: key.clone(),
                     })?,
                     funds: vec![],
                 };
@@ -123,9 +125,9 @@ pub fn execute_propose(
             })?;
 
     // Save the proposal and its information as pending.
-    PENDING_PROPOSALS.save(
+    PENDING_PROPOSALS.insert(
         deps.storage,
-        approval_id,
+        &approval_id,
         &Proposal {
             status: ProposalStatus::Pending {},
             approval_id,
@@ -154,7 +156,7 @@ pub fn execute_approve(
     }
 
     // Load proposal and send propose message to the proposal module
-    let proposal = PENDING_PROPOSALS.may_load(deps.storage, id)?;
+    let proposal = PENDING_PROPOSALS.get(deps.storage, &id);
     match proposal {
         Some(proposal) => {
             let proposal_module = PrePropose::default().proposal_module.load(deps.storage)?;
@@ -162,24 +164,26 @@ pub fn execute_approve(
             // Snapshot the deposit for the proposal that we're about
             // to create.
             let proposal_id = deps.querier.query_wasm_smart(
-                &proposal_module,
+                &proposal_module.code_hash.clone(),
+                proposal_module.addr.clone().to_string(),
                 &dao_interface::proposal::Query::NextProposalId {},
             )?;
-            PrePropose::default().deposits.save(
+            PrePropose::default().deposits.insert(
                 deps.storage,
-                proposal_id,
+                &proposal_id,
                 &(proposal.deposit.clone(), proposal.proposer.clone()),
             )?;
 
             let propose_messsage = WasmMsg::Execute {
-                contract_addr: proposal_module.into_string(),
-                msg: to_json_binary(&ProposeMessageInternal::Propose(proposal.msg.clone()))?,
+                contract_addr: proposal_module.addr.into_string(),
+                code_hash: proposal_module.code_hash,
+                msg: to_binary(&ProposeMessageInternal::Propose(proposal.msg.clone()))?,
                 funds: vec![],
             };
 
-            COMPLETED_PROPOSALS.save(
+            COMPLETED_PROPOSALS.insert(
                 deps.storage,
-                id,
+                &id,
                 &Proposal {
                     status: ProposalStatus::Approved {
                         created_proposal_id: proposal_id,
@@ -190,8 +194,8 @@ pub fn execute_approve(
                     deposit: proposal.deposit,
                 },
             )?;
-            CREATED_PROPOSAL_TO_COMPLETED_PROPOSAL.save(deps.storage, proposal_id, &id)?;
-            PENDING_PROPOSALS.remove(deps.storage, id);
+            CREATED_PROPOSAL_TO_COMPLETED_PROPOSAL.insert(deps.storage, &proposal_id, &id)?;
+            PENDING_PROPOSALS.remove(deps.storage, &id)?;
 
             Ok(Response::default()
                 .add_message(propose_messsage)
@@ -221,12 +225,12 @@ pub fn execute_reject(
         deposit,
         ..
     } = PENDING_PROPOSALS
-        .may_load(deps.storage, id)?
+        .get(deps.storage, &id)
         .ok_or(PreProposeError::ProposalNotFound {})?;
 
-    COMPLETED_PROPOSALS.save(
+    COMPLETED_PROPOSALS.insert(
         deps.storage,
-        id,
+        &id,
         &Proposal {
             status: ProposalStatus::Rejected {},
             approval_id,
@@ -235,7 +239,7 @@ pub fn execute_reject(
             deposit: deposit.clone(),
         },
     )?;
-    PENDING_PROPOSALS.remove(deps.storage, id);
+    PENDING_PROPOSALS.remove(deps.storage, &id)?;
 
     let messages = if let Some(ref deposit_info) = deposit {
         // Refund can be issued if proposal if deposits are always
@@ -246,7 +250,7 @@ pub fn execute_reject(
         } else {
             // If the proposer doesn't get the deposit, the DAO does.
             let dao = PrePropose::default().dao.load(deps.storage)?;
-            deposit_info.get_return_deposit_message(&dao)?
+            deposit_info.get_return_deposit_message(&dao.addr)?
         }
     } else {
         vec![]
@@ -255,7 +259,7 @@ pub fn execute_reject(
     Ok(Response::default()
         .add_attribute("method", "proposal_rejected")
         .add_attribute("proposal", id.to_string())
-        .add_attribute("deposit_info", to_json_binary(&deposit)?.to_string())
+        .add_attribute("deposit_info", to_binary(&deposit)?.to_string())
         .add_messages(messages))
 }
 
@@ -281,6 +285,7 @@ pub fn execute_add_approver_hook(
     deps: DepsMut,
     info: MessageInfo,
     address: String,
+    code_hash: String,
 ) -> Result<Response, PreProposeError> {
     let pre_propose_base = PrePropose::default();
 
@@ -288,14 +293,14 @@ pub fn execute_add_approver_hook(
     let approver = APPROVER.load(deps.storage)?;
 
     // Check sender is the approver or the parent DAO
-    if approver != info.sender && dao != info.sender {
+    if approver != info.sender && dao.addr != info.sender {
         return Err(PreProposeError::Unauthorized {});
     }
 
     let addr = deps.api.addr_validate(&address)?;
     pre_propose_base
         .proposal_submitted_hooks
-        .add_hook(deps.storage, addr)?;
+        .add_hook(deps.storage, HookItem { addr, code_hash })?;
 
     Ok(Response::default())
 }
@@ -304,6 +309,7 @@ pub fn execute_remove_approver_hook(
     deps: DepsMut,
     info: MessageInfo,
     address: String,
+    code_hash: String,
 ) -> Result<Response, PreProposeError> {
     let pre_propose_base = PrePropose::default();
 
@@ -311,7 +317,7 @@ pub fn execute_remove_approver_hook(
     let approver = APPROVER.load(deps.storage)?;
 
     // Check sender is the approver or the parent DAO
-    if approver != info.sender && dao != info.sender {
+    if approver != info.sender && dao.addr != info.sender {
         return Err(PreProposeError::Unauthorized {});
     }
 
@@ -321,7 +327,7 @@ pub fn execute_remove_approver_hook(
     // remove hook
     pre_propose_base
         .proposal_submitted_hooks
-        .remove_hook(deps.storage, addr)?;
+        .remove_hook(deps.storage, HookItem { addr, code_hash })?;
 
     Ok(Response::default())
 }
@@ -330,72 +336,129 @@ pub fn execute_remove_approver_hook(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::QueryExtension { msg } => match msg {
-            QueryExt::Approver {} => to_json_binary(&APPROVER.load(deps.storage)?),
+            QueryExt::Approver {} => to_binary(&APPROVER.load(deps.storage)?),
             QueryExt::IsPending { id } => {
-                let pending = PENDING_PROPOSALS.may_load(deps.storage, id)?.is_some();
+                let pending = PENDING_PROPOSALS.get(deps.storage, &id).is_some();
                 // Force load completed proposal if not pending, throwing error
                 // if not found.
                 if !pending {
-                    COMPLETED_PROPOSALS.load(deps.storage, id)?;
+                    COMPLETED_PROPOSALS.get(deps.storage, &id);
                 }
 
-                to_json_binary(&pending)
+                to_binary(&pending)
             }
             QueryExt::Proposal { id } => {
-                if let Some(pending) = PENDING_PROPOSALS.may_load(deps.storage, id)? {
-                    to_json_binary(&pending)
+                if let Some(pending) = PENDING_PROPOSALS.get(deps.storage, &id) {
+                    to_binary(&pending)
                 } else {
                     // Force load completed proposal if not pending, throwing
                     // error if not found.
-                    to_json_binary(&COMPLETED_PROPOSALS.load(deps.storage, id)?)
+                    to_binary(&COMPLETED_PROPOSALS.get(deps.storage, &id))
                 }
             }
             QueryExt::PendingProposal { id } => {
-                to_json_binary(&PENDING_PROPOSALS.load(deps.storage, id)?)
+                to_binary(&PENDING_PROPOSALS.get(deps.storage, &id))
             }
             QueryExt::PendingProposals { start_after, limit } => {
-                to_json_binary(&paginate_map_values(
-                    deps,
-                    &PENDING_PROPOSALS,
-                    start_after,
-                    limit,
-                    Order::Ascending,
-                )?)
+                let mut res: Vec<Proposal> = Vec::new();
+                let mut start = start_after.clone();
+                let binding = &PENDING_PROPOSALS;
+                let iter = binding.iter(deps.storage)?;
+                for item in iter {
+                    let (id, proposal) = item?;
+                    if let Some(start_after) = &start {
+                        if &id == start_after {
+                            // If we found the start point, reset it to start iterating
+                            start = None;
+                        }
+                    }
+                    if start.is_none() {
+                        res.push(proposal);
+                        if res.len() >= limit.unwrap_or_default() as usize {
+                            break; // Break out of loop if limit reached
+                        }
+                    }
+                }
+                to_binary(&res)
             }
             QueryExt::ReversePendingProposals {
                 start_before,
                 limit,
-            } => to_json_binary(&paginate_map_values(
-                deps,
-                &PENDING_PROPOSALS,
-                start_before,
-                limit,
-                Order::Descending,
-            )?),
+            } => {
+                let mut res: Vec<Proposal> = Vec::new();
+                let mut start = start_before.clone();
+                let binding = &PENDING_PROPOSALS;
+                let iter = binding.iter(deps.storage)?.rev(); // Iterate in reverse
+                for item in iter {
+                    let (id, proposal) = item?;
+                    if let Some(start_before) = &start {
+                        if &id == start_before {
+                            // If we found the start point, reset it to start iterating
+                            start = None;
+                        }
+                    }
+                    if start.is_none() {
+                        res.push(proposal);
+                        if res.len() >= limit.unwrap_or_default() as usize {
+                            break; // Break out of loop if limit reached
+                        }
+                    }
+                }
+                to_binary(&res)
+            }
+
             QueryExt::CompletedProposal { id } => {
-                to_json_binary(&COMPLETED_PROPOSALS.load(deps.storage, id)?)
+                to_binary(&COMPLETED_PROPOSALS.get(deps.storage, &id))
             }
             QueryExt::CompletedProposals { start_after, limit } => {
-                to_json_binary(&paginate_map_values(
-                    deps,
-                    &COMPLETED_PROPOSALS,
-                    start_after,
-                    limit,
-                    Order::Ascending,
-                )?)
+                let mut res: Vec<Proposal> = Vec::new();
+                let mut start = start_after.clone();
+                let binding = &COMPLETED_PROPOSALS;
+                let iter = binding.iter(deps.storage)?;
+                for item in iter {
+                    let (id, proposal) = item?;
+                    if let Some(start_after) = &start {
+                        if &id == start_after {
+                            // If we found the start point, reset it to start iterating
+                            start = None;
+                        }
+                    }
+                    if start.is_none() {
+                        res.push(proposal);
+                        if res.len() >= limit.unwrap_or_default() as usize {
+                            break; // Break out of loop if limit reached
+                        }
+                    }
+                }
+                to_binary(&res)
             }
             QueryExt::ReverseCompletedProposals {
                 start_before,
                 limit,
-            } => to_json_binary(&paginate_map_values(
-                deps,
-                &COMPLETED_PROPOSALS,
-                start_before,
-                limit,
-                Order::Descending,
-            )?),
+            } => {
+                let mut res: Vec<Proposal> = Vec::new();
+                let mut start = start_before.clone();
+                let binding = &COMPLETED_PROPOSALS;
+                let iter = binding.iter(deps.storage)?.rev(); // Iterate in reverse
+                for item in iter {
+                    let (id, proposal) = item?;
+                    if let Some(start_before) = &start {
+                        if &id == start_before {
+                            // If we found the start point, reset it to start iterating
+                            start = None;
+                        }
+                    }
+                    if start.is_none() {
+                        res.push(proposal);
+                        if res.len() >= limit.unwrap_or_default() as usize {
+                            break; // Break out of loop if limit reached
+                        }
+                    }
+                }
+                to_binary(&res)
+            }
             QueryExt::CompletedProposalIdForCreatedProposalId { id } => {
-                to_json_binary(&CREATED_PROPOSAL_TO_COMPLETED_PROPOSAL.may_load(deps.storage, id)?)
+                to_binary(&CREATED_PROPOSAL_TO_COMPLETED_PROPOSAL.get(deps.storage, &id))
             }
         },
         _ => PrePropose::default().query(deps, env, msg),

@@ -9,8 +9,6 @@ members = [
   # "./contracts/test/*",
   "./contracts/voting/*",
   "./packages/*",
-  "./snip20-reference-impl/",
-  "./snip721-reference-impl/",
   # "./manager/"
 
   # "ci/*",
@@ -169,6 +167,6 @@ schemars = "0.8.12"
 serde = { version = "1.0.158", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.21" }
 cosmwasm-schema = { git = "https://github.com/scrtlabs/cosmwasm/", branch = "secret" }
-snip20-reference-impl = { path = "./snip20-reference-impl/" }
-snip721-reference-impl = { path = "./snip721-reference-impl/" }
+snip20-reference-impl = { path = "./contracts/external/snip20-reference-impl/" }
+snip721-reference-impl = { path = "./contracts/external/snip721-reference-impl/" }
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }

@@ -9,7 +9,7 @@ use schemars::JsonSchema;
 #[derive(QueryResponses)]
 pub enum Query {
     /// Returns the token contract address, if set.
-    #[returns(::cosmwasm_std::Addr)]
+    #[returns(crate::state::AnyContractInfo)]
     TokenContract {},
     /// Returns the native token denom, if used.
     #[returns(DenomResponse)]
@@ -18,6 +18,7 @@ pub enum Query {
     #[returns(VotingPowerAtHeightResponse)]
     VotingPowerAtHeight {
         address: ::std::string::String,
+        key : ::std::string::String,
         height: ::std::option::Option<::std::primitive::u64>,
     },
     /// Returns the total voting power at a given block heigh.
@@ -26,7 +27,7 @@ pub enum Query {
         height: ::std::option::Option<::std::primitive::u64>,
     },
     /// Returns the address of the DAO this module belongs to.
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(crate::state::AnyContractInfo)]
     Dao {},
     /// Returns contract version info.
     #[returns(InfoResponse)]

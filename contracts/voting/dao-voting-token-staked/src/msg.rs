@@ -1,9 +1,10 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Binary, Uint128};
+use cosmwasm_std::{Addr, Api, Binary, StdResult, Uint128};
 use cw_hooks::HookItem;
 use dao_dao_macros::{active_query, native_token_query, voting_module_query};
 // use dao_interface::token::NewTokenInfo;
-use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
+use dao_voting::threshold::ActiveThreshold;
+use secret_toolkit::permit::Permit;
 use secret_utils::Duration;
 
 #[cw_serde]
@@ -15,10 +16,14 @@ pub enum TokenInfo {
         /// Token factory denom
         denom: String,
     },
+
     /// NOTE* There is right now no way to create new token so will be using existing token
+
     /// Creates a new Token Factory token via the issue contract with the DAO automatically
     /// setup as admin and owner.
+
     // New(NewTokenInfo),
+
     /// Uses a factory contract that must return the denom, optionally a Token Contract address.
     /// The binary must serialize to a `WasmMsg::Execute` message.
     /// Validation happens in the factory contract itself, so be sure to use a
@@ -35,6 +40,7 @@ pub struct InstantiateMsg {
     /// The number or percentage of tokens that must be staked
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
+    pub dao_code_hash: String,
 }
 
 #[cw_serde]
@@ -57,6 +63,19 @@ pub enum ExecuteMsg {
     AddHook { addr: String, code_hash: String },
     /// Removes a hook that fires on staking / unstaking
     RemoveHook { addr: String, code_hash: String },
+    CreateViewingKey {
+        entropy: String,
+        padding: Option<String>,
+    },
+    SetViewingKey {
+        key: String,
+        padding: Option<String>,
+    },
+    // Permit
+    RevokePermit {
+        permit_name: String,
+        padding: Option<String>,
+    },
 }
 
 #[native_token_query]
@@ -68,18 +87,39 @@ pub enum QueryMsg {
     #[returns(crate::state::Config)]
     GetConfig {},
     #[returns(secret_cw_controllers::ClaimsResponse)]
-    Claims { address: String },
+    Claims { address: String, key: String },
     #[returns(ListStakersResponse)]
     ListStakers {
         start_after: Option<String>,
         limit: Option<u32>,
     },
-    #[returns(ActiveThresholdResponse)]
+    #[returns(dao_voting::threshold::ActiveThresholdResponse)]
     ActiveThreshold {},
     #[returns(GetHooksResponse)]
     GetHooks {},
     #[returns(Option<cosmwasm_std::Addr>)]
     TokenContract {},
+    #[returns(())]
+    WithPermit {
+        permit: Permit,
+        query: QueryWithPermit,
+    },
+}
+
+impl QueryMsg {
+    pub fn get_validation_params(&self, api: &dyn Api) -> StdResult<(Vec<Addr>, String)> {
+        match self {
+            Self::Claims { address, key } => {
+                let address = api.addr_validate(address.as_str())?;
+                Ok((vec![address], key.clone()))
+            }
+            Self::VotingPowerAtHeight { address, key, .. } => {
+                let address = api.addr_validate(address.as_str())?;
+                Ok((vec![address], key.clone()))
+            }
+            _ => panic!("This query type does not require authentication"),
+        }
+    }
 }
 
 #[cw_serde]
@@ -99,4 +139,23 @@ pub struct StakerBalanceResponse {
 #[cw_serde]
 pub struct GetHooksResponse {
     pub hooks: Vec<HookItem>,
+}
+
+#[cw_serde]
+pub struct CreateViewingKey {
+    pub key: String,
+}
+
+#[cw_serde]
+pub struct ViewingKeyError {
+    pub msg: String,
+}
+
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum QueryWithPermit {
+    #[returns(secret_cw_controllers::ClaimsResponse)]
+    Claims { address: String },
+    #[returns(dao_interface::voting::VotingPowerAtHeightResponse)]
+    VotingPowerAtHeight { address: String, height: u64 },
 }

@@ -36,4 +36,4 @@ pub const PENDING_REWARDS: Map<Addr, Uint128> = Map::new("pending_rewards");
 
 pub const USER_REWARD_PER_TOKEN: Map<Addr, Uint256> = Map::new("user_reward_per_token");
 
-pub const SNIP20_STAKING_VIEWING_KEY: Item<String> = Item::new("snip20_staking_viewing_key");
+pub const VIEWING_KEY_INFO: Map<Addr, String> = Map::new("viewing_key_info");

@@ -2,7 +2,7 @@ use crate::snip20_msg::InitialBalance;
 use cosmwasm_schema::QueryResponses;
 use cosmwasm_std::Uint128;
 use dao_dao_macros::{active_query, cw20_token_query, voting_module_query};
-use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
+use dao_voting::threshold::ActiveThreshold;
 use schemars::JsonSchema;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
@@ -68,6 +68,7 @@ pub struct InstantiateMsg {
     /// The number or percentage of tokens that must be staked
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
+    pub dao_code_hash: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -89,7 +90,7 @@ pub enum QueryMsg {
     /// is wrapping.
     #[returns(cosmwasm_std::Addr)]
     StakingContract {},
-    #[returns(ActiveThresholdResponse)]
+    #[returns(dao_voting::threshold::ActiveThresholdResponse)]
     ActiveThreshold {},
 }
 

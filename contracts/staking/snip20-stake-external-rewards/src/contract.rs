@@ -1,17 +1,15 @@
 use crate::msg::{
-    ExecuteMsg, InfoResponse, InstantiateMsg, PendingRewardsResponse, QueryMsg,
-    ReceiveMsg,MigrateMsg
+    ExecuteMsg, InfoResponse, InstantiateMsg, MigrateMsg, PendingRewardsResponse, QueryMsg,
+    ReceiveMsg,
 };
 use crate::state::{
     Config, Denom, RewardConfig, CONFIG, LAST_UPDATE_BLOCK, PENDING_REWARDS, REWARD_CONFIG,
-    REWARD_PER_TOKEN, SNIP20_STAKING_VIEWING_KEY, USER_REWARD_PER_TOKEN,
+    REWARD_PER_TOKEN, USER_REWARD_PER_TOKEN, VIEWING_KEY_INFO,
 };
+use crate::ContractError;
 use crate::ContractError::{
     InvalidFunds, InvalidSnip20, NoRewardsClaimable, RewardPeriodNotFinished,
 };
-use crate::{snip20_stake_msg, ContractError};
-use secret_toolkit::utils::HandleCallback;
-const EXECUTE_SNIP20_STAKE_VIEWING_KEY_ID: u64 = 0;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
@@ -19,21 +17,22 @@ use crate::msg::Snip20ReceiveMsg;
 use crate::state::Denom::Snip20;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
-    MessageInfo, Reply, Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128, Uint256,
-    WasmMsg,
+    MessageInfo, Response, StdError, StdResult, Uint128, Uint256, WasmMsg,
 };
 use dao_hooks::stake::StakeChangedHookMsg;
-use secret_cw2::{set_contract_version,ContractVersion};
+use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use std::cmp::min;
 use std::convert::TryInto;
 
 const CONTRACT_NAME: &str = "crates.io:snip20-stake-external-rewards";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response<Empty>, ContractError> {
@@ -72,20 +71,6 @@ pub fn instantiate(
     };
     REWARD_CONFIG.save(deps.storage, &reward_config)?;
 
-    // Create Snip20 Stake viewing key
-    let gen_viewing_key_msg = snip20_stake_msg::ExecuteMsg::CreateViewingKey {
-        entropy: "entropy".to_string(),
-    };
-
-    let submsg = SubMsg::reply_on_success(
-        gen_viewing_key_msg.to_cosmos_msg(
-            msg.staking_contract_code_hash.clone(),
-            msg.staking_contract.clone().to_string(),
-            None,
-        )?,
-        EXECUTE_SNIP20_STAKE_VIEWING_KEY_ID,
-    );
-
     Ok(Response::new()
         .add_attribute("owner", msg.owner.unwrap_or_else(|| "None".to_string()))
         .add_attribute("staking_contract", config.staking_contract)
@@ -98,8 +83,7 @@ pub fn instantiate(
         )
         .add_attribute("reward_rate", reward_config.reward_rate)
         .add_attribute("period_finish", reward_config.period_finish.to_string())
-        .add_attribute("reward_duration", reward_config.reward_duration.to_string())
-    .add_submessage(submsg).set_data(to_binary(&env.contract.code_hash)?))
+        .add_attribute("reward_duration", reward_config.reward_duration.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -124,13 +108,14 @@ pub fn execute(
 ) -> Result<Response<Empty>, ContractError> {
     match msg {
         ExecuteMsg::StakeChangeHook(msg) => execute_stake_changed(deps, env, info, msg),
-        ExecuteMsg::Claim {} => execute_claim(deps, env, info),
+        ExecuteMsg::Claim { key } => execute_claim(deps, env, info, key),
         ExecuteMsg::Fund {} => execute_fund_native(deps, env, info),
         ExecuteMsg::Receive(msg) => execute_receive(deps, env, info, msg),
         ExecuteMsg::UpdateRewardDuration { new_duration } => {
             execute_update_reward_duration(deps, env, info, new_duration)
         }
         ExecuteMsg::UpdateOwnership(action) => execute_update_owner(deps, info, env, action),
+        ExecuteMsg::SetViewingKey { key, .. } => try_set_key(deps, info, key),
     }
 }
 
@@ -146,8 +131,9 @@ pub fn execute_receive(
     if config.reward_token != Denom::Snip20(info.sender) {
         return Err(InvalidSnip20 {});
     };
+    let key = VIEWING_KEY_INFO.load(deps.storage, sender.clone())?;
     match msg {
-        ReceiveMsg::Fund {} => execute_fund(deps, env, sender, wrapper.amount),
+        ReceiveMsg::Fund {} => execute_fund(deps, env, sender, wrapper.amount, Some(key)),
     }
 }
 
@@ -161,7 +147,7 @@ pub fn execute_fund_native(
     match config.reward_token {
         Denom::Native(denom) => {
             let amount = secret_utils::must_pay(&info, &denom).map_err(|_| InvalidFunds {})?;
-            execute_fund(deps, env, info.sender, amount)
+            execute_fund(deps, env, info.sender, amount, None)
         }
         Snip20(_) => Err(InvalidFunds {}),
     }
@@ -172,10 +158,11 @@ pub fn execute_fund(
     env: Env,
     sender: Addr,
     amount: Uint128,
+    key: Option<String>,
 ) -> Result<Response<Empty>, ContractError> {
     cw_ownable::assert_owner(deps.storage, &sender)?;
 
-    update_rewards(&mut deps, &env, &sender)?;
+    update_rewards(&mut deps, &env, &sender, key.unwrap())?;
     let reward_config = REWARD_CONFIG.load(deps.storage)?;
     if reward_config.period_finish > env.block.height {
         return Err(RewardPeriodNotFinished {});
@@ -215,8 +202,14 @@ pub fn execute_stake_changed(
         return Err(ContractError::InvalidHookSender {});
     };
     match msg {
-        StakeChangedHookMsg::Stake { addr, .. } => execute_stake(deps, env, addr),
-        StakeChangedHookMsg::Unstake { addr, .. } => execute_unstake(deps, env, addr),
+        StakeChangedHookMsg::Stake { addr, .. } => {
+            let key = VIEWING_KEY_INFO.load(deps.storage, addr.clone())?;
+            execute_stake(deps, env, addr, key)
+        }
+        StakeChangedHookMsg::Unstake { addr, .. } => {
+            let key = VIEWING_KEY_INFO.load(deps.storage, addr.clone())?;
+            execute_unstake(deps, env, addr, key)
+        }
     }
 }
 
@@ -224,8 +217,9 @@ pub fn execute_stake(
     mut deps: DepsMut,
     env: Env,
     addr: Addr,
+    key: String,
 ) -> Result<Response<Empty>, ContractError> {
-    update_rewards(&mut deps, &env, &addr)?;
+    update_rewards(&mut deps, &env, &addr, key)?;
     Ok(Response::new().add_attribute("action", "stake"))
 }
 
@@ -233,8 +227,9 @@ pub fn execute_unstake(
     mut deps: DepsMut,
     env: Env,
     addr: Addr,
+    key: String,
 ) -> Result<Response<Empty>, ContractError> {
-    update_rewards(&mut deps, &env, &addr)?;
+    update_rewards(&mut deps, &env, &addr, key)?;
     Ok(Response::new().add_attribute("action", "unstake"))
 }
 
@@ -242,8 +237,9 @@ pub fn execute_claim(
     mut deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    key: String,
 ) -> Result<Response<Empty>, ContractError> {
-    update_rewards(&mut deps, &env, &info.sender)?;
+    update_rewards(&mut deps, &env, &info.sender, key)?;
     let rewards = PENDING_REWARDS
         .load(deps.storage, info.sender.clone())
         .map_err(|_| NoRewardsClaimable {})?;
@@ -274,6 +270,15 @@ pub fn execute_update_owner(
     Ok(Response::default().add_attributes(ownership.into_attributes()))
 }
 
+pub fn try_set_key(
+    deps: DepsMut,
+    info: MessageInfo,
+    key: String,
+) -> Result<Response, ContractError> {
+    VIEWING_KEY_INFO.save(deps.storage, info.sender, &key)?;
+    Ok(Response::default())
+}
+
 pub fn get_transfer_msg(
     recipient: Addr,
     amount: Uint128,
@@ -287,12 +292,10 @@ pub fn get_transfer_msg(
         }
         .into()),
         Denom::Snip20(addr) => {
-            let snip20_msg = to_binary(&snip20_reference_impl::msg::ExecuteMsg::Transfer {
+            let snip20_msg = to_binary(&secret_toolkit::snip20::HandleMsg::Transfer {
                 recipient: recipient.into_string(),
                 amount,
                 memo: None,
-                decoys: None,
-                entropy: None,
                 padding: None,
             })?;
             Ok(WasmMsg::Execute {
@@ -306,7 +309,7 @@ pub fn get_transfer_msg(
     }
 }
 
-pub fn update_rewards(deps: &mut DepsMut, env: &Env, addr: &Addr) -> StdResult<()> {
+pub fn update_rewards(deps: &mut DepsMut, env: &Env, addr: &Addr, key: String) -> StdResult<()> {
     let config = CONFIG.load(deps.storage)?;
     let reward_per_token = get_reward_per_token(
         deps.as_ref(),
@@ -318,10 +321,10 @@ pub fn update_rewards(deps: &mut DepsMut, env: &Env, addr: &Addr) -> StdResult<(
 
     let earned_rewards = get_rewards_earned(
         deps.as_ref(),
-        env,
         addr,
         reward_per_token,
         &config.staking_contract,
+        key,
     )?;
     PENDING_REWARDS.update::<_, StdError>(deps.storage, addr.clone(), |r| {
         Ok(r.unwrap_or_default() + earned_rewards)
@@ -364,18 +367,18 @@ pub fn get_reward_per_token(
 
 pub fn get_rewards_earned(
     deps: Deps,
-    env: &Env,
     addr: &Addr,
     reward_per_token: Uint256,
     staking_contract: &Addr,
+    key: String,
 ) -> StdResult<Uint128> {
     let config = CONFIG.load(deps.storage)?;
     let staked_balance = Uint256::from(get_staked_balance(
         deps,
-        env,
         staking_contract,
         config.staking_contract_code_hash,
         addr,
+        key,
     )?);
     let user_reward_per_token = USER_REWARD_PER_TOKEN
         .load(deps.storage, addr.clone())
@@ -404,24 +407,23 @@ fn get_total_staked(
     Ok(resp.total)
 }
 
-// Need to add submsg functionality
 fn get_staked_balance(
     deps: Deps,
-    env: &Env,
     contract_address: &Addr,
     staking_contract_code_hash: String,
     addr: &Addr,
+    key: String,
 ) -> StdResult<Uint128> {
-    let key = SNIP20_STAKING_VIEWING_KEY.load(deps.storage)?;
     let msg = snip20_stake::msg::QueryMsg::StakedBalanceAtHeight {
-        contract_address:Some(env.contract.address.to_string()),
         address: addr.into(),
         height: None,
         key,
     };
-    let resp: snip20_stake::msg::StakedBalanceAtHeightResponse =
-        deps.querier
-            .query_wasm_smart(staking_contract_code_hash, contract_address.to_string(), &msg)?;
+    let resp: snip20_stake::msg::StakedBalanceAtHeightResponse = deps.querier.query_wasm_smart(
+        staking_contract_code_hash,
+        contract_address.to_string(),
+        &msg,
+    )?;
     Ok(resp.balance)
 }
 
@@ -459,10 +461,10 @@ fn scale_factor() -> Uint256 {
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Info {} => Ok(to_binary(&query_info(deps, env)?)?),
-        QueryMsg::GetPendingRewards { address } => {
-            Ok(to_binary(&query_pending_rewards(deps, env, address)?)?)
-        }
         QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
+        QueryMsg::GetPendingRewards { address, key } => {
+            Ok(to_binary(&query_pending_rewards(deps, env, address, key)?)?)
+        }
     }
 }
 
@@ -476,6 +478,7 @@ pub fn query_pending_rewards(
     deps: Deps,
     env: Env,
     addr: String,
+    key: String,
 ) -> StdResult<PendingRewardsResponse> {
     let addr = deps.api.addr_validate(&addr)?;
     let config = CONFIG.load(deps.storage)?;
@@ -485,13 +488,8 @@ pub fn query_pending_rewards(
         &config.staking_contract,
         config.staking_contract_code_hash,
     )?;
-    let earned_rewards = get_rewards_earned(
-        deps,
-        &env,
-        &addr,
-        reward_per_token,
-        &config.staking_contract,
-    )?;
+    let earned_rewards =
+        get_rewards_earned(deps, &addr, reward_per_token, &config.staking_contract, key)?;
 
     let existing_rewards = PENDING_REWARDS
         .load(deps.storage, addr.clone())
@@ -503,22 +501,6 @@ pub fn query_pending_rewards(
         denom: config.reward_token,
         last_update_block: LAST_UPDATE_BLOCK.load(deps.storage).unwrap_or_default(),
     })
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    match msg.id {
-        EXECUTE_SNIP20_STAKE_VIEWING_KEY_ID => match msg.result {
-            SubMsgResult::Ok(res) => {
-                let data: snip20_stake::msg::CreateViewingKeyResponse =
-                    from_binary(&res.data.unwrap())?;
-                SNIP20_STAKING_VIEWING_KEY.save(deps.storage, &data.key)?;
-                Ok(Response::new().add_attribute("action", "create_snip20_stake_viewing_key"))
-            }
-            SubMsgResult::Err(_) => Err(ContractError::Snip20StakeExecuteError {}),
-        },
-        _ => Err(ContractError::UnknownReplyId { id: msg.id }),
-    }
 }
 
 // #[cfg(test)]

@@ -1662,11 +1662,9 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-denom",
- "cw-multi-test",
+ "cw-hooks",
  "cw-paginate-storage 2.4.0",
- "cw-storage-plus 1.2.0",
  "cw-utils 1.0.3",
- "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
  "cw4-group",
@@ -1680,6 +1678,10 @@ dependencies = [
  "dao-voting-cw4",
  "dao-voting-snip20-staked",
  "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit",
  "thiserror",
 ]
 
@@ -1689,10 +1691,6 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-denom",
- "cw-multi-test",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
  "cw4-group",
@@ -1707,6 +1705,11 @@ dependencies = [
  "dao-voting-cw4",
  "dao-voting-snip20-staked",
  "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit",
+ "secret-utils",
 ]
 
 [[package]]
@@ -1735,9 +1738,6 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-denom",
- "cw-multi-test",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
  "cw20 1.1.2",
  "cw20-base 1.1.2",
  "cw4-group",
@@ -1751,6 +1751,9 @@ dependencies = [
  "dao-voting-cw4",
  "dao-voting-snip20-staked",
  "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-utils",
 ]
 
 [[package]]
@@ -1790,6 +1793,7 @@ dependencies = [
  "dao-voting-cw4",
  "schemars",
  "secret-cosmwasm-std",
+ "secret-cw-controllers",
  "secret-cw2",
  "secret-multi-test",
  "secret-storage-plus",
@@ -1851,6 +1855,7 @@ dependencies = [
  "schemars",
  "secret-cosmwasm-std",
  "secret-cosmwasm-storage",
+ "secret-cw-controllers",
  "secret-cw2",
  "secret-multi-test",
  "secret-storage-plus",
@@ -1918,8 +1923,10 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw4",
+ "dao-interface",
  "secret-cosmwasm-std",
  "secret-cw-controllers",
+ "secret-toolkit",
 ]
 
 [[package]]
@@ -2039,16 +2046,18 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw4",
- "cw4-group",
  "dao-dao-macros",
  "dao-interface",
+ "schemars",
  "secret-cosmwasm-std",
  "secret-cosmwasm-storage",
+ "secret-cw-controllers",
  "secret-cw2",
  "secret-multi-test",
  "secret-storage-plus",
  "secret-toolkit",
  "secret-utils",
+ "serde",
  "thiserror",
 ]
 
@@ -4348,7 +4357,6 @@ dependencies = [
  "serde",
  "sha2 0.9.9",
  "snafu",
- "snip20-reference-impl",
  "subtle",
  "thiserror",
 ]
@@ -4373,7 +4381,6 @@ dependencies = [
  "secret-toolkit",
  "secret-utils",
  "serde",
- "snip20-reference-impl",
  "snip20-stake",
  "stake-cw20-external-rewards",
  "thiserror",

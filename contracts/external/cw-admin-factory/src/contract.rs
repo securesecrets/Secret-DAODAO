@@ -1,10 +1,11 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg, WasmMsg,
+    Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdError, StdResult, SubMsg, WasmMsg,SubMsgResult
 };
+use dao_interface::state::ModuleInstantiateInfo;
 use secret_cw2::set_contract_version;
-use secret_utils::parse_reply_instantiate_data;
+use secret_utils::parse_reply_event_for_contract_address;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
@@ -34,34 +35,21 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::InstantiateContractWithSelfAdmin {
-            instantiate_msg: msg,
-            code_id,
-            code_hash,
-            label,
-        } => instantiate_contract(env, info, msg, code_id, code_hash,label),
+        ExecuteMsg::InstantiateContractWithSelfAdmin { module_info } => {
+            instantiate_contract(env, info, module_info)
+        }
     }
 }
 
 pub fn instantiate_contract(
     env: Env,
-    info: MessageInfo,
-    instantiate_msg: Binary,
-    code_id: u64,
-    code_hash: String,
-    label: String,
+    _info: MessageInfo,
+    module_info: ModuleInstantiateInfo,
 ) -> Result<Response, ContractError> {
     // Instantiate the specified contract with factory as the admin.
-    let instantiate = WasmMsg::Instantiate {
-        admin: Some(env.contract.address.to_string()),
-        code_id,
-        code_hash,
-        msg: instantiate_msg,
-        funds: info.funds,
-        label,
-    };
+    let msg = module_info.to_cosmos_msg(env.contract.address);
 
-    let msg = SubMsg::reply_on_success(instantiate, INSTANTIATE_CONTRACT_REPLY_ID);
+    let msg = SubMsg::reply_on_success(msg, INSTANTIATE_CONTRACT_REPLY_ID);
     Ok(Response::default()
         .add_attribute("action", "instantiate_cw_core")
         .add_submessage(msg))
@@ -75,19 +63,35 @@ pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
-        INSTANTIATE_CONTRACT_REPLY_ID => {
-            let res = parse_reply_instantiate_data(msg)?;
-            let contract_addr = deps.api.addr_validate(&res.contract_address)?;
-            // Make the contract its own admin.
-            let msg = WasmMsg::UpdateAdmin {
-                contract_addr: contract_addr.to_string(),
-                admin: contract_addr.to_string(),
-            };
+        INSTANTIATE_CONTRACT_REPLY_ID => match msg.result {
+            cosmwasm_std::SubMsgResult::Ok(res) => {
+                let address = parse_reply_event_for_contract_address(res.events)?;
+                let contract_addr = deps.api.addr_validate(&address)?;
+                // Make the contract its own admin.
+                let msg = WasmMsg::UpdateAdmin {
+                    contract_addr: contract_addr.to_string(),
+                    admin: contract_addr.to_string(),
+                };
 
-            Ok(Response::default()
-                .add_attribute("set contract admin as itself", contract_addr)
-                .add_message(msg))
-        }
+                Ok(Response::default()
+                    .add_attribute("set contract admin as itself", contract_addr)
+                    .add_message(msg))
+            }
+            SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+        },
+        // {
+        //     let res = parse_reply_instantiate_data(msg)?;
+        //     let contract_addr = deps.api.addr_validate(&res.contract_address)?;
+        //     // Make the contract its own admin.
+        //     let msg = WasmMsg::UpdateAdmin {
+        //         contract_addr: contract_addr.to_string(),
+        //         admin: contract_addr.to_string(),
+        //     };
+
+        //     Ok(Response::default()
+        //         .add_attribute("set contract admin as itself", contract_addr)
+        //         .add_message(msg))
+        // }
         _ => Err(ContractError::UnknownReplyID {}),
     }
 }

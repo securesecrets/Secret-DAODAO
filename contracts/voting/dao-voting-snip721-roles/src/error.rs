@@ -1,4 +1,5 @@
 use cosmwasm_std::StdError;
+use secret_utils::ParseReplyError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -8,6 +9,9 @@ pub enum ContractError {
 
     #[error("Error instantiating snip721-roles contract")]
     NftInstantiateError {},
+
+    #[error(transparent)]
+    ParseReplyError(#[from] ParseReplyError),
 
     #[error("This contract only supports queries")]
     NoExecute {},

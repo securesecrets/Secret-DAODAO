@@ -1,6 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, StdResult, Storage, Uint128};
 use cw_hooks::Hooks;
+use dao_interface::state::AnyContractInfo;
 use dao_voting::threshold::ActiveThreshold;
 use secret_cw_controllers::Claims;
 use secret_storage_plus::Item;
@@ -18,7 +19,7 @@ pub struct Config {
 pub const CONFIG: Item<Config> = Item::new("config");
 
 /// The address of the DAO this voting contract is connected to
-pub const DAO: Item<Addr> = Item::new("dao");
+pub const DAO: Item<AnyContractInfo> = Item::new("dao");
 
 /// The native denom associated with this contract
 pub const DENOM: Item<String> = Item::new("denom");

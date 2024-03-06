@@ -75,14 +75,15 @@ pub fn execute(
                     description,
                     msgs,
                 },
+            key,
         } => ExecuteInternal::Propose {
             msg: ProposeMessageInternal::Propose(ProposeMsg {
-                // Fill in proposer based on message sender.
                 proposer: Some(info.sender.to_string()),
                 title,
                 description,
                 msgs,
             }),
+            key,
         },
         ExecuteMsg::Extension { msg } => ExecuteInternal::Extension { msg },
         ExecuteMsg::Withdraw { denom, key } => ExecuteInternal::Withdraw { denom, key },

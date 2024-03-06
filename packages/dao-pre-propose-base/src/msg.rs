@@ -5,7 +5,6 @@ use dao_voting::{
     status::Status,
 };
 use serde::{Deserialize, Serialize};
-
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub struct InstantiateMsg<InstantiateExt> {
@@ -16,6 +15,7 @@ pub struct InstantiateMsg<InstantiateExt> {
     /// proposals in the DAO. Otherwise, any address may create a
     /// proposal so long as they pay the deposit.
     pub open_proposal_submission: bool,
+    pub proposal_module_code_hash: String,
     /// Extension for instantiation. The default implementation will
     /// do nothing with this data.
     pub extension: InstantiateExt,
@@ -26,7 +26,9 @@ pub struct InstantiateMsg<InstantiateExt> {
 pub enum ExecuteMsg<ProposalMessage, ExecuteExt> {
     /// Creates a new proposal in the pre-propose module. MSG will be
     /// serialized and used as the proposal creation message.
-    Propose { msg: ProposalMessage },
+    Propose { key: String, 
+        msg: ProposalMessage 
+    },
 
     /// Updates the configuration of this module. This will completely
     /// override the existing configuration. This new configuration
@@ -101,11 +103,11 @@ where
 {
     /// Gets the proposal module that this pre propose module is
     /// associated with. Returns `Addr`.
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(dao_interface::state::AnyContractInfo)]
     ProposalModule {},
     /// Gets the DAO (dao-dao-core) module this contract is associated
     /// with. Returns `Addr`.
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(dao_interface::state::AnyContractInfo)]
     Dao {},
     /// Gets the module's configuration.
     #[returns(crate::state::Config)]

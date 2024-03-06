@@ -24,6 +24,7 @@ use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_cw_controllers::ReplyEvent;
 use secret_toolkit::{serialization::Json, storage::Keymap, utils::HandleCallback};
 use secret_utils::{parse_reply_event_for_contract_address, Duration};
+use snip20_reference_impl::msg::ExecuteAnswer;
 
 use crate::state::{
     ACTIVE_PROPOSAL_MODULE_COUNT, ADMIN, CONFIG, ITEMS, NOMINATED_ADMIN, PAUSED, PROPOSAL_MODULES,
@@ -462,12 +463,14 @@ pub fn execute_update_snip20_list(
     do_update_addr_list(deps, SNIP20_LIST, to_add, to_remove, |addr, deps| {
         // Perform a balance query here as this is the query performed
         // by the `Cw20Balances` query.
-        let viewing_key = TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
+        let viewing_key = TOKEN_VIEWING_KEY
+            .get(deps.storage, &addr)
+            .unwrap_or_default();
         let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
-        let _info: snip20_reference_impl::msg::Balance = deps.querier.query_wasm_smart(
+        let _info: secret_toolkit::snip20::query::Balance = deps.querier.query_wasm_smart(
             snip20_code_hash,
             addr,
-            &snip20_reference_impl::msg::QueryMsg::Balance {
+            &secret_toolkit::snip20::QueryMsg::Balance {
                 address: env.contract.address.to_string(),
                 key: viewing_key,
             },
@@ -489,10 +492,10 @@ pub fn execute_update_snip721_list(
     }
     do_update_addr_list(deps, SNIP721_LIST, to_add, to_remove, |addr, deps| {
         let snip721_code_hash = SNIP721_CODE_HASH.load(deps.storage)?;
-        let _info: snip721_reference_impl::msg::ContractInfo = deps.querier.query_wasm_smart(
+        let _info: secret_toolkit::snip721::query::ContractInfo = deps.querier.query_wasm_smart(
             snip721_code_hash,
             addr,
-            &snip721_reference_impl::msg::QueryMsg::ContractInfo {},
+            &secret_toolkit::snip721::QueryMsg::ContractInfo {},
         )?;
         Ok(())
     })?;
@@ -572,27 +575,37 @@ pub fn execute_receive_snip20(
     if !config.automatically_add_snip20s {
         Ok(Response::new())
     } else {
-        let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
-        // Create Snip20 Token viewing key
-        let gen_viewing_key_msg = snip20_msg::Snip20ExecuteMsg::CreateViewingKey {
-            entropy: "entropy".to_string(),
-            padding: None,
-        };
-        let reply_id =
-            REPLY_IDS.add_event(deps.storage, ReplyEvent::Snip20ModuleCreateViewingKey {})?;
-        let submsg = SubMsg::reply_always(
-            gen_viewing_key_msg.to_cosmos_msg(
-                snip20_code_hash.clone(),
-                sender.clone().to_string(),
-                None,
-            )?,
-            reply_id,
-        );
-        SNIP20_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
-        Ok(Response::new()
-            .add_attribute("action", "receive_snip20")
-            .add_attribute("token", sender)
-            .add_submessage(submsg))
+        let viewing_key = TOKEN_VIEWING_KEY
+            .get(deps.storage, &sender)
+            .unwrap_or_default();
+        if viewing_key.is_empty() {
+            let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
+            // Create Snip20 Token viewing key
+            let gen_viewing_key_msg = snip20_msg::Snip20ExecuteMsg::CreateViewingKey {
+                entropy: "entropy".to_string(),
+                padding: None,
+            };
+            let reply_id =
+                REPLY_IDS.add_event(deps.storage, ReplyEvent::Snip20ModuleCreateViewingKey {})?;
+            let submsg = SubMsg::reply_always(
+                gen_viewing_key_msg.to_cosmos_msg(
+                    snip20_code_hash.clone(),
+                    sender.clone().to_string(),
+                    None,
+                )?,
+                reply_id,
+            );
+            SNIP20_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
+            Ok(Response::new()
+                .add_attribute("action", "receive_snip20")
+                .add_attribute("token", sender)
+                .add_submessage(submsg))
+        } else {
+            SNIP20_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
+            Ok(Response::new()
+                .add_attribute("action", "receive_snip20")
+                .add_attribute("token", sender))
+        }
     }
 }
 
@@ -643,9 +656,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ProposalModuleCount {} => query_proposal_module_count(deps),
         QueryMsg::TotalPowerAtHeight { height } => query_total_power_at_height(deps, height),
         QueryMsg::VotingModule {} => query_voting_module(deps),
-        QueryMsg::VotingPowerAtHeight { address, height } => {
-            query_voting_power_at_height(deps, address, height)
-        }
+        QueryMsg::VotingPowerAtHeight {
+            address,
+            height,
+            key,
+        } => query_voting_power_at_height(deps, address, key, height),
         QueryMsg::ActiveProposalModules { start_after, limit } => {
             query_active_proposal_modules(deps, start_after, limit)
         }
@@ -715,13 +730,8 @@ pub fn query_proposal_modules(
             }
         }
         if start.is_none() {
-            res.push(ProposalModule {
-                address: module.address,
-                prefix: module.prefix,
-                status: module.status,
-                code_hash: module.code_hash,
-            });
-            if res.len() >= limit.unwrap() as usize {
+            res.push(module);
+            if res.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }
         }
@@ -749,13 +759,8 @@ pub fn query_active_proposal_modules(
             }
         }
         if start.is_none() {
-            res.push(ProposalModule {
-                address: module.clone().address,
-                prefix: module.clone().prefix,
-                status: module.clone().status,
-                code_hash: module.code_hash,
-            });
-            if res.len() >= limit.unwrap() as usize {
+            res.push(module);
+            if res.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }
         }
@@ -818,13 +823,18 @@ pub fn query_dump_state(deps: Deps, env: Env) -> StdResult<Binary> {
 pub fn query_voting_power_at_height(
     deps: Deps,
     address: String,
+    key: String,
     height: Option<u64>,
 ) -> StdResult<Binary> {
     let voting_module = VOTING_MODULE.load(deps.storage)?;
     let voting_power: voting::VotingPowerAtHeightResponse = deps.querier.query_wasm_smart(
         voting_module.code_hash,
         voting_module.addr,
-        &voting::Query::VotingPowerAtHeight { height, address },
+        &voting::Query::VotingPowerAtHeight {
+            height,
+            address,
+            key,
+        },
     )?;
     to_binary(&voting_power)
 }
@@ -869,7 +879,7 @@ pub fn query_list_items(
         }
         if start.is_none() {
             res.push((key.clone(), value.clone())); // Collect the key-value pair
-            if res.len() >= limit.unwrap() as usize {
+            if res.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }
         }
@@ -903,7 +913,7 @@ pub fn query_cw20_list(
         }
         if start.is_none() {
             res.push(addr.to_string());
-            if res.len() >= limit.unwrap() as usize {
+            if res.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }
         }
@@ -937,7 +947,7 @@ pub fn query_cw721_list(
         }
         if start.is_none() {
             res.push(addr.to_string());
-            if res.len() >= limit.unwrap() as usize {
+            if res.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }
         }
@@ -965,7 +975,7 @@ pub fn query_cw20_balances(
         }
         if start.is_none() {
             res.push(addr.to_string());
-            if res.len() >= limit.unwrap() as usize {
+            if res.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }
         }
@@ -974,8 +984,10 @@ pub fn query_cw20_balances(
     let balances = res
         .into_iter()
         .map(|addr| {
-            let viewing_key = TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
-            let balance: snip20_reference_impl::msg::Balance = deps.querier.query_wasm_smart(
+            let viewing_key = TOKEN_VIEWING_KEY
+                .get(deps.storage, &deps.api.addr_validate(&addr)?)
+                .unwrap_or_default();
+            let balance: secret_toolkit::snip20::query::Balance = deps.querier.query_wasm_smart(
                 snip20_code_hash.clone(),
                 addr.clone(),
                 &snip20_reference_impl::msg::QueryMsg::Balance {
@@ -1016,7 +1028,7 @@ pub fn query_list_sub_daos(
         }
         if start.is_none() {
             subdaos.push((addr, subdao));
-            if subdaos.len() >= limit.unwrap() as usize {
+            if subdaos.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }
         }
@@ -1130,9 +1142,15 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             match msg.result {
                 SubMsgResult::Ok(res) => {
                     // let mut token_viewing_key=TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
-                    let data: snip20_reference_impl::msg::CreateViewingKeyResponse =
+                    let addr = parse_reply_event_for_contract_address(res.events)?;
+                    let token_addr = deps.api.addr_validate(&addr)?;
+                    let data: snip20_reference_impl::msg::ExecuteAnswer =
                         from_binary(&res.data.unwrap())?;
-                    TOKEN_VIEWING_KEY.save(deps.storage, &data.key)?;
+                    let mut viewing_key = String::new();
+                    if let ExecuteAnswer::CreateViewingKey { key } = data {
+                        viewing_key = key;
+                    }
+                    TOKEN_VIEWING_KEY.insert(deps.storage, &token_addr, &viewing_key)?;
                     Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
                 }
                 SubMsgResult::Err(_) => Err(ContractError::TokenExecuteError {}),

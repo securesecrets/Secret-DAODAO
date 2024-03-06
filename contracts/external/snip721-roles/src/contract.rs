@@ -5,7 +5,7 @@ use cosmwasm_schema::serde;
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdResult, SubMsg, SubMsgResult, Uint64, WasmMsg,
+    StdError, StdResult, SubMsg, SubMsgResult, Uint64, WasmMsg,
 };
 use cw4::{
     Member, MemberChangedHookMsg, MemberDiff, MemberListResponse, MemberResponse,
@@ -13,12 +13,16 @@ use cw4::{
 };
 use schemars::JsonSchema;
 use secret_cw_controllers::HookItem;
+use secret_toolkit::permit::{Permit, RevokedPermits, TokenPermissions};
 use secret_toolkit::utils::InitCallback;
+use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use serde::{Deserialize, Serialize};
 // use cw721_base::Cw721Contract;
 // use snip721_reference_impl::msg::InstantiateMsg as Cw721BaseInstantiateMsg;
 
-use dao_snip721_extensions::roles::{ExecuteExt, QueryExt};
+use dao_snip721_extensions::roles::{
+    CreateViewingKey, ExecuteExt, QueryExt, QueryWithPermit, ViewingKeyError,
+};
 use std::cmp::Ordering;
 // use snip721_reference_impl::msg::{ExecuteMsg as Snip721ExecuteMsg};
 
@@ -32,6 +36,8 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 // Settings for query pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
+
+pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
@@ -217,6 +223,11 @@ pub fn execute(
             ExecuteExt::UpdateTokenRole { token_id, role } => {
                 execute_update_token_role(deps, env, info, token_id, role)
             }
+            ExecuteExt::CreateViewingKey { entropy, .. } => {
+                try_create_key(deps, env, info, entropy)
+            }
+            ExecuteExt::SetViewingKey { key, .. } => try_set_key(deps, info, key),
+            ExecuteExt::RevokePermit { permit_name, .. } => revoke_permit(deps, info, permit_name),
         },
     }
 }
@@ -874,18 +885,58 @@ pub fn execute_update_token_weight(
         .add_message(exec_msg))
 }
 
+pub fn try_set_key(
+    deps: DepsMut,
+    info: MessageInfo,
+    key: String,
+) -> Result<Response, ContractError> {
+    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
+    Ok(Response::default())
+}
+
+pub fn try_create_key(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    entropy: String,
+) -> Result<Response, ContractError> {
+    let key = ViewingKey::create(
+        deps.storage,
+        &info,
+        &env,
+        info.sender.as_str(),
+        entropy.as_ref(),
+    );
+
+    Ok(Response::new().set_data(to_binary(&CreateViewingKey { key })?))
+}
+
+fn revoke_permit(
+    deps: DepsMut,
+    info: MessageInfo,
+    permit_name: String,
+) -> Result<Response, ContractError> {
+    RevokedPermits::revoke_permit(
+        deps.storage,
+        PREFIX_REVOKED_PERMITS,
+        info.sender.as_str(),
+        &permit_name,
+    );
+
+    Ok(Response::default())
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::ExtensionQuery(extension_query) => match extension_query {
             QueryExt::Hooks {} => to_binary(&HOOKS.query_hooks(deps)?),
             QueryExt::ListMembers { start_after, limit } => {
                 to_binary(&query_list_members(deps, start_after, limit)?)
             }
-            QueryExt::Member { addr, at_height } => {
-                to_binary(&query_member(deps, addr, at_height)?)
-            }
             QueryExt::TotalWeight { at_height } => to_binary(&query_total_weight(deps, at_height)?),
+            QueryExt::WithPermit { permit, query } => permit_queries(deps, env, permit, query),
+            _ => viewing_keys_queries(deps, env, extension_query),
         },
         QueryMsg::GetNftContractInfo {} => to_binary(&get_info(deps)?),
         _ => {
@@ -898,6 +949,58 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             Ok(to_binary(&res)?)
         }
     }
+}
+
+fn permit_queries(
+    deps: Deps,
+    env: Env,
+    permit: Permit,
+    query: QueryWithPermit,
+) -> Result<Binary, StdError> {
+    // Validate permit content
+
+    let _account = secret_toolkit::permit::validate(
+        deps,
+        PREFIX_REVOKED_PERMITS,
+        &permit,
+        env.contract.address.clone().into_string(),
+        None,
+    )?;
+
+    // Permit validated! We can now execute the query.
+    match query {
+        QueryWithPermit::Member { addr, at_height } => {
+            if !permit.check_permission(&TokenPermissions::Balance) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query memeber, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            to_binary(&query_member(deps, addr, at_height)?)
+        }
+    }
+}
+
+pub fn viewing_keys_queries(deps: Deps, _env: Env, msg: QueryExt) -> StdResult<Binary> {
+    let (addresses, key) = msg.get_validation_params(deps.api)?;
+
+    for address in addresses {
+        let result = ViewingKey::check(deps.storage, address.as_str(), key.as_str());
+        if result.is_ok() {
+            return match msg {
+                // Base
+                QueryExt::Member {
+                    addr, at_height, ..
+                } => to_binary(&query_member(deps, addr, at_height)?),
+                _ => panic!("This query type does not require authentication"),
+            };
+        }
+    }
+
+    to_binary(&ViewingKeyError {
+        msg: "Wrong viewing key for this address or viewing key not set".to_string(),
+    })
 }
 
 pub fn query_total_weight(deps: Deps, height: Option<u64>) -> StdResult<TotalWeightResponse> {

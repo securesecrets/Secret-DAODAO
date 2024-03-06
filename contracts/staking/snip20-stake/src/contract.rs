@@ -1,4 +1,5 @@
 use crate::math;
+use crate::msg::{CreateViewingKeyResponse, QueryWithPermit, ViewingKeyError};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, ReceiveMsg};
 use crate::msg::{
     GetHooksResponse, ListStakersResponse, QueryMsg, Snip20ReceiveMsg,
@@ -18,10 +19,8 @@ use cw_hooks::HookItem;
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_voting::duration::validate_duration;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
-use snip20_reference_impl::msg::CreateViewingKeyResponse;
-use snip20_reference_impl::msg::ExecuteMsg::Transfer;
-
 use secret_cw_controllers::ClaimsResponse;
+use secret_toolkit::permit::{Permit, RevokedPermits, TokenPermissions};
 pub use secret_toolkit::snip20::handle::{
     burn_from_msg, burn_msg, decrease_allowance_msg, increase_allowance_msg, mint_msg,
     send_from_msg, send_msg, transfer_from_msg, transfer_msg,
@@ -32,6 +31,8 @@ use secret_utils::Duration;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:snip20-stake";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 
 #[entry_point]
 pub fn instantiate(
@@ -47,11 +48,12 @@ pub fn instantiate(
     // though this provides some protection against mistakes where the
     // wrong address is provided.
     let token_address = deps.api.addr_validate(&msg.token_address)?;
-    let token_info: snip20_reference_impl::msg::TokenInfo = deps.querier.query_wasm_smart(
+    let token_info: secret_toolkit::snip20::query::TokenInfo = deps.querier.query_wasm_smart(
         msg.token_code_hash.clone().unwrap(),
         &token_address,
-        &snip20_reference_impl::msg::QueryMsg::TokenInfo {},
+        &secret_toolkit::snip20::QueryMsg::TokenInfo {},
     )?;
+
     let _supply = token_info.total_supply.unwrap();
 
     validate_duration(msg.unstaking_duration)?;
@@ -60,6 +62,7 @@ pub fn instantiate(
         token_address,
         token_code_hash: msg.token_code_hash.clone().unwrap(),
         unstaking_duration: msg.unstaking_duration,
+        contract_address: env.contract.address,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -71,7 +74,7 @@ pub fn instantiate(
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    Ok(Response::new().set_data(to_binary(&env.contract.code_hash)?))
+    Ok(Response::new())
 }
 
 #[entry_point]
@@ -93,7 +96,9 @@ pub fn execute(
             execute_remove_hook(deps, env, info, addr, code_hash)
         }
         ExecuteMsg::UpdateOwnership(action) => execute_update_owner(deps, info, env, action),
-        ExecuteMsg::CreateViewingKey { entropy } => try_create_key(deps, env, info, entropy),
+        ExecuteMsg::CreateViewingKey { entropy, .. } => try_create_key(deps, env, info, entropy),
+        ExecuteMsg::SetViewingKey { key, .. } => try_set_key(deps, info, key),
+        ExecuteMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, info, permit_name),
     }
 }
 
@@ -226,13 +231,11 @@ pub fn execute_unstake(
     let hook_msgs = unstake_hook_msgs(HOOKS, deps.storage, info.sender.clone(), amount)?;
     match config.unstaking_duration {
         None => {
-            let snip_send_msg = Transfer {
+            let snip_send_msg = secret_toolkit::snip20::HandleMsg::Transfer {
                 recipient: info.sender.to_string(),
                 amount: amount_to_claim,
                 memo: None,
                 padding: None,
-                decoys: None,
-                entropy: None,
             };
             let wasm_msg = cosmwasm_std::WasmMsg::Execute {
                 contract_addr: config.token_address.to_string(),
@@ -280,13 +283,11 @@ pub fn execute_claim(
         return Err(ContractError::NothingToClaim {});
     }
     let config = CONFIG.load(deps.storage)?;
-    let cw_send_msg = Transfer {
+    let cw_send_msg = secret_toolkit::snip20::HandleMsg::Transfer {
         recipient: info.sender.to_string(),
         amount: release,
         memo: None,
         padding: None,
-        decoys: None,
-        entropy: None,
     };
     let wasm_msg = cosmwasm_std::WasmMsg::Execute {
         contract_addr: config.token_address.to_string(),
@@ -385,59 +386,129 @@ pub fn try_create_key(
     Ok(Response::new().set_data(to_binary(&CreateViewingKeyResponse { key })?))
 }
 
+pub fn try_set_key(
+    deps: DepsMut,
+    info: MessageInfo,
+    key: String,
+) -> Result<Response, ContractError> {
+    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
+    Ok(Response::default())
+}
+
+fn revoke_permit(
+    deps: DepsMut,
+    info: MessageInfo,
+    permit_name: String,
+) -> Result<Response, ContractError> {
+    RevokedPermits::revoke_permit(
+        deps.storage,
+        PREFIX_REVOKED_PERMITS,
+        info.sender.as_str(),
+        &permit_name,
+    );
+
+    Ok(Response::default())
+}
+
 #[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetConfig {} => to_binary(&query_config(deps)?),
-        QueryMsg::StakedBalanceAtHeight {
-            key,
-            contract_address,
-            address,
-            height,
-        } => to_binary(&query_staked_balance_at_height(
-            deps,
-            env,
-            key,
-            contract_address,
-            address,
-            height,
-        )?),
         QueryMsg::TotalStakedAtHeight { height } => {
             to_binary(&query_total_staked_at_height(deps, env, height)?)
         }
-        QueryMsg::StakedValue { key, address } => {
-            to_binary(&query_staked_value(deps, env, key, address)?)
-        }
         QueryMsg::TotalValue {} => to_binary(&query_total_value(deps, env)?),
-        QueryMsg::Claims {
-            key,
-            address,
-            contract_address,
-        } => to_binary(&query_claims(deps, key, address, contract_address)?),
         QueryMsg::GetHooks {} => to_binary(&query_hooks(deps)?),
         QueryMsg::ListStakers {} => query_list_stakers(deps),
         QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
+        QueryMsg::WithPermit { permit, query } => permit_queries(deps, env, permit, query),
+        _ => viewing_keys_queries(deps, env, msg),
     }
+}
+
+fn permit_queries(
+    deps: Deps,
+    env: Env,
+    permit: Permit,
+    query: QueryWithPermit,
+) -> Result<Binary, StdError> {
+    // Validate permit content
+    let token_address = CONFIG.load(deps.storage)?.contract_address;
+
+    let _account = secret_toolkit::permit::validate(
+        deps,
+        PREFIX_REVOKED_PERMITS,
+        &permit,
+        token_address.into_string(),
+        None,
+    )?;
+
+    // Permit validated! We can now execute the query.
+    match query {
+        QueryWithPermit::StakedBalanceAtHeight { address, height } => {
+            if !permit.check_permission(&TokenPermissions::Balance) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query balance, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            to_binary(&query_staked_balance_at_height(deps, env, address, height)?)
+        }
+        QueryWithPermit::StakedValue { address } => {
+            if !permit.check_permission(&TokenPermissions::Balance) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query history, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            to_binary(&query_staked_value(deps, address)?)
+        }
+        QueryWithPermit::Claims { address } => {
+            if !permit.check_permission(&TokenPermissions::Balance) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query history, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            to_binary(&query_claims(deps, address)?)
+        }
+    }
+}
+
+pub fn viewing_keys_queries(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    let (addresses, key) = msg.get_validation_params(deps.api)?;
+
+    for address in addresses {
+        let result = ViewingKey::check(deps.storage, address.as_str(), key.as_str());
+        if result.is_ok() {
+            return match msg {
+                // Base
+                QueryMsg::StakedBalanceAtHeight {
+                    address, height, ..
+                } => to_binary(&query_staked_balance_at_height(deps, env, address, height)?),
+                QueryMsg::StakedValue { address, .. } => {
+                    to_binary(&query_staked_value(deps, address)?)
+                }
+                QueryMsg::Claims { address, .. } => to_binary(&query_claims(deps, address)?),
+                _ => panic!("This query type does not require authentication"),
+            };
+        }
+    }
+
+    to_binary(&ViewingKeyError {
+        msg: "Wrong viewing key for this address or viewing key not set".to_string(),
+    })
 }
 
 pub fn query_staked_balance_at_height(
     deps: Deps,
     env: Env,
-    key: String,
-    contract_address: Option<String>,
     address: String,
     height: Option<u64>,
 ) -> StdResult<StakedBalanceAtHeightResponse> {
-    if contract_address.is_some() {
-        authenticate(
-            deps,
-            deps.api.addr_validate(&contract_address.unwrap())?,
-            key,
-        )?;
-    } else {
-        authenticate(deps, deps.api.addr_validate(&address)?, key)?;
-    }
-
     let address = deps.api.addr_validate(&address)?;
     let height = height.unwrap_or(env.block.height);
     let balance = StakedBalancesStore::may_load_at_height(deps.storage, address, height)?;
@@ -461,14 +532,7 @@ pub fn query_total_staked_at_height(
     })
 }
 
-pub fn query_staked_value(
-    deps: Deps,
-    _env: Env,
-    key: String,
-    address: String,
-) -> StdResult<StakedValueResponse> {
-    authenticate(deps, deps.api.addr_validate(&address)?, key)?;
-
+pub fn query_staked_value(deps: Deps, address: String) -> StdResult<StakedValueResponse> {
     let address = deps.api.addr_validate(&address)?;
     let balance = BALANCE.load(deps.storage).unwrap_or_default();
     let staked = StakedBalancesStore::load(deps.storage, address);
@@ -497,22 +561,7 @@ pub fn query_config(deps: Deps) -> StdResult<Config> {
     Ok(config)
 }
 
-pub fn query_claims(
-    deps: Deps,
-    key: String,
-    address: String,
-    contract_address: Option<String>,
-) -> StdResult<ClaimsResponse> {
-    if contract_address.is_some() {
-        authenticate(
-            deps,
-            deps.api.addr_validate(&contract_address.unwrap())?,
-            key,
-        )?;
-    } else {
-        authenticate(deps, deps.api.addr_validate(&address)?, key)?;
-    }
-
+pub fn query_claims(deps: Deps, address: String) -> StdResult<ClaimsResponse> {
     CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)
 }
 
@@ -543,11 +592,6 @@ pub fn query_list_stakers(deps: Deps) -> StdResult<Binary> {
         .collect();
 
     to_binary(&ListStakersResponse { stakers })
-}
-
-// Helper Functions
-fn authenticate(deps: Deps, addr: Addr, key: String) -> StdResult<()> {
-    ViewingKey::check(deps.storage, addr.as_ref(), &key)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

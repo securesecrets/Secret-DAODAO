@@ -1,5 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
+use dao_interface::state::AnyContractInfo;
 use secret_storage_plus::Item;
 
 use crate::msg::NftMintMsg;
@@ -11,7 +12,7 @@ pub struct Config {
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
-pub const DAO: Item<Addr> = Item::new("dao");
+pub const DAO: Item<AnyContractInfo> = Item::new("dao");
 
 // Holds initial NFTs messages during instantiation.
 pub const INITIAL_NFTS: Item<Vec<NftMintMsg>> = Item::new("initial_nfts");

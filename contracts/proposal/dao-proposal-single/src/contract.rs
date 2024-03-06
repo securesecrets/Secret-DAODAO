@@ -21,11 +21,12 @@ use dao_voting::veto::{VetoConfig, VetoError};
 use dao_voting::voting::{get_total_power, get_voting_power, validate_voting_period, Vote, Votes};
 use secret_cw2::set_contract_version;
 use secret_cw_controllers::ReplyEvent;
+use secret_toolkit::permit::{Permit, RevokedPermits};
 use secret_toolkit::utils::HandleCallback;
-use secret_utils::{
-    parse_reply_event_for_contract_address, Duration,
-};
+use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
+use secret_utils::{parse_reply_event_for_contract_address, Duration};
 
+use crate::msg::{CreateViewingKey, QueryWithPermit, ViewingKeyError};
 // use crate::msg::MigrateMsg;
 use crate::proposal::{next_proposal_id, SingleChoiceProposal};
 use crate::state::{Config, CREATION_POLICY, DAO, REPLY_IDS};
@@ -43,6 +44,8 @@ use crate::{
 // use cw_proposal_single_v1 as v1;
 pub(crate) const CONTRACT_NAME: &str = "crates.io:dao-proposal-single";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -112,15 +115,18 @@ pub fn execute(
             proposer,
         }) => execute_propose(deps, env, info.sender, title, description, msgs, proposer),
         ExecuteMsg::Vote {
+            key,
             proposal_id,
             vote,
             rationale,
-        } => execute_vote(deps, env, info, proposal_id, vote, rationale),
+        } => execute_vote(deps, env, info, key, proposal_id, vote, rationale),
         ExecuteMsg::UpdateRationale {
             proposal_id,
             rationale,
         } => execute_update_rationale(deps, info, proposal_id, rationale),
-        ExecuteMsg::Execute { proposal_id } => execute_execute(deps, env, info, proposal_id),
+        ExecuteMsg::Execute { key, proposal_id } => {
+            execute_execute(deps, env, info, key, proposal_id)
+        }
         ExecuteMsg::Close { proposal_id } => execute_close(deps, env, info, proposal_id),
         ExecuteMsg::UpdateConfig {
             threshold,
@@ -161,6 +167,9 @@ pub fn execute(
             execute_remove_vote_hook(deps, env, info, address, code_hash)
         }
         ExecuteMsg::Veto { proposal_id } => execute_veto(deps, env, info, proposal_id),
+        ExecuteMsg::CreateViewingKey { entropy, .. } => try_create_key(deps, env, info, entropy),
+        ExecuteMsg::SetViewingKey { key, .. } => try_set_key(deps, info, key),
+        ExecuteMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, info, permit_name),
     }
 }
 
@@ -360,6 +369,7 @@ pub fn execute_execute(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    key: String,
     proposal_id: u64,
 ) -> Result<Response, ContractError> {
     let dao_info = DAO.load(deps.storage)?;
@@ -376,6 +386,7 @@ pub fn execute_execute(
             deps.as_ref(),
             dao_info.code_hash.clone(),
             info.sender.clone(),
+            key,
             &dao_info.addr.clone(),
             Some(prop.start_height),
         )?;
@@ -436,14 +447,14 @@ pub fn execute_execute(
                     let reply_id = REPLY_IDS.add_event(
                         deps.storage,
                         ReplyEvent::FailedProposalExecution { proposal_id },
-                    );
+                    )?;
                     Response::default().add_submessage(SubMsg::reply_on_error(
                         execute_message.to_cosmos_msg(
                             dao_info.code_hash.clone(),
                             dao_info.addr.clone().into_string(),
                             None,
                         )?,
-                        reply_id.unwrap(),
+                        reply_id,
                     ))
                 }
                 false => Response::default().add_message(execute_message.to_cosmos_msg(
@@ -484,6 +495,7 @@ pub fn execute_vote(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    key: String,
     proposal_id: u64,
     vote: Vote,
     rationale: Option<String>,
@@ -509,6 +521,7 @@ pub fn execute_vote(
         deps.as_ref(),
         dao_info.code_hash.clone(),
         info.sender.clone(),
+        key,
         &dao_info.addr,
         Some(prop.start_height),
     )?;
@@ -900,6 +913,47 @@ pub fn execute_remove_vote_hook(
         .add_attribute("address", address))
 }
 
+pub fn try_set_key(
+    deps: DepsMut,
+    info: MessageInfo,
+    key: String,
+) -> Result<Response, ContractError> {
+    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
+    Ok(Response::default())
+}
+
+pub fn try_create_key(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    entropy: String,
+) -> Result<Response, ContractError> {
+    let key = ViewingKey::create(
+        deps.storage,
+        &info,
+        &env,
+        info.sender.as_str(),
+        entropy.as_ref(),
+    );
+
+    Ok(Response::new().set_data(to_binary(&CreateViewingKey { key })?))
+}
+
+fn revoke_permit(
+    deps: DepsMut,
+    info: MessageInfo,
+    permit_name: String,
+) -> Result<Response, ContractError> {
+    RevokedPermits::revoke_permit(
+        deps.storage,
+        PREFIX_REVOKED_PERMITS,
+        info.sender.as_str(),
+        &permit_name,
+    );
+
+    Ok(Response::default())
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -911,7 +965,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::NextProposalId {} => query_next_proposal_id(deps),
         QueryMsg::ProposalCount {} => query_proposal_count(deps),
-        QueryMsg::GetVote { proposal_id, voter } => query_vote(deps, proposal_id, voter),
         QueryMsg::ListVotes {
             proposal_id,
             start_after,
@@ -925,7 +978,61 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ProposalCreationPolicy {} => query_creation_policy(deps),
         QueryMsg::ProposalHooks {} => to_binary(&PROPOSAL_HOOKS.query_hooks(deps)?),
         QueryMsg::VoteHooks {} => to_binary(&VOTE_HOOKS.query_hooks(deps)?),
+        QueryMsg::WithPermit { permit, query } => permit_queries(deps, env, permit, query),
+        _ => viewing_keys_queries(deps, env, msg),
     }
+}
+
+fn permit_queries(
+    deps: Deps,
+    env: Env,
+    permit: Permit,
+    query: QueryWithPermit,
+) -> Result<Binary, StdError> {
+    // Validate permit content
+
+    let _account = secret_toolkit::permit::validate(
+        deps,
+        PREFIX_REVOKED_PERMITS,
+        &permit,
+        env.contract.address.clone().into_string(),
+        None,
+    )?;
+
+    // Permit validated! We can now execute the query.
+    match query {
+        QueryWithPermit::GetVote { proposal_id, voter } => {
+            if !permit.check_permission(&secret_toolkit::permit::TokenPermissions::Balance) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query get vote, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            to_binary(&query_vote(deps, proposal_id, voter)?)
+        }
+    }
+}
+
+pub fn viewing_keys_queries(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    let (addresses, key) = msg.get_validation_params(deps.api)?;
+
+    for address in addresses {
+        let result = ViewingKey::check(deps.storage, address.as_str(), key.as_str());
+        if result.is_ok() {
+            return match msg {
+                // Base
+                QueryMsg::GetVote {
+                    voter, proposal_id, ..
+                } => to_binary(&query_vote(deps, proposal_id, voter)?),
+                _ => panic!("This query type does not require authentication"),
+            };
+        }
+    }
+
+    to_binary(&ViewingKeyError {
+        msg: "Wrong viewing key for this address or viewing key not set".to_string(),
+    })
 }
 
 pub fn query_config(deps: Deps) -> StdResult<Binary> {
@@ -1203,8 +1310,8 @@ pub fn query_info(deps: Deps) -> StdResult<Binary> {
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    let repl = REPLY_IDS.get_event(deps.storage, msg.id);
-    match repl.unwrap() {
+    let repl = REPLY_IDS.get_event(deps.storage, msg.id)?;
+    match repl {
         ReplyEvent::FailedProposalExecution { proposal_id } => match msg.clone().result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(_) => {
@@ -1282,11 +1389,9 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     // reply and we don't have a pre-propose
                     // module installed. This should be
                     // unreachable.
-                    return Err(ContractError::InvalidReplyID {
-                        id: msg.id,
-                    });
+                    return Err(ContractError::InvalidReplyID { id: msg.id });
                 }
-                ProposalCreationPolicy::Module { addr, code_hash:_ } => {
+                ProposalCreationPolicy::Module { addr, code_hash: _ } => {
                     // If we are here, our pre-propose module has
                     // errored while receiving a proposal
                     // hook. Rest in peace pre-propose module.
@@ -1296,6 +1401,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             };
             Ok(Response::new().add_attribute("failed_prepropose_hook", format!("{addr}")))
         }
-        _ =>  Err(ContractError::UnknownReplyID {}),
+        _ => Err(ContractError::UnknownReplyID {}),
     }
 }

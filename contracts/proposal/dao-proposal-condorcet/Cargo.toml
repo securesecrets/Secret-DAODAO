@@ -29,6 +29,7 @@ thiserror = { workspace = true }
 serde ={ workspace = true }
 schemars ={ workspace = true }
 secret-toolkit ={ workspace = true }
+secret-cw-controllers ={ workspace = true }
 
 [dev-dependencies]
 cosmwasm-schema = { workspace = true }

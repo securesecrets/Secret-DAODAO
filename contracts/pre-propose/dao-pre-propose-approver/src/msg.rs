@@ -8,6 +8,8 @@ use dao_pre_propose_base::msg::{
 #[cw_serde]
 pub struct InstantiateMsg {
     pub pre_propose_approval_contract: String,
+    pub pre_propose_approval_contract_code_hash: String,
+    pub proposal_module_code_hash: String,
 }
 
 #[cw_serde]
@@ -20,7 +22,7 @@ pub enum ExecuteExt {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryExt {
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(dao_interface::state::AnyContractInfo)]
     PreProposeApprovalContract {},
     #[returns(::std::option::Option<u64>)]
     PreProposeApprovalIdForApproverProposalId { id: u64 },

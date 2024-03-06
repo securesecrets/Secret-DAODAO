@@ -1,7 +1,6 @@
 use std::ops::Add;
 
 use cosmwasm_std::{Addr, BlockInfo, StdError, StdResult, Uint128};
-use secret_utils::Expiration;
 use dao_voting::{
     multiple_choice::{
         CheckedMultipleChoiceOption, MultipleChoiceOptionType, MultipleChoiceVotes, VotingStrategy,
@@ -10,11 +9,11 @@ use dao_voting::{
     veto::VetoConfig,
     voting::does_vote_count_pass,
 };
+use secret_utils::Expiration;
 
 use crate::query::ProposalResponse;
-use serde::{Serialize,Deserialize};
 use schemars::JsonSchema;
-
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]

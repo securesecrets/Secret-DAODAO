@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult};
-use cw2::set_contract_version;
+use secret_cw2::set_contract_version;
 
 use dao_pre_propose_base::{
     error::PreProposeError,
@@ -74,6 +74,7 @@ pub fn execute(
                     description,
                     choices,
                 },
+            key,
         } => ExecuteInternal::Propose {
             msg: ProposeMessageInternal::Propose {
                 proposer: Some(info.sender.to_string()),
@@ -81,9 +82,10 @@ pub fn execute(
                 description,
                 choices,
             },
+            key,
         },
         ExecuteMsg::Extension { msg } => ExecuteInternal::Extension { msg },
-        ExecuteMsg::Withdraw { denom } => ExecuteInternal::Withdraw { denom },
+        ExecuteMsg::Withdraw { denom, key } => ExecuteInternal::Withdraw { denom, key },
         ExecuteMsg::UpdateConfig {
             deposit_info,
             open_proposal_submission,
@@ -91,11 +93,11 @@ pub fn execute(
             deposit_info,
             open_proposal_submission,
         },
-        ExecuteMsg::AddProposalSubmittedHook { address } => {
-            ExecuteInternal::AddProposalSubmittedHook { address }
+        ExecuteMsg::AddProposalSubmittedHook { address, code_hash } => {
+            ExecuteInternal::AddProposalSubmittedHook { address, code_hash }
         }
-        ExecuteMsg::RemoveProposalSubmittedHook { address } => {
-            ExecuteInternal::RemoveProposalSubmittedHook { address }
+        ExecuteMsg::RemoveProposalSubmittedHook { address, code_hash } => {
+            ExecuteInternal::RemoveProposalSubmittedHook { address, code_hash }
         }
         ExecuteBase::ProposalCompletedHook {
             proposal_id,

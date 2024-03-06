@@ -391,8 +391,17 @@ fn hooks_fire() {
         MemberDiff::new(USER2, Some(6), None),
     ];
     let hook_msg = MemberChangedHookMsg { diffs };
-    let msg1 = SubMsg::new(hook_msg.clone().into_cosmos_msg(contract1,mock_env().contract.code_hash.clone()).unwrap());
-    let msg2 = SubMsg::new(hook_msg.into_cosmos_msg(contract2,mock_env().contract.code_hash.clone()).unwrap());
+    let msg1 = SubMsg::new(
+        hook_msg
+            .clone()
+            .into_cosmos_msg(contract1, mock_env().contract.code_hash.clone())
+            .unwrap(),
+    );
+    let msg2 = SubMsg::new(
+        hook_msg
+            .into_cosmos_msg(contract2, mock_env().contract.code_hash.clone())
+            .unwrap(),
+    );
     dbg!(&res.messages);
     dbg!(&msg1);
     dbg!(&msg2);

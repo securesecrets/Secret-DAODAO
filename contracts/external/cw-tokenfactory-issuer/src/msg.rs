@@ -1,4 +1,3 @@
-use crate::state::BeforeSendHookInfo;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Coin, Uint128};
 
@@ -186,7 +185,7 @@ pub enum QueryMsg {
     /// - The address of the BeforeSendHook contract if configured.
     ///
     /// Response: BeforeSendHookInfo
-    #[returns(BeforeSendHookInfo)]
+    #[returns(crate::state::BeforeSendHookInfo)]
     BeforeSendHookInfo {},
 }
 

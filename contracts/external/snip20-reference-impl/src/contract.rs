@@ -11,10 +11,9 @@ use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use secret_toolkit_crypto::{sha_256, Prng, SHA256_HASH_SIZE};
 
 use crate::batch;
-use crate::msg::{Allowance, AllowancesGiven, AllowancesReceived, Balance, ContractStatus,CreateViewingKeyResponse, ExchangeRate, InitResponse, Minters, TokenConfig, TokenInfo, TransactionHistory, TransferHistory, ViewingKeyError};
 use crate::msg::{
     AllowanceGivenResult, AllowanceReceivedResult, ContractStatusLevel, Decoyable, ExecuteAnswer,
-    ExecuteMsg, InstantiateMsg, QueryMsg, QueryWithPermit, ResponseStatus::Success,
+    ExecuteMsg, InstantiateMsg, QueryAnswer, QueryMsg, QueryWithPermit, ResponseStatus::Success,
 };
 use crate::receiver::Snip20ReceiveMsg;
 use crate::state::{
@@ -119,7 +118,7 @@ pub fn instantiate(
             redeem_is_enabled: init_config.redeem_enabled(),
             mint_is_enabled: init_config.mint_enabled(),
             burn_is_enabled: init_config.burn_enabled(),
-            contract_address: env.contract.address.clone(),
+            contract_address: env.contract.address,
             supported_denoms,
             can_modify_denoms: init_config.can_modify_denoms(),
         },
@@ -127,7 +126,7 @@ pub fn instantiate(
     TOTAL_SUPPLY.save(deps.storage, &total_supply)?;
     CONTRACT_STATUS.save(deps.storage, &ContractStatusLevel::NormalRun)?;
     let minters = if init_config.mint_enabled() {
-        Vec::from([admin.clone()])
+        Vec::from([admin])
     } else {
         Vec::new()
     };
@@ -135,12 +134,7 @@ pub fn instantiate(
 
     ViewingKey::set_seed(deps.storage, &prng_seed_hashed);
 
-    
-    Ok(Response::new().set_data(to_binary(&InitResponse{
-        owner: admin,
-        contract_address: env.contract.address.to_string(),
-        code_hash: env.contract.code_hash,
-    })?))
+    Ok(Response::default())
 }
 
 fn get_address_position(
@@ -579,7 +573,7 @@ pub fn viewing_keys_queries(deps: Deps, msg: QueryMsg) -> StdResult<Binary> {
         }
     }
 
-    to_binary(&ViewingKeyError {
+    to_binary(&QueryAnswer::ViewingKeyError {
         msg: "Wrong viewing key for this address or viewing key not set".to_string(),
     })
 }
@@ -599,9 +593,9 @@ fn query_exchange_rate(storage: &dyn Storage) -> StdResult<Binary> {
             rate = Uint128::new(10u128.pow(6 - constants.decimals as u32));
             denom = constants.symbol;
         }
-        return to_binary(&ExchangeRate { rate, denom });
+        return to_binary(&QueryAnswer::ExchangeRate { rate, denom });
     }
-    to_binary(&ExchangeRate {
+    to_binary(&QueryAnswer::ExchangeRate {
         rate: Uint128::zero(),
         denom: String::new(),
     })
@@ -616,7 +610,7 @@ fn query_token_info(storage: &dyn Storage) -> StdResult<Binary> {
         None
     };
 
-    to_binary(&TokenInfo {
+    to_binary(&QueryAnswer::TokenInfo {
         name: constants.name,
         symbol: constants.symbol,
         decimals: constants.decimals,
@@ -627,7 +621,7 @@ fn query_token_info(storage: &dyn Storage) -> StdResult<Binary> {
 fn query_token_config(storage: &dyn Storage) -> StdResult<Binary> {
     let constants = CONFIG.load(storage)?;
 
-    to_binary(&TokenConfig {
+    to_binary(&QueryAnswer::TokenConfig {
         public_total_supply: constants.total_supply_is_public,
         deposit_enabled: constants.deposit_is_enabled,
         redeem_enabled: constants.redeem_is_enabled,
@@ -640,7 +634,7 @@ fn query_token_config(storage: &dyn Storage) -> StdResult<Binary> {
 fn query_contract_status(storage: &dyn Storage) -> StdResult<Binary> {
     let contract_status = CONTRACT_STATUS.load(storage)?;
 
-    to_binary(&ContractStatus {
+    to_binary(&QueryAnswer::ContractStatus {
         status: contract_status,
     })
 }
@@ -666,7 +660,7 @@ pub fn query_transfers(
         should_filter_decoys,
     )?;
 
-    let result = TransferHistory {
+    let result = QueryAnswer::TransferHistory {
         txs,
         total: Some(total),
     };
@@ -689,7 +683,7 @@ pub fn query_transactions(
     let (txs, total) =
         StoredExtendedTx::get_txs(deps.storage, account, page, page_size, should_filter_decoys)?;
 
-    let result = TransactionHistory {
+    let result = QueryAnswer::TransactionHistory {
         txs,
         total: Some(total),
     };
@@ -704,14 +698,14 @@ pub fn query_balance(deps: Deps, account: String) -> StdResult<Binary> {
     let account = Addr::unchecked(account);
 
     let amount = Uint128::new(BalancesStore::load(deps.storage, &account));
-    let response =Balance { amount };
+    let response = QueryAnswer::Balance { amount };
     to_binary(&response)
 }
 
 fn query_minters(deps: Deps) -> StdResult<Binary> {
     let minters = MintersStore::load(deps.storage)?;
 
-    let response = Minters { minters };
+    let response = QueryAnswer::Minters { minters };
     to_binary(&response)
 }
 
@@ -940,7 +934,7 @@ pub fn try_create_key(
         entropy.as_ref(),
     );
 
-    Ok(Response::new().set_data(to_binary(&CreateViewingKeyResponse { key })?))
+    Ok(Response::new().set_data(to_binary(&ExecuteAnswer::CreateViewingKey { key })?))
 }
 
 fn set_contract_status(
@@ -970,7 +964,7 @@ pub fn query_allowance(deps: Deps, owner: String, spender: String) -> StdResult<
 
     let allowance = AllowancesStore::load(deps.storage, &owner, &spender);
 
-    let response = Allowance {
+    let response = QueryAnswer::Allowance {
         owner,
         spender,
         allowance: Uint128::new(allowance.amount),
@@ -1003,7 +997,7 @@ pub fn query_allowances_given(
         })
         .collect();
 
-    let response = AllowancesGiven {
+    let response = QueryAnswer::AllowancesGiven {
         owner: owner.clone(),
         allowances: allowances_result,
         count: AllowancesStore::num_allowances(deps.storage, &owner),
@@ -1035,7 +1029,7 @@ pub fn query_allowances_received(
         })
         .collect();
 
-    let response = AllowancesReceived {
+    let response = QueryAnswer::AllowancesReceived {
         spender: spender.clone(),
         allowances,
         count: AllowancesStore::num_allowed(deps.storage, &spender),
@@ -1290,7 +1284,6 @@ fn try_batch_transfer(
 #[allow(clippy::too_many_arguments)]
 fn try_add_receiver_api_callback(
     storage: &dyn Storage,
-    _env: Env,
     messages: &mut Vec<CosmosMsg>,
     recipient: Addr,
     recipient_code_hash: Option<String>,
@@ -1321,7 +1314,6 @@ fn try_add_receiver_api_callback(
 #[allow(clippy::too_many_arguments)]
 fn try_send_impl(
     deps: &mut DepsMut,
-    env: Env,
     messages: &mut Vec<CosmosMsg>,
     sender: Addr,
     recipient: Addr,
@@ -1346,7 +1338,6 @@ fn try_send_impl(
 
     try_add_receiver_api_callback(
         deps.storage,
-        env,
         messages,
         recipient,
         recipient_code_hash,
@@ -1378,7 +1369,6 @@ fn try_send(
     let mut messages = vec![];
     try_send_impl(
         &mut deps,
-        env.clone(),
         &mut messages,
         info.sender,
         recipient,
@@ -1386,7 +1376,7 @@ fn try_send(
         amount,
         memo,
         msg,
-        &env.clone().block,
+        &env.block,
         decoys,
         account_random_pos,
     )?;
@@ -1408,7 +1398,6 @@ fn try_batch_send(
         let recipient = deps.api.addr_validate(action.recipient.as_str())?;
         try_send_impl(
             &mut deps,
-            env.clone(),
             &mut messages,
             info.sender.clone(),
             recipient,
@@ -1416,7 +1405,7 @@ fn try_batch_send(
             action.amount,
             action.memo,
             action.msg,
-            &env.clone().block,
+            &env.block,
             action.decoys,
             account_random_pos,
         )?;
@@ -1600,7 +1589,6 @@ fn try_send_from_impl(
 
     try_add_receiver_api_callback(
         deps.storage,
-        env,
         messages,
         recipient,
         recipient_code_hash,
@@ -2915,9 +2903,9 @@ mod tests {
                     height: 12_345,
                     time: Timestamp::from_seconds(1_571_797_420),
                     chain_id: "cosmos-testnet-14002".to_string(),
-                    random: None,
+                    random:None,
                 },
-                transaction: Some(TransactionInfo { index: 3, hash: todo!() }),
+                transaction: Some(TransactionInfo { index: 3, hash:"hash".to_string() }),
                 contract: ContractInfo {
                     address: Addr::unchecked(MOCK_CONTRACT_ADDR.to_string()),
                     code_hash: "".to_string(),

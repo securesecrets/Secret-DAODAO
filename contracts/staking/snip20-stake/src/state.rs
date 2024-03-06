@@ -12,6 +12,8 @@ pub struct Config {
     pub token_address: Addr,
     pub token_code_hash: String,
     pub unstaking_duration: Option<Duration>,
+    // the address of this contract, used to validate query permits
+    pub contract_address: Addr,
 }
 
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
@@ -114,8 +116,8 @@ impl StakedBalancesStore {
             if id.unwrap() == (x.len() - 1) {
                 return Ok(STAKED_BALANCES_PRIMARY.get(store, &key));
             } else {
-                let snapshot_value = STAKED_BALANCES_SNAPSHOT
-                    .get(store, &(x[id.unwrap() + 1 as usize], key.clone()));
+                let snapshot_value =
+                    STAKED_BALANCES_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize], key.clone()));
                 return Ok(snapshot_value);
             }
         }

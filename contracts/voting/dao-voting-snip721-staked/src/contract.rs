@@ -1,10 +1,13 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use cosmwasm_std::StdError;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply,
     Response, StdResult, SubMsg, SubMsgResult, Uint128, Uint256, WasmMsg,
 };
+use cw_hooks::HookItem;
 use dao_hooks::nft_stake::{stake_nft_hook_msgs, unstake_nft_hook_msgs};
+use dao_interface::state::AnyContractInfo;
 use dao_interface::state::ModuleInstantiateCallback;
 use dao_interface::{nft::NftFactoryCallback, voting::IsActiveResponse};
 use dao_voting::duration::validate_duration;
@@ -12,14 +15,20 @@ use dao_voting::threshold::{
     assert_valid_absolute_count_threshold, assert_valid_percentage_threshold, ActiveThreshold,
     ActiveThresholdResponse,
 };
-use cw_hooks::HookItem;
 use schemars::JsonSchema;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
+use secret_toolkit::permit::RevokedPermits;
+use secret_toolkit::permit::{Permit, TokenPermissions};
 use secret_toolkit::utils::{HandleCallback, InitCallback};
+use secret_toolkit::viewing_key::ViewingKey;
+use secret_toolkit::viewing_key::ViewingKeyStore;
+use secret_utils::parse_reply_event_for_contract_address;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
 
 use crate::error::ContractError;
+use crate::msg::QueryWithPermit;
+use crate::msg::{CreateViewingKey, ViewingKeyError};
 use crate::msg::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, NftContract, QueryMsg, Snip721ReceiveMsg,
 };
@@ -39,6 +48,8 @@ const FACTORY_EXECUTE_REPLY_ID: u64 = 2;
 // We multiply by this when calculating needed power for being active
 // when using active threshold with percent
 const PRECISION_FACTOR: u128 = 10u128.pow(9);
+
+pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 // Supported NFT instantiation messages
@@ -84,7 +95,13 @@ pub fn instantiate(
 ) -> Result<Response<Empty>, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    DAO.save(deps.storage, &info.sender)?;
+    DAO.save(
+        deps.storage,
+        &AnyContractInfo {
+            addr: info.sender.clone(),
+            code_hash: msg.dao_code_hash,
+        },
+    )?;
 
     // Validate unstaking duration
     validate_duration(msg.unstaking_duration)?;
@@ -236,6 +253,9 @@ pub fn execute(
         ExecuteMsg::UpdateActiveThreshold { new_threshold } => {
             execute_update_active_threshold(deps, env, info, new_threshold)
         }
+        ExecuteMsg::CreateViewingKey { entropy, .. } => try_create_key(deps, env, info, entropy),
+        ExecuteMsg::SetViewingKey { key, .. } => try_set_key(deps, info, key),
+        ExecuteMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, info, permit_name),
     }
 }
 
@@ -336,7 +356,7 @@ pub fn execute_unstake(
                     Ok(cosmwasm_std::WasmMsg::Execute {
                         contract_addr: config.nft_address.to_string(),
                         code_hash: config.nft_code_hash.clone(),
-                        msg: to_binary(&snip721::Snip721ExecuteMsg::TransferNft {
+                        msg: to_binary(&secret_toolkit::snip721::HandleMsg::TransferNft {
                             recipient: info.sender.to_string(),
                             token_id,
                             memo: None,
@@ -399,7 +419,7 @@ pub fn execute_claim_nfts(
             Ok(WasmMsg::Execute {
                 contract_addr: config.nft_address.to_string(),
                 code_hash: config.nft_code_hash.clone(),
-                msg: to_binary(&snip721::Snip721ExecuteMsg::TransferNft {
+                msg: to_binary(&secret_toolkit::snip721::HandleMsg::TransferNft {
                     recipient: info.sender.to_string(),
                     token_id: nft,
                     memo: None,
@@ -426,7 +446,7 @@ pub fn execute_update_config(
     let dao = DAO.load(deps.storage)?;
 
     // Only the DAO can update the config.
-    if info.sender != dao {
+    if info.sender != dao.addr {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -456,7 +476,7 @@ pub fn execute_add_hook(
     let dao = DAO.load(deps.storage)?;
 
     // Only the DAO can add a hook
-    if info.sender != dao {
+    if info.sender != dao.addr {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -483,7 +503,7 @@ pub fn execute_remove_hook(
     let dao = DAO.load(deps.storage)?;
 
     // Only the DAO can remove a hook
-    if info.sender != dao {
+    if info.sender != dao.addr {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -508,7 +528,7 @@ pub fn execute_update_active_threshold(
     new_active_threshold: Option<ActiveThreshold>,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
-    if info.sender != dao {
+    if info.sender != dao.addr {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -519,11 +539,12 @@ pub fn execute_update_active_threshold(
                 assert_valid_percentage_threshold(percent)?;
             }
             ActiveThreshold::AbsoluteCount { count } => {
-                let nft_supply: snip721::NumTokens = deps.querier.query_wasm_smart(
-                    config.nft_code_hash.clone(),
-                    config.nft_address,
-                    &snip721::Snip721QueryMsg::NumTokens { viewer: None },
-                )?;
+                let nft_supply: secret_toolkit::snip721::query::NumTokens =
+                    deps.querier.query_wasm_smart(
+                        config.nft_code_hash.clone(),
+                        config.nft_address,
+                        &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
+                    )?;
                 assert_valid_absolute_count_threshold(
                     count,
                     Uint128::new(nft_supply.count.into()),
@@ -538,6 +559,47 @@ pub fn execute_update_active_threshold(
     Ok(Response::new().add_attribute("action", "update_active_threshold"))
 }
 
+pub fn try_set_key(
+    deps: DepsMut,
+    info: MessageInfo,
+    key: String,
+) -> Result<Response, ContractError> {
+    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
+    Ok(Response::default())
+}
+
+pub fn try_create_key(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    entropy: String,
+) -> Result<Response, ContractError> {
+    let key = ViewingKey::create(
+        deps.storage,
+        &info,
+        &env,
+        info.sender.as_str(),
+        entropy.as_ref(),
+    );
+
+    Ok(Response::new().set_data(to_binary(&CreateViewingKey { key })?))
+}
+
+fn revoke_permit(
+    deps: DepsMut,
+    info: MessageInfo,
+    permit_name: String,
+) -> Result<Response, ContractError> {
+    RevokedPermits::revoke_permit(
+        deps.storage,
+        PREFIX_REVOKED_PERMITS,
+        info.sender.as_str(),
+        &permit_name,
+    );
+
+    Ok(Response::default())
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -546,14 +608,85 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Dao {} => query_dao(deps),
         QueryMsg::Info {} => query_info(deps),
         QueryMsg::IsActive {} => query_is_active(deps, env),
-        QueryMsg::NftClaims { address } => query_nft_claims(deps, address),
         QueryMsg::Hooks {} => query_hooks(deps),
-        QueryMsg::StakedNfts { address } => query_staked_nfts(deps, address),
         QueryMsg::TotalPowerAtHeight { height } => query_total_power_at_height(deps, env, height),
-        QueryMsg::VotingPowerAtHeight { address, height } => {
-            query_voting_power_at_height(deps, env, address, height)
+        QueryMsg::WithPermit { permit, query } => permit_queries(deps, env, permit, query),
+        _ => viewing_keys_queries(deps, env, msg),
+    }
+}
+
+fn permit_queries(
+    deps: Deps,
+    env: Env,
+    permit: Permit,
+    query: QueryWithPermit,
+) -> Result<Binary, StdError> {
+    // Validate permit content
+
+    let _account = secret_toolkit::permit::validate(
+        deps,
+        PREFIX_REVOKED_PERMITS,
+        &permit,
+        env.contract.address.clone().into_string(),
+        None,
+    )?;
+
+    // Permit validated! We can now execute the query.
+    match query {
+        QueryWithPermit::NftClaims { address, .. } => {
+            if !permit.check_permission(&TokenPermissions::Balance) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query nft Claims, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            query_nft_claims(deps, address)
+        }
+        QueryWithPermit::StakedNfts { address, .. } => {
+            if !permit.check_permission(&TokenPermissions::Balance) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query stake nfts, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            query_staked_nfts(deps, address)
+        }
+        QueryWithPermit::VotingPowerAtHeight { address, height } => {
+            if !permit.check_permission(&TokenPermissions::History) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query voting power at height, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            query_voting_power_at_height(deps, env, address, Some(height))
         }
     }
+}
+
+pub fn viewing_keys_queries(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    let (addresses, key) = msg.get_validation_params(deps.api)?;
+
+    for address in addresses {
+        let result = ViewingKey::check(deps.storage, address.as_str(), key.as_str());
+        if result.is_ok() {
+            return match msg {
+                // Base
+                QueryMsg::NftClaims { address, .. } => query_nft_claims(deps, address),
+                QueryMsg::StakedNfts { address, .. } => query_staked_nfts(deps, address),
+                QueryMsg::VotingPowerAtHeight {
+                    address, height, ..
+                } => query_voting_power_at_height(deps, env, address, height),
+                _ => panic!("This query type does not require authentication"),
+            };
+        }
+    }
+
+    to_binary(&ViewingKeyError {
+        msg: "Wrong viewing key for this address or viewing key not set".to_string(),
+    })
 }
 
 pub fn query_active_threshold(deps: Deps) -> StdResult<Binary> {
@@ -567,10 +700,10 @@ pub fn query_is_active(deps: Deps, env: Env) -> StdResult<Binary> {
     if let Some(threshold) = threshold {
         let config = CONFIG.load(deps.storage)?;
         let staked_nfts = StakedNftsTotalStore::may_load_at_height(deps.storage, env.block.height)?;
-        let total_nfts: snip721::NumTokens = deps.querier.query_wasm_smart(
+        let total_nfts: secret_toolkit::snip721::query::NumTokens = deps.querier.query_wasm_smart(
             config.nft_code_hash.clone(),
             config.nft_address,
-            &snip721::Snip721QueryMsg::NumTokens { viewer: None },
+            &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
         )?;
 
         match threshold {
@@ -719,13 +852,11 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             match msg.result {
                 SubMsgResult::Ok(res) => {
                     let dao = DAO.load(deps.storage)?;
-                    let nft_info: snip721_reference_impl::msg::InstantiateResponse =
-                        from_binary(&res.data.unwrap())?;
+                    let nft_contract_address = parse_reply_event_for_contract_address(res.events)?;
 
                     // Save NFT contract to config
                     let mut config = CONFIG.load(deps.storage)?;
-                    config.nft_address = nft_info.contract_address.clone();
-                    config.nft_code_hash = nft_info.code_hash.clone();
+                    config.nft_address = deps.api.addr_validate(&nft_contract_address.clone())?;
                     CONFIG.save(deps.storage, &config)?;
 
                     let initial_nfts = INITIAL_NFTS.load(deps.storage)?;
@@ -735,10 +866,10 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                         .iter()
                         .flat_map(|nft| -> Result<SubMsg, ContractError> {
                             Ok(SubMsg::new(WasmMsg::Execute {
-                                contract_addr: nft_info.contract_address.to_string().clone(),
+                                contract_addr: nft_contract_address.clone(),
                                 funds: vec![],
                                 msg: nft.clone(),
-                                code_hash: nft_info.code_hash.clone(),
+                                code_hash: config.nft_code_hash.clone(),
                             }))
                         })
                         .collect::<Vec<SubMsg>>();
@@ -749,23 +880,20 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     // The last submessage updates the minter / owner of the NFT contract,
                     // and triggers a reply. The reply is used for validation after setup.
                     let exec_msg = snip721::Snip721ExecuteMsg::ChangeAdmin {
-                        address: dao.to_string(),
+                        address: dao.addr.to_string(),
                         padding: None,
                     };
                     submessages.push(SubMsg::reply_on_success(
                         exec_msg.to_cosmos_msg(
-                            nft_info.code_hash.clone(),
-                            nft_info.contract_address.to_string().clone(),
+                            config.nft_code_hash.clone(),
+                            nft_contract_address.clone(),
                             None,
                         )?,
                         VALIDATE_SUPPLY_REPLY_ID,
                     ));
 
                     Ok(Response::default()
-                        .add_attribute(
-                            "nft_contract",
-                            nft_info.contract_address.to_string().clone(),
-                        )
+                        .add_attribute("nft_contract", nft_contract_address.clone())
                         .add_submessages(submessages))
                 }
                 SubMsgResult::Err(_) => Err(ContractError::NftInstantiateError {}),
@@ -775,18 +903,18 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             // Check that NFTs have actually been minted, and that supply is greater than zero
             // NOTE: we have to check this in a reply as it is potentially possible
             // to include non-mint messages in `initial_nfts`.
-            //
+
             // Load config for nft contract address
-            let dao = DAO.load(deps.storage)?;
             let collection_addr = CONFIG.load(deps.storage)?.nft_address;
             let collection_code_hash = CONFIG.load(deps.storage)?.nft_code_hash;
 
             // Query the total supply of the NFT contract
-            let nft_supply: snip721::NumTokens = deps.querier.query_wasm_smart(
-                collection_code_hash.clone(),
-                collection_addr.clone(),
-                &snip721::Snip721QueryMsg::NumTokens { viewer: None },
-            )?;
+            let nft_supply: secret_toolkit::snip721::query::NumTokens =
+                deps.querier.query_wasm_smart(
+                    collection_code_hash.clone(),
+                    collection_addr.clone(),
+                    &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
+                )?;
 
             // Check greater than zero
             if nft_supply.count == 0 {
@@ -807,12 +935,15 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             // On setup success, have the DAO complete the second part of
             // ownership transfer by accepting ownership in a
             // ModuleInstantiateCallback.
+
+            // NOTE Can't find how to implement in secret so used this
+
             let callback = to_binary(&ModuleInstantiateCallback {
                 msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
                     code_hash: collection_code_hash.clone(),
                     contract_addr: collection_addr.to_string(),
-                    msg: to_binary(&&snip721::Snip721ExecuteMsg::ChangeAdmin {
-                        address: dao.to_string(),
+                    msg: to_binary(&&snip721_reference_impl::msg::ExecuteMsg::ChangeAdmin {
+                        address: DAO.load(deps.storage)?.addr.to_string(),
                         padding: None,
                     })?,
                     funds: vec![],
@@ -820,6 +951,8 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             })?;
 
             Ok(Response::new().set_data(callback))
+
+            // Ok(Response::new())
         }
         FACTORY_EXECUTE_REPLY_ID => {
             // Parse reply data
@@ -835,11 +968,12 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     let nft_address = deps.api.addr_validate(&info.nft_contract)?;
 
                     // Validate that this is an NFT with a query
-                    deps.querier.query_wasm_smart::<snip721::NumTokens>(
-                        info.nft_code_hash.clone(),
-                        nft_address.clone(),
-                        &snip721::Snip721QueryMsg::NumTokens { viewer: None },
-                    )?;
+                    deps.querier
+                        .query_wasm_smart::<secret_toolkit::snip721::query::NumTokens>(
+                            info.nft_code_hash.clone(),
+                            nft_address.clone(),
+                            &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
+                        )?;
 
                     // Update NFT contract
                     config.nft_address = nft_address;

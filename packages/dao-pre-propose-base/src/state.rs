@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use cosmwasm_std::Addr;
 use cw_hooks::Hooks;
+use dao_interface::state::AnyContractInfo;
 use schemars::JsonSchema;
 use secret_storage_plus::Item;
 use secret_toolkit::{serialization::Json, storage::Keymap};
@@ -23,10 +24,10 @@ pub struct Config {
 
 pub struct PreProposeContract<InstantiateExt, ExecuteExt, QueryExt, ProposalMessage> {
     /// The proposal module that this module is associated with.
-    pub proposal_module: Item<'static, Addr>,
+    pub proposal_module: Item<'static, AnyContractInfo>,
     /// The DAO (dao-dao-core module) that this module is associated
     /// with.
-    pub dao: Item<'static, Addr>,
+    pub dao: Item<'static, AnyContractInfo>,
     /// The configuration for this module.
     pub config: Item<'static, Config>,
     /// Map between proposal IDs and (deposit, proposer) pairs.

@@ -14,6 +14,7 @@ use cw_hooks::HookItem;
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_interface::{
     // state::ModuleInstantiateCallback,
+    state::AnyContractInfo,
     token::TokenFactoryCallback,
     voting::{
         DenomResponse, IsActiveResponse, TotalPowerAtHeightResponse, VotingPowerAtHeightResponse,
@@ -29,12 +30,16 @@ use dao_voting::{
 use prost::Message;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_cw_controllers::ClaimsResponse;
+use secret_toolkit::{
+    permit::{Permit, RevokedPermits, TokenPermissions},
+    viewing_key::{ViewingKey, ViewingKeyStore},
+};
 // use secret_toolkit::utils::InitCallback;
 use secret_utils::{must_pay, parse_reply_execute_data, Duration};
 
 use crate::msg::{
-    ExecuteMsg, GetHooksResponse, InstantiateMsg, ListStakersResponse, MigrateMsg, QueryMsg,
-    StakerBalanceResponse, TokenInfo,
+    CreateViewingKey, ExecuteMsg, GetHooksResponse, InstantiateMsg, ListStakersResponse,
+    MigrateMsg, QueryMsg, QueryWithPermit, StakerBalanceResponse, TokenInfo, ViewingKeyError,
 };
 use crate::state::{
     Config, StakedBalancesStore, TotalStakedStore, ACTIVE_THRESHOLD, CLAIMS, CONFIG, DAO, DENOM,
@@ -56,10 +61,12 @@ const FACTORY_EXECUTE_REPLY_ID: u64 = 2;
 // when using active threshold with percent
 const PRECISION_FACTOR: u128 = 10u128.pow(9);
 
+pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
@@ -72,7 +79,13 @@ pub fn instantiate(
     };
 
     CONFIG.save(deps.storage, &config)?;
-    DAO.save(deps.storage, &info.sender)?;
+    DAO.save(
+        deps.storage,
+        &AnyContractInfo {
+            addr: info.sender,
+            code_hash: msg.dao_code_hash,
+        },
+    )?;
 
     // Validate Active Threshold
     if let Some(active_threshold) = msg.active_threshold.as_ref() {
@@ -100,8 +113,10 @@ pub fn instantiate(
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
                 .add_attribute("token", "existing_token")
-                .add_attribute("denom", denom))
+                .add_attribute("denom", denom)
+                .set_data(to_binary(&(env.contract.address, env.contract.code_hash))?))
         }
+
         // TokenInfo::New(ref token) => {
         //     let NewTokenInfo {
         //         subdenom,
@@ -183,6 +198,9 @@ pub fn execute(
         ExecuteMsg::RemoveHook { addr, code_hash } => {
             execute_remove_hook(deps, env, info, addr, code_hash)
         }
+        ExecuteMsg::CreateViewingKey { entropy, .. } => try_create_key(deps, env, info, entropy),
+        ExecuteMsg::SetViewingKey { key, .. } => try_set_key(deps, info, key),
+        ExecuteMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, info, permit_name),
     }
 }
 
@@ -314,7 +332,7 @@ pub fn execute_update_config(
 
     // Only the DAO can update the config
     let dao = DAO.load(deps.storage)?;
-    if info.sender != dao {
+    if info.sender != dao.addr {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -356,7 +374,7 @@ pub fn execute_update_active_threshold(
     new_active_threshold: Option<ActiveThreshold>,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
-    if info.sender != dao {
+    if info.sender != dao.addr {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -390,7 +408,7 @@ pub fn execute_add_hook(
     code_hash: String,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
-    if info.sender != dao {
+    if info.sender != dao.addr {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -415,7 +433,7 @@ pub fn execute_remove_hook(
     code_hash: String,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
-    if info.sender != dao {
+    if info.sender != dao.addr {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -432,18 +450,55 @@ pub fn execute_remove_hook(
         .add_attribute("hook", addr))
 }
 
+pub fn try_set_key(
+    deps: DepsMut,
+    info: MessageInfo,
+    key: String,
+) -> Result<Response, ContractError> {
+    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
+    Ok(Response::default())
+}
+
+pub fn try_create_key(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    entropy: String,
+) -> Result<Response, ContractError> {
+    let key = ViewingKey::create(
+        deps.storage,
+        &info,
+        &env,
+        info.sender.as_str(),
+        entropy.as_ref(),
+    );
+
+    Ok(Response::new().set_data(to_binary(&CreateViewingKey { key })?))
+}
+
+fn revoke_permit(
+    deps: DepsMut,
+    info: MessageInfo,
+    permit_name: String,
+) -> Result<Response, ContractError> {
+    RevokedPermits::revoke_permit(
+        deps.storage,
+        PREFIX_REVOKED_PERMITS,
+        info.sender.as_str(),
+        &permit_name,
+    );
+
+    Ok(Response::default())
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::VotingPowerAtHeight { address, height } => {
-            to_binary(&query_voting_power_at_height(deps, env, address, height)?)
-        }
         QueryMsg::TotalPowerAtHeight { height } => {
             to_binary(&query_total_power_at_height(deps, env, height)?)
         }
         QueryMsg::Info {} => query_info(deps),
         QueryMsg::Dao {} => query_dao(deps),
-        QueryMsg::Claims { address } => to_binary(&query_claims(deps, address)?),
         QueryMsg::GetConfig {} => to_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::Denom {} => to_binary(&DenomResponse {
             denom: DENOM.load(deps.storage)?,
@@ -455,7 +510,77 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ActiveThreshold {} => query_active_threshold(deps),
         QueryMsg::GetHooks {} => to_binary(&query_hooks(deps)?),
         QueryMsg::TokenContract {} => to_binary(&TOKEN_ISSUER_CONTRACT.may_load(deps.storage)?),
+        QueryMsg::WithPermit { permit, query } => permit_queries(deps, env, permit, query),
+        _ => viewing_keys_queries(deps, env, msg),
     }
+}
+
+fn permit_queries(
+    deps: Deps,
+    env: Env,
+    permit: Permit,
+    query: QueryWithPermit,
+) -> Result<Binary, StdError> {
+    // Validate permit content
+
+    let _account = secret_toolkit::permit::validate(
+        deps,
+        PREFIX_REVOKED_PERMITS,
+        &permit,
+        env.contract.address.clone().into_string(),
+        None,
+    )?;
+
+    // Permit validated! We can now execute the query.
+    match query {
+        QueryWithPermit::Claims { address } => {
+            if !permit.check_permission(&TokenPermissions::Balance) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query nft Claims, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            to_binary(&query_claims(deps, address)?)
+        }
+        QueryWithPermit::VotingPowerAtHeight { address, height } => {
+            if !permit.check_permission(&TokenPermissions::Balance) {
+                return Err(StdError::generic_err(format!(
+                    "No permission to query voting power at height, got permissions {:?}",
+                    permit.params.permissions
+                )));
+            }
+
+            to_binary(&query_voting_power_at_height(
+                deps,
+                env,
+                address,
+                Some(height),
+            )?)
+        }
+    }
+}
+
+pub fn viewing_keys_queries(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    let (addresses, key) = msg.get_validation_params(deps.api)?;
+
+    for address in addresses {
+        let result = ViewingKey::check(deps.storage, address.as_str(), key.as_str());
+        if result.is_ok() {
+            return match msg {
+                // Base
+                QueryMsg::Claims { address, .. } => to_binary(&query_claims(deps, address)?),
+                QueryMsg::VotingPowerAtHeight {
+                    address, height, ..
+                } => to_binary(&query_voting_power_at_height(deps, env, address, height)?),
+                _ => panic!("This query type does not require authentication"),
+            };
+        }
+    }
+
+    to_binary(&ViewingKeyError {
+        msg: "Wrong viewing key for this address or viewing key not set".to_string(),
+    })
 }
 
 pub fn query_voting_power_at_height(

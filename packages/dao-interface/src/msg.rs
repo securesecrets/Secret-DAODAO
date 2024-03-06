@@ -261,7 +261,7 @@ pub enum QueryMsg {
     #[returns(crate::query::PauseInfoResponse)]
     PauseInfo {},
     /// Gets the contract's voting module.
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(crate::state::AnyContractInfo)]
     VotingModule {},
     /// Returns all SubDAOs with their charters in a vec.
     /// start_after is bound exclusive and asks for a string address.
@@ -277,11 +277,13 @@ pub enum QueryMsg {
     #[returns(crate::voting::VotingPowerAtHeightResponse)]
     VotingPowerAtHeight {
         address: String,
+        key: String,
         height: Option<u64>,
     },
     /// Returns the total voting power at a given block height.
     #[returns(crate::voting::TotalPowerAtHeightResponse)]
     TotalPowerAtHeight { height: Option<u64> },
+    
 }
 
 #[allow(clippy::large_enum_variant)]
