@@ -14,10 +14,22 @@ pub struct Choice {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    Propose { choices: Vec<Choice> },
-    Vote { proposal_id: u32, vote: Vec<u32> },
-    Execute { proposal_id: u32 },
-    Close { proposal_id: u32 },
+    Propose {
+        choices: Vec<Choice>,
+        key: String,
+    },
+    Vote {
+        proposal_id: u32,
+        vote: Vec<u32>,
+        key: String,
+    },
+    Execute {
+        proposal_id: u32,
+        key: String,
+    },
+    Close {
+        proposal_id: u32,
+    },
     SetConfig(UncheckedConfig),
 }
 

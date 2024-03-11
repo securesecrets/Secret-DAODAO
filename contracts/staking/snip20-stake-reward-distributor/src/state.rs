@@ -9,10 +9,10 @@ pub struct Config {
     pub reward_rate: Uint128,
     pub reward_token: Addr,
     pub reward_token_code_hash: String,
-    pub reward_distributor_viewing_key: String,
 }
 
 // `"config"` key stores v1 configuration.
 pub const CONFIG: Item<Config> = Item::new("config_v2");
 
 pub const LAST_PAYMENT_BLOCK: Item<u64> = Item::new("last_payment_block");
+pub const TOKEN_VIEWING_KEY: Item<String> = Item::new("token_viewing_key");

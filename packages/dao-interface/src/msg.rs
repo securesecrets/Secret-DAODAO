@@ -1,11 +1,15 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{CosmosMsg, Empty, Addr, Binary};
+use cosmwasm_schema:: QueryResponses;
+use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Uint128};
+use schemars::JsonSchema;
+use secret_toolkit::utils::HandleCallback;
 use secret_utils::Duration;
+use serde::{Deserialize, Serialize};
 use crate::state::Config;
 use crate::{migrate_msg::MigrateParams, query::SubDao, state::ModuleInstantiateInfo};
 
 /// Information about an item to be stored in the items list.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct InitialItem {
     /// The name of the item.
     pub key: String,
@@ -13,7 +17,8 @@ pub struct InitialItem {
     pub value: String,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct InstantiateMsg {
     /// Optional Admin with the ability to execute DAO messages
     /// directly. Useful for building SubDAOs controlled by a parent
@@ -27,12 +32,12 @@ pub struct InstantiateMsg {
     /// An image URL to describe the core module contract.
     pub image_url: Option<String>,
 
-    /// If true the contract will automatically add received cw20
+    /// If true the contract will automatically add received snip20
     /// tokens to its treasury.
-    pub automatically_add_cw20s: bool,
-    /// If true the contract will automatically add received cw721
+    pub automatically_add_snip20s: bool,
+    /// If true the contract will automatically add received snip721
     /// tokens to its treasury.
-    pub automatically_add_cw721s: bool,
+    pub automatically_add_snip721s: bool,
 
     /// Instantiate information for the core contract's voting
     /// power module.
@@ -49,9 +54,25 @@ pub struct InstantiateMsg {
     pub initial_items: Option<Vec<InitialItem>>,
     /// Implements the DAO Star standard: <https://daostar.one/EIP>
     pub dao_uri: Option<String>,
+    pub snip20_code_hash: String,
+    pub snip721_code_hash: String,
 }
 
-#[cw_serde]
+
+/// Snip20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Snip20ReceiveMsg {
+    pub sender: Addr,
+    pub from: Addr,
+    pub amount: Uint128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+    pub msg: Option<Binary>,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum Snip721ReceiveMsg {
     /// ReceiveNft may be a HandleMsg variant of any contract that wants to implement a receiver
     /// interface.  BatchReceiveNft, which is more informative and more efficient, is preferred over
@@ -80,7 +101,8 @@ pub enum Snip721ReceiveMsg {
     },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     /// Callable by the Admin, if one is configured.
     /// Executes messages in order.
@@ -94,7 +116,7 @@ pub enum ExecuteMsg {
     /// Executed when the contract receives a cw20 token. Depending on
     /// the contract's configuration the contract will automatically
     /// add the token to its treasury.
-    Receive(Snip721ReceiveMsg),
+    Receive(Snip20ReceiveMsg),
     /// Executed when the contract receives a cw721 token. Depending
     /// on the contract's configuration the contract will
     /// automatically add the token to its treasury.
@@ -130,12 +152,12 @@ pub enum ExecuteMsg {
     /// governance contract config with the provided config.
     UpdateConfig { config: Config },
     /// Updates the list of cw20 tokens this contract has registered.
-    UpdateCw20List {
+    UpdateSnip20List {
         to_add: Vec<String>,
         to_remove: Vec<String>,
     },
     /// Updates the list of cw721 tokens this contract has registered.
-    UpdateCw721List {
+    UpdateSnip721List {
         to_add: Vec<String>,
         to_remove: Vec<String>,
     },
@@ -159,7 +181,12 @@ pub enum ExecuteMsg {
     },
 }
 
-#[cw_serde]
+impl HandleCallback for ExecuteMsg {
+    const BLOCK_SIZE: usize=256;
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Get's the DAO's admin. Returns `Addr`.
@@ -173,7 +200,7 @@ pub enum QueryMsg {
     Config {},
     /// Gets the token balance for each cw20 registered with the
     /// contract.
-    #[returns(crate::query::Cw20BalanceResponse)]
+    #[returns(crate::query::Snip20BalanceResponse)]
     Cw20Balances {
         start_after: Option<String>,
         limit: Option<u32>,
@@ -234,7 +261,7 @@ pub enum QueryMsg {
     #[returns(crate::query::PauseInfoResponse)]
     PauseInfo {},
     /// Gets the contract's voting module.
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(crate::state::AnyContractInfo)]
     VotingModule {},
     /// Returns all SubDAOs with their charters in a vec.
     /// start_after is bound exclusive and asks for a string address.
@@ -250,15 +277,18 @@ pub enum QueryMsg {
     #[returns(crate::voting::VotingPowerAtHeightResponse)]
     VotingPowerAtHeight {
         address: String,
+        key: String,
         height: Option<u64>,
     },
     /// Returns the total voting power at a given block height.
     #[returns(crate::voting::TotalPowerAtHeightResponse)]
     TotalPowerAtHeight { height: Option<u64> },
+    
 }
 
 #[allow(clippy::large_enum_variant)]
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum MigrateMsg {
     FromV1 {
         dao_uri: Option<String>,

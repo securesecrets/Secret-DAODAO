@@ -1,9 +1,9 @@
 use cosmwasm_schema::cw_serde;
-use cw_utils::Duration;
 use dao_voting::{
     threshold::{validate_quorum, PercentageThreshold},
     voting::validate_voting_period,
 };
+use secret_utils::Duration;
 
 use crate::ContractError;
 
@@ -13,6 +13,7 @@ pub struct UncheckedConfig {
     pub voting_period: Duration,
     pub min_voting_period: Option<Duration>,
     pub close_proposals_on_execution_failure: bool,
+    pub dao_code_hash: String,
 }
 
 #[cw_serde]

@@ -1,0 +1,40 @@
+[package]
+name          = "snip721-roles"
+authors       = ["Jake Hartnell"]
+description   = "Non-transferable CW721 NFT contract that incorporates voting weights and on-chain roles."
+version       = { workspace = true }
+edition       = { workspace = true }
+repository    = { workspace = true }
+license       = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+
+[dependencies]
+cosmwasm-schema = { workspace = true }
+cosmwasm-std    = { workspace = true }
+secret-cw-controllers  = { workspace = true }
+cw-ownable      = { workspace = true }
+secret-storage-plus = { workspace = true }
+secret-utils        = { workspace = true }
+secret-cw2             = { workspace = true }
+cw4             = { workspace = true }
+# cw721           = { workspace = true }
+# cw721-base      = { workspace = true, features = ["library"] }
+dao-snip721-extensions = { workspace = true }
+serde           = { workspace = true }
+thiserror       = { workspace = true }
+secret-toolkit ={ workspace = true}
+snip721-reference-impl ={ workspace = true }
+schemars ={ workspace=true }
+
+[dev-dependencies]
+secret-multi-test   = { workspace = true }
+dao-testing     = { workspace = true }
+dao-voting-snip721-staked = { workspace = true }

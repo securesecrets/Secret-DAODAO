@@ -1,6 +1,8 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, StdResult, Storage};
-use cw_storage_plus::{Item, Map};
+use secret_storage_plus::Item;
+use secret_toolkit::serialization::Json;
+use secret_toolkit::storage::Keymap;
 
 use dao_voting::deposit::CheckedDepositInfo;
 use dao_voting::proposal::SingleChoiceProposeMsg as ProposeMsg;
@@ -35,10 +37,10 @@ pub struct Proposal {
 }
 
 pub const APPROVER: Item<Addr> = Item::new("approver");
-pub const PENDING_PROPOSALS: Map<u64, Proposal> = Map::new("pending_proposals");
-pub const COMPLETED_PROPOSALS: Map<u64, Proposal> = Map::new("completed_proposals");
-pub const CREATED_PROPOSAL_TO_COMPLETED_PROPOSAL: Map<u64, u64> =
-    Map::new("created_to_completed_proposal");
+pub const PENDING_PROPOSALS: Keymap<u64, Proposal, Json> = Keymap::new(b"pending_proposals");
+pub const COMPLETED_PROPOSALS: Keymap<u64, Proposal, Json> = Keymap::new(b"completed_proposals");
+pub const CREATED_PROPOSAL_TO_COMPLETED_PROPOSAL: Keymap<u64, u64, Json> =
+    Keymap::new(b"created_to_completed_proposal");
 
 /// Used internally to track the current approval_id.
 const CURRENT_ID: Item<u64> = Item::new("current_id");

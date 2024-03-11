@@ -19,15 +19,17 @@ library = []
 [dependencies]
 cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
-secret-cw2 ={ workspace = true }
+secret-cw2 = { workspace = true }
 cw-denom = { workspace = true }
 secret-storage-plus = { workspace = true }
 secret-utils = { workspace = true }
+secret-toolkit = { workspace = true }
 cw-hooks = { workspace = true }
 dao-interface = { workspace = true }
 dao-voting = { workspace = true }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0" }
+serde = { workspace = true }
+schemars = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

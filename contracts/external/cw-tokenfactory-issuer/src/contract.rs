@@ -1,12 +1,7 @@
-use std::convert::TryInto;
-
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg,
-};
-use cw2::{get_contract_version, set_contract_version, ContractVersion};
-use cw_tokenfactory_types::msg::{msg_create_denom, MsgCreateDenomResponse};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 
 use crate::error::ContractError;
 use crate::execute;
@@ -19,12 +14,10 @@ use crate::state::{BeforeSendHookInfo, BEFORE_SEND_HOOK_INFO, DENOM, IS_FROZEN};
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const CREATE_DENOM_REPLY_ID: u64 = 1;
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
@@ -43,30 +36,34 @@ pub fn instantiate(
     )?;
     IS_FROZEN.save(deps.storage, &false)?;
 
-    match msg {
-        InstantiateMsg::NewToken { subdenom } => {
-            Ok(Response::new()
-                .add_attribute("action", "instantiate")
-                .add_attribute("owner", info.sender)
-                .add_attribute("subdenom", subdenom.clone())
-                .add_submessage(
-                    // Create new denom, denom info is saved in the reply
-                    SubMsg::reply_on_success(
-                        msg_create_denom(env.contract.address.to_string(), subdenom),
-                        CREATE_DENOM_REPLY_ID,
-                    ),
-                ))
-        }
-        InstantiateMsg::ExistingToken { denom } => {
-            DENOM.save(deps.storage, &denom)?;
+    // match msg {
+    //     InstantiateMsg::NewToken { subdenom } => {
+    //         Ok(Response::new()
+    //             .add_attribute("action", "instantiate")
+    //             .add_attribute("owner", info.sender)
+    //             .add_attribute("subdenom", subdenom.clone())
+    //             .set_data(to_binary(&InstantiateResponse{
+    //                 contact_address: env.contract.address.clone(),
+    //                 code_hash:env.contract.code_hash,
+    //             })?)
+    //             .add_submessage(
+    //                 // Create new denom, denom info is saved in the reply
+    //                 SubMsg::reply_on_success(
+    //                     msg_create_denom(env.contract.address.to_string(), subdenom),
+    //                     CREATE_DENOM_REPLY_ID,
+    //                 ),
+    //             ))
+    //     }
+    // InstantiateMsg::ExistingToken { denom } => {
+    DENOM.save(deps.storage, &msg.denom)?;
 
-            Ok(Response::new()
-                .add_attribute("action", "instantiate")
-                .add_attribute("owner", info.sender)
-                .add_attribute("denom", denom))
-        }
-    }
+    Ok(Response::new()
+        .add_attribute("action", "instantiate")
+        .add_attribute("owner", info.sender)
+        .add_attribute("denom", msg.denom))
 }
+// }
+// }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
@@ -131,32 +128,30 @@ pub fn sudo(deps: DepsMut, _env: Env, msg: SudoMsg) -> Result<Response, Contract
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Allowlist { start_after, limit } => {
-            to_json_binary(&queries::query_allowlist(deps, start_after, limit)?)
+            to_binary(&queries::query_allowlist(deps, start_after, limit)?)
         }
         QueryMsg::BeforeSendHookInfo {} => {
-            to_json_binary(&queries::query_before_send_hook_features(deps)?)
+            to_binary(&queries::query_before_send_hook_features(deps)?)
         }
         QueryMsg::BurnAllowance { address } => {
-            to_json_binary(&queries::query_burn_allowance(deps, address)?)
+            to_binary(&queries::query_burn_allowance(deps, address)?)
         }
         QueryMsg::BurnAllowances { start_after, limit } => {
-            to_json_binary(&queries::query_burn_allowances(deps, start_after, limit)?)
+            to_binary(&queries::query_burn_allowances(deps, start_after, limit)?)
         }
-        QueryMsg::Denom {} => to_json_binary(&queries::query_denom(deps)?),
+        QueryMsg::Denom {} => to_binary(&queries::query_denom(deps)?),
         QueryMsg::Denylist { start_after, limit } => {
-            to_json_binary(&queries::query_denylist(deps, start_after, limit)?)
+            to_binary(&queries::query_denylist(deps, start_after, limit)?)
         }
-        QueryMsg::IsAllowed { address } => {
-            to_json_binary(&queries::query_is_allowed(deps, address)?)
-        }
-        QueryMsg::IsDenied { address } => to_json_binary(&queries::query_is_denied(deps, address)?),
-        QueryMsg::IsFrozen {} => to_json_binary(&queries::query_is_frozen(deps)?),
-        QueryMsg::Ownership {} => to_json_binary(&queries::query_owner(deps)?),
+        QueryMsg::IsAllowed { address } => to_binary(&queries::query_is_allowed(deps, address)?),
+        QueryMsg::IsDenied { address } => to_binary(&queries::query_is_denied(deps, address)?),
+        QueryMsg::IsFrozen {} => to_binary(&queries::query_is_frozen(deps)?),
+        QueryMsg::Ownership {} => to_binary(&queries::query_owner(deps)?),
         QueryMsg::MintAllowance { address } => {
-            to_json_binary(&queries::query_mint_allowance(deps, address)?)
+            to_binary(&queries::query_mint_allowance(deps, address)?)
         }
         QueryMsg::MintAllowances { start_after, limit } => {
-            to_json_binary(&queries::query_mint_allowances(deps, start_after, limit)?)
+            to_binary(&queries::query_mint_allowances(deps, start_after, limit)?)
         }
     }
 }
@@ -172,17 +167,4 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
     }
 
     Ok(Response::default())
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    match msg.id {
-        CREATE_DENOM_REPLY_ID => {
-            let MsgCreateDenomResponse { new_token_denom } = msg.result.try_into()?;
-            DENOM.save(deps.storage, &new_token_denom)?;
-
-            Ok(Response::new().add_attribute("denom", new_token_denom))
-        }
-        _ => Err(ContractError::UnknownReplyId { id: msg.id }),
-    }
 }

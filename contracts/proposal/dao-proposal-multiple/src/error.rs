@@ -2,8 +2,9 @@ use std::u64;
 
 use cosmwasm_std::StdError;
 use cw_hooks::HookError;
-use cw_utils::ParseReplyError;
 use dao_voting::{reply::error::TagError, threshold::ThresholdError, veto::VetoError};
+use secret_cw_controllers::ReplyError;
+use secret_utils::ParseReplyError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -13,6 +14,9 @@ pub enum ContractError {
 
     #[error(transparent)]
     ParseReplyError(#[from] ParseReplyError),
+
+    #[error(transparent)]
+    ReplyUdError(#[from] ReplyError),
 
     #[error("{0}")]
     HookError(#[from] HookError),
@@ -25,6 +29,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     ThresholdError(#[from] ThresholdError),
+
+    #[error("An unknown reply ID was received.")]
+    UnknownReplyID {},
 
     #[error("{0}")]
     VotingError(#[from] dao_voting::error::VotingError),

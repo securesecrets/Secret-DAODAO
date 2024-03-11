@@ -1,9 +1,9 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Binary, Uint128};
-use dao_hooks::stake::StakeChangedHookMsg;
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 use crate::state::{Config, Denom, RewardConfig};
+use cosmwasm_schema::QueryResponses;
+use cosmwasm_std::{Addr, Api, Binary, StdResult, Uint128};
+use dao_hooks::stake::StakeChangedHookMsg;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 pub use secret_cw_controllers::ClaimsResponse;
 // so that consumers don't need a cw_ownable dependency to consume
@@ -35,15 +35,25 @@ pub struct Snip20ReceiveMsg {
 
 #[cw_ownable_execute]
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     StakeChangeHook(StakeChangedHookMsg),
-    Claim {},
+    Claim {
+        key: String,
+    },
     Receive(Snip20ReceiveMsg),
     Fund {},
-    UpdateRewardDuration { new_duration: u64 },
+    UpdateRewardDuration {
+        new_duration: u64,
+    },
+    SetViewingKey {
+        key: String,
+        padding: Option<String>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum MigrateMsg {
     /// Migrates from version 0.2.6 to 2.0.0. The significant changes
     /// being the addition of a two-step ownership transfer using
@@ -57,14 +67,27 @@ pub enum ReceiveMsg {
     Fund {},
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug, QueryResponses)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, QueryResponses)]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     #[returns(InfoResponse)]
     Info {},
     #[returns(PendingRewardsResponse)]
-    GetPendingRewards { address: String },
+    GetPendingRewards { address: String, key: String },
     #[returns(::cw_ownable::Ownership<::cosmwasm_std::Addr>)]
     Ownership {},
+}
+
+impl QueryMsg {
+    pub fn get_validation_params(&self, api: &dyn Api) -> StdResult<(Vec<Addr>, String)> {
+        match self {
+            Self::GetPendingRewards { key, address, .. } => {
+                let address = api.addr_validate(address.as_str())?;
+                Ok((vec![address], key.clone()))
+            }
+            _ => panic!("This query type does not require authentication"),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]

@@ -1,4 +1,5 @@
-use cosmwasm_schema::cw_serde;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use cosmwasm_std::Uint128;
 
 // These are Cosmos Proto types used for Denom Metadata.
@@ -7,13 +8,15 @@ pub use osmosis_std::types::cosmos::bank::v1beta1::{DenomUnit, Metadata};
 
 use crate::state::ModuleInstantiateCallback;
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct InitialBalance {
     pub amount: Uint128,
     pub address: String,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct NewDenomMetadata {
     /// The name of the token (e.g. "Cat Coin")
     pub name: String,
@@ -26,12 +29,17 @@ pub struct NewDenomMetadata {
     /// Used define additional units of the token (e.g. "tiger")
     /// These must have an exponent larger than 0.
     pub additional_denom_units: Option<Vec<DenomUnit>>,
+    pub uri: String,
+    pub uri_hash: String
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct NewTokenInfo {
     /// The code id of the cw-tokenfactory-issuer contract
     pub token_issuer_code_id: u64,
+    /// The code hash of the cw-tokenfactory-issuer contract
+    pub token_issuer_code_hash: String,
     /// The subdenom of the token to create, will also be used as an alias
     /// for the denom. The Token Factory denom will have the format of
     /// factory/{contract_address}/{subdenom}
@@ -44,7 +52,8 @@ pub struct NewTokenInfo {
     pub initial_dao_balance: Option<Uint128>,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct TokenFactoryCallback {
     pub denom: String,
     pub token_contract: Option<String>,

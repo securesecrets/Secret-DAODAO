@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Binary;
+use dao_interface::state::ModuleInstantiateInfo;
 
 #[cw_serde]
 pub struct InstantiateMsg {}
@@ -8,11 +8,7 @@ pub struct InstantiateMsg {}
 pub enum ExecuteMsg {
     /// Instantiates the target contract with the provided instantiate message and code id and
     /// updates the contract's admin to be itself.
-    InstantiateContractWithSelfAdmin {
-        instantiate_msg: Binary,
-        code_id: u64,
-        label: String,
-    },
+    InstantiateContractWithSelfAdmin { module_info: ModuleInstantiateInfo },
 }
 
 #[cw_serde]

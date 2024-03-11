@@ -2,8 +2,9 @@ use std::u64;
 
 use cosmwasm_std::StdError;
 use cw_hooks::HookError;
-use cw_utils::ParseReplyError;
 use dao_voting::{reply::error::TagError, veto::VetoError};
+use secret_cw_controllers::ReplyError;
+use secret_utils::ParseReplyError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -16,6 +17,9 @@ pub enum ContractError {
 
     #[error(transparent)]
     HookError(#[from] HookError),
+
+    #[error(transparent)]
+    ReplyUdError(#[from] ReplyError),
 
     #[error(transparent)]
     VetoError(#[from] VetoError),
@@ -31,6 +35,9 @@ pub enum ContractError {
 
     #[error("no such proposal ({id})")]
     NoSuchProposal { id: u64 },
+
+    #[error("An unknown reply ID was received.")]
+    UnknownReplyID {},
 
     #[error("no vote exists for proposal ({id}) and voter ({voter})")]
     NoSuchVote { id: u64, voter: String },

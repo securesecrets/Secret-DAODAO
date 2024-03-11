@@ -1,8 +1,7 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128, Uint256};
+use schemars::JsonSchema;
 use secret_storage_plus::{Item, Map};
 use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub enum Denom {
@@ -36,3 +35,5 @@ pub const LAST_UPDATE_BLOCK: Item<u64> = Item::new("last_update_block");
 pub const PENDING_REWARDS: Map<Addr, Uint128> = Map::new("pending_rewards");
 
 pub const USER_REWARD_PER_TOKEN: Map<Addr, Uint256> = Map::new("user_reward_per_token");
+
+pub const VIEWING_KEY_INFO: Map<Addr, String> = Map::new("viewing_key_info");

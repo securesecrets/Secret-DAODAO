@@ -1,5 +1,6 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{CosmosMsg, Empty};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// Default limit for proposal pagination.
 pub const DEFAULT_LIMIT: u64 = 30;
@@ -16,7 +17,9 @@ pub const MAX_PROPOSAL_SIZE: u64 = 30_000;
 /// import it without importing dao-proposal-single with the library
 /// feature which (as it is not additive) cause the execute exports to
 /// not be included in wasm builds.
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct SingleChoiceProposeMsg {
     /// The title of the proposal.
     pub title: String,

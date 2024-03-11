@@ -1,13 +1,17 @@
 use std::marker::PhantomData;
 
-use cosmwasm_schema::cw_serde;
-use cw_hooks::Hooks;
 use cosmwasm_std::Addr;
-use secret_storage_plus::{Item, Map};
+use cw_hooks::Hooks;
+use dao_interface::state::AnyContractInfo;
+use schemars::JsonSchema;
+use secret_storage_plus::Item;
+use secret_toolkit::{serialization::Json, storage::Keymap};
 
 use dao_voting::deposit::CheckedDepositInfo;
+use serde::{Deserialize, Serialize};
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct Config {
     /// Information about the deposit required to create a
     /// proposal. If `None`, no deposit is required.
@@ -20,14 +24,14 @@ pub struct Config {
 
 pub struct PreProposeContract<InstantiateExt, ExecuteExt, QueryExt, ProposalMessage> {
     /// The proposal module that this module is associated with.
-    pub proposal_module: Item<'static, Addr>,
+    pub proposal_module: Item<'static, AnyContractInfo>,
     /// The DAO (dao-dao-core module) that this module is associated
     /// with.
-    pub dao: Item<'static, Addr>,
+    pub dao: Item<'static, AnyContractInfo>,
     /// The configuration for this module.
     pub config: Item<'static, Config>,
     /// Map between proposal IDs and (deposit, proposer) pairs.
-    pub deposits: Map<'static, u64, (Option<CheckedDepositInfo>, Addr)>,
+    pub deposits: Keymap<'static, u64, (Option<CheckedDepositInfo>, Addr), Json>,
     /// Consumers of proposal submitted hooks.
     pub proposal_submitted_hooks: Hooks<'static>,
 
@@ -54,7 +58,7 @@ impl<InstantiateExt, ExecuteExt, QueryExt, ProposalMessage>
             proposal_module: Item::new(proposal_key),
             dao: Item::new(dao_key),
             config: Item::new(config_key),
-            deposits: Map::new(deposits_key),
+            deposits: Keymap::new(deposits_key.as_bytes()),
             proposal_submitted_hooks: Hooks::new(proposal_submitted_hooks_key),
             execute_type: PhantomData,
             instantiate_type: PhantomData,

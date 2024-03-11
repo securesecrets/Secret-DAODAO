@@ -15,7 +15,7 @@ pub fn check_before_send_hook_features_enabled(deps: Deps) -> Result<(), Contrac
 /// Checks wether the given address is on the denylist
 pub fn check_is_not_denied(deps: Deps, address: String) -> Result<(), ContractError> {
     let addr = deps.api.addr_validate(&address)?;
-    if let Some(is_denied) = DENYLIST.may_load(deps.storage, &addr)? {
+    if let Some(is_denied) = DENYLIST.get(deps.storage, &addr) {
         if is_denied {
             return Err(ContractError::Denied { address });
         }
@@ -46,8 +46,8 @@ pub fn check_is_not_frozen(
         let to = deps.api.addr_validate(to_address)?;
 
         // If either the from address or the to_address is allowed, then transaction proceeds
-        let is_from_allowed = ALLOWLIST.may_load(deps.storage, &from)?;
-        let is_to_allowed = ALLOWLIST.may_load(deps.storage, &to)?;
+        let is_from_allowed = ALLOWLIST.get(deps.storage, &from);
+        let is_to_allowed = ALLOWLIST.get(deps.storage, &to);
         match (is_from_allowed, is_to_allowed) {
             (Some(true), _) => return Ok(()),
             (_, Some(true)) => return Ok(()),

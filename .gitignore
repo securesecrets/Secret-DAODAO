@@ -34,3 +34,4 @@ packages/**/Cargo.lock
 debug/**/Cargo.lock
 ci/**/Cargo.lock
 dummy/
+cli/

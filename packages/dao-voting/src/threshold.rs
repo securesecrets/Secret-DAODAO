@@ -1,5 +1,7 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Decimal, Uint128};
+use serde::{Serialize,Deserialize};
+use schemars::JsonSchema;
+
 
 use thiserror::Error;
 
@@ -8,7 +10,8 @@ use thiserror::Error;
 /// will response to `is_active` queries with false and proposal
 /// modules which respect active thresholds will not allow the
 /// creation of proposals.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ActiveThreshold {
     /// The absolute number of tokens that must be staked for the
     /// module to be active.
@@ -18,7 +21,8 @@ pub enum ActiveThreshold {
     Percentage { percent: Decimal },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct ActiveThresholdResponse {
     pub active_threshold: Option<ActiveThreshold>,
 }
@@ -87,7 +91,8 @@ pub enum ThresholdError {
 ///
 /// In both of these cases a proposal with only abstain votes must
 /// fail. This requires a special case passing logic.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 #[derive(Copy)]
 pub enum PercentageThreshold {
     /// The majority of voters must vote yes for the proposal to pass.
@@ -98,7 +103,8 @@ pub enum PercentageThreshold {
 }
 
 /// The ways a proposal may reach its passing / failing threshold.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum Threshold {
     /// Declares a percentage of the total weight that must cast Yes
     /// votes in order for a proposal to pass.  See

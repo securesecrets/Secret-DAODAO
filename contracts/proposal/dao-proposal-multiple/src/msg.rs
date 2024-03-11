@@ -1,11 +1,13 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cw_utils::Duration;
+use cosmwasm_std::{Addr, Api, StdResult};
 use dao_dao_macros::proposal_module_query;
 use dao_voting::{
     multiple_choice::{MultipleChoiceOptions, MultipleChoiceVote, VotingStrategy},
     pre_propose::PreProposeInfo,
     veto::VetoConfig,
 };
+use secret_toolkit::permit::Permit;
+use secret_utils::Duration;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -44,6 +46,9 @@ pub struct InstantiateMsg {
     /// During this period an oversight account (`veto.vetoer`) can
     /// veto the proposal.
     pub veto: Option<VetoConfig>,
+
+    // dao code hash
+    pub dao_code_hash: String,
 }
 
 #[cw_serde]
@@ -66,6 +71,8 @@ pub enum ExecuteMsg {
     /// Votes on a proposal. Voting power is determined by the DAO's
     /// voting power module.
     Vote {
+        /// Viewng key of the sender
+        key: String,
         /// The ID of the proposal to vote on.
         proposal_id: u64,
         /// The senders position on the proposal.
@@ -78,6 +85,8 @@ pub enum ExecuteMsg {
     /// Causes the messages associated with a passed proposal to be
     /// executed by the DAO.
     Execute {
+        /// Viewng key of the sender
+        key: String,
         /// The ID of the proposal to execute.
         proposal_id: u64,
     },
@@ -120,6 +129,9 @@ pub enum ExecuteMsg {
         /// The address if tge DAO that this governance module is
         /// associated with.
         dao: String,
+        /// The code hash if tge DAO that this governance module is
+        /// associated with.
+        code_hash: String,
         /// If set to true proposals will be closed if their execution
         /// fails. Otherwise, proposals will remain open after execution
         /// failure. For example, with this enabled a proposal to send 5
@@ -145,15 +157,32 @@ pub enum ExecuteMsg {
     },
     AddProposalHook {
         address: String,
+        code_hash: String,
     },
     RemoveProposalHook {
         address: String,
+        code_hash: String,
     },
     AddVoteHook {
         address: String,
+        code_hash: String,
     },
     RemoveVoteHook {
         address: String,
+        code_hash: String,
+    },
+    CreateViewingKey {
+        entropy: String,
+        padding: Option<String>,
+    },
+    SetViewingKey {
+        key: String,
+        padding: Option<String>,
+    },
+    // Permit
+    RevokePermit {
+        permit_name: String,
+        padding: Option<String>,
     },
 }
 
@@ -182,7 +211,11 @@ pub enum QueryMsg {
     },
     /// Returns a voters position on a proposal.
     #[returns(crate::query::VoteResponse)]
-    GetVote { proposal_id: u64, voter: String },
+    GetVote {
+        proposal_id: u64,
+        voter: String,
+        key: String,
+    },
     /// Lists all of the votes that have been cast on a proposal.
     #[returns(crate::query::VoteListResponse)]
     ListVotes {
@@ -202,6 +235,40 @@ pub enum QueryMsg {
     /// Lists all of the consumers of vote hooks for this module.
     #[returns(::cw_hooks::HooksResponse)]
     VoteHooks {},
+    #[returns(())]
+    WithPermit {
+        permit: Permit,
+        query: QueryWithPermit,
+    },
+}
+
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum QueryWithPermit {
+    #[returns(crate::query::VoteResponse)]
+    GetVote { proposal_id: u64, voter: String },
+}
+
+impl QueryMsg {
+    pub fn get_validation_params(&self, api: &dyn Api) -> StdResult<(Vec<Addr>, String)> {
+        match self {
+            Self::GetVote { voter, key, .. } => {
+                let address = api.addr_validate(voter.as_str())?;
+                Ok((vec![address], key.clone()))
+            }
+            _ => panic!("This query type does not require authentication"),
+        }
+    }
+}
+
+#[cw_serde]
+pub struct CreateViewingKey {
+    pub key: String,
+}
+
+#[cw_serde]
+pub struct ViewingKeyError {
+    pub msg: String,
 }
 
 #[cw_serde]

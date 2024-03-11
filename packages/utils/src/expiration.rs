@@ -219,6 +219,7 @@ mod test {
             height: 1000,
             time: Timestamp::from_seconds(7777),
             chain_id: "foo".to_string(),
+            random: None,
         };
 
         let end = Duration::Height(456).after(&block);

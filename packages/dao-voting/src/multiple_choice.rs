@@ -1,5 +1,6 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{CosmosMsg, Empty, StdError, StdResult, Uint128};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use crate::threshold::{validate_quorum, PercentageThreshold, ThresholdError};
 
@@ -9,7 +10,9 @@ pub const MAX_NUM_CHOICES: u32 = 20;
 const NONE_OPTION_DESCRIPTION: &str = "None of the above";
 
 /// Determines how many choices may be selected.
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum VotingStrategy {
     SingleChoice { quorum: PercentageThreshold },
 }
@@ -29,7 +32,9 @@ impl VotingStrategy {
 }
 
 /// A multiple choice vote, picking the desired option
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 #[derive(Copy)]
 pub struct MultipleChoiceVote {
     // A vote indicates which option the user has selected.
@@ -43,7 +48,9 @@ impl std::fmt::Display for MultipleChoiceVote {
 }
 
 // Holds the vote weights for each option
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct MultipleChoiceVotes {
     // Vote counts is a vector of integers indicating the vote weight for each option
     // (the index corresponds to the option).
@@ -82,7 +89,9 @@ impl MultipleChoiceVotes {
 
 /// Represents the type of Multiple choice option. "None of the above" has a special
 /// type for example.
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum MultipleChoiceOptionType {
     /// Choice that represents selecting none of the options; still counts toward quorum
     /// and allows proposals with all bad options to be voted against.
@@ -91,13 +100,17 @@ pub enum MultipleChoiceOptionType {
 }
 
 /// Represents unchecked multiple choice options
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct MultipleChoiceOptions {
     pub options: Vec<MultipleChoiceOption>,
 }
 
 /// Unchecked multiple choice option
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct MultipleChoiceOption {
     pub title: String,
     pub description: String,
@@ -106,13 +119,17 @@ pub struct MultipleChoiceOption {
 
 /// Multiple choice options that have been verified for correctness, and have all fields
 /// necessary for voting.
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct CheckedMultipleChoiceOptions {
     pub options: Vec<CheckedMultipleChoiceOption>,
 }
 
 /// A verified option that has all fields needed for voting.
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct CheckedMultipleChoiceOption {
     // This is the index of the option in both the vote_weights and proposal.choices vectors.
     // Workaround due to not being able to use HashMaps in Cosmwasm.

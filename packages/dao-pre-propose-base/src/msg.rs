@@ -1,11 +1,12 @@
-use cosmwasm_schema::{cw_serde, schemars::JsonSchema, QueryResponses};
+use cosmwasm_schema::{schemars::JsonSchema, QueryResponses};
 use cw_denom::UncheckedDenom;
 use dao_voting::{
     deposit::{CheckedDepositInfo, UncheckedDepositInfo},
     status::Status,
 };
-
-#[cw_serde]
+use serde::{Deserialize, Serialize};
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct InstantiateMsg<InstantiateExt> {
     /// Information about the deposit requirements for this
     /// module. None if no deposit.
@@ -14,16 +15,20 @@ pub struct InstantiateMsg<InstantiateExt> {
     /// proposals in the DAO. Otherwise, any address may create a
     /// proposal so long as they pay the deposit.
     pub open_proposal_submission: bool,
+    pub proposal_module_code_hash: String,
     /// Extension for instantiation. The default implementation will
     /// do nothing with this data.
     pub extension: InstantiateExt,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg<ProposalMessage, ExecuteExt> {
     /// Creates a new proposal in the pre-propose module. MSG will be
     /// serialized and used as the proposal creation message.
-    Propose { msg: ProposalMessage },
+    Propose { key: String, 
+        msg: ProposalMessage 
+    },
 
     /// Updates the configuration of this module. This will completely
     /// override the existing configuration. This new configuration
@@ -73,10 +78,10 @@ pub enum ExecuteMsg<ProposalMessage, ExecuteExt> {
 
     /// Adds a proposal submitted hook. Fires when a new proposal is submitted
     /// to the pre-propose contract. Only the DAO may call this method.
-    AddProposalSubmittedHook { address: String },
+    AddProposalSubmittedHook { address: String,code_hash: String },
 
     /// Removes a proposal submitted hook. Only the DAO may call this method.
-    RemoveProposalSubmittedHook { address: String },
+    RemoveProposalSubmittedHook { address: String ,code_hash: String},
 
     /// Handles proposal hook fired by the associated proposal
     /// module when a proposal is completed (ie executed or rejected).
@@ -89,7 +94,8 @@ pub enum ExecuteMsg<ProposalMessage, ExecuteExt> {
     },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 #[derive(QueryResponses)]
 pub enum QueryMsg<QueryExt>
 where
@@ -97,11 +103,11 @@ where
 {
     /// Gets the proposal module that this pre propose module is
     /// associated with. Returns `Addr`.
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(dao_interface::state::AnyContractInfo)]
     ProposalModule {},
     /// Gets the DAO (dao-dao-core) module this contract is associated
     /// with. Returns `Addr`.
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(dao_interface::state::AnyContractInfo)]
     Dao {},
     /// Gets the module's configuration.
     #[returns(crate::state::Config)]
@@ -119,7 +125,8 @@ where
     QueryExtension { msg: QueryExt },
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct DepositInfoResponse {
     /// The deposit that has been paid for the specified proposal.
     pub deposit_info: Option<CheckedDepositInfo>,

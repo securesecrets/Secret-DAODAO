@@ -1,10 +1,12 @@
-use cosmwasm_schema::cw_serde;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use cw_hooks::Hooks;
 use dao_voting::reply::mask_vote_hook_index;
 use cosmwasm_std::{to_binary, StdResult, Storage, SubMsg, WasmMsg};
 
 /// An enum representing vote hooks, fired when new votes are cast.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum VoteHookMsg {
     NewVote {
         proposal_id: u64,
@@ -22,7 +24,6 @@ pub fn new_vote_hooks(
     proposal_id: u64,
     voter: String,
     vote: String,
-    code_hash: String,
 ) -> StdResult<Vec<SubMsg>> {
     let msg = to_binary(&VoteHookExecuteMsg::VoteHook(VoteHookMsg::NewVote {
         proposal_id,
@@ -30,10 +31,10 @@ pub fn new_vote_hooks(
         vote,
     }))?;
     let mut index: u64 = 0;
-    hooks.prepare_hooks(storage, |a| {
+    hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
-            contract_addr: a.to_string(),
-            code_hash:code_hash.clone(),
+            contract_addr: hook_item.addr.to_string(),
+            code_hash:hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };
@@ -44,7 +45,8 @@ pub fn new_vote_hooks(
     })
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum VoteHookExecuteMsg {
     VoteHook(VoteHookMsg),
 }

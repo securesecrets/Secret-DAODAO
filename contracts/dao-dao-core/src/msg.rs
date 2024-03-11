@@ -50,6 +50,8 @@ pub struct InstantiateMsg {
     pub initial_items: Option<Vec<InitialItem>>,
     /// Implements the DAO Star standard: <https://daostar.one/EIP>
     pub dao_uri: Option<String>,
+    pub snip20_code_hash: String,
+    pub snip721_code_hash: String,
 }
 
 #[cw_serde]
@@ -101,15 +103,15 @@ pub enum ExecuteMsg {
     /// Callable by the core contract. Replaces the current
     /// governance contract config with the provided config.
     UpdateConfig { config: Config },
-    /// Updates the list of cw20 tokens this contract has registered.
-    UpdateCw20List {
-        to_add: Vec<String>,
-        to_remove: Vec<String>,
+    /// Updates the list of snip20 tokens this contract has registered.
+    UpdateSnip20List {
+        to_add: Vec<(String,String)>,// with code hashes
+        to_remove: Vec<(String,String)>,// with code hashes
     },
-    /// Updates the list of cw721 tokens this contract has registered.
-    UpdateCw721List {
-        to_add: Vec<String>,
-        to_remove: Vec<String>,
+    /// Updates the list of snip721 tokens this contract has registered.
+    UpdateSnip721List {
+        to_add: Vec<(String,String)>,// with code hashes
+        to_remove: Vec<(String,String)>,// with code hashes
     },
     /// Updates the governance contract's governance modules. Module
     /// instantiate info in `to_add` is used to create new modules and

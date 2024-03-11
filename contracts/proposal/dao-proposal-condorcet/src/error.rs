@@ -1,5 +1,7 @@
 use cosmwasm_std::StdError;
 use dao_voting::{error::VotingError, reply::error::TagError, threshold::ThresholdError};
+use secret_cw_controllers::ReplyError;
+use secret_utils::ParseReplyError;
 use thiserror::Error;
 
 use crate::vote::VoteError;
@@ -16,6 +18,12 @@ pub enum ContractError {
     Voting(#[from] VotingError),
     #[error(transparent)]
     Tag(#[from] TagError),
+
+    #[error(transparent)]
+    ReplyUdError(#[from] ReplyError),
+
+    #[error(transparent)]
+    ParseReplyError(#[from] ParseReplyError),
 
     #[error("non-zero voting power required to perform this action")]
     ZeroVotingPower {},

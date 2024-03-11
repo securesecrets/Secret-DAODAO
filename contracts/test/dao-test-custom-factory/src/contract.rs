@@ -489,7 +489,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                 funds: vec![],
             }));
 
-            // Responses for `dao-voting-cw721-staked` MUST include a
+            // Responses for `dao-voting-snip721-staked` MUST include a
             // NftFactoryCallback.
             Ok(
                 Response::new().set_data(to_json_binary(&NftFactoryCallback {

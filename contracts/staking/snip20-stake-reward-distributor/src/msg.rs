@@ -16,7 +16,6 @@ pub struct InstantiateMsg {
     pub reward_rate: Uint128,
     pub reward_token: String,
     pub reward_token_code_hash: String,
-    pub reward_distributor_viewing_key: String,
 }
 
 #[cw_ownable_execute]
@@ -28,12 +27,9 @@ pub enum ExecuteMsg {
         reward_rate: Uint128,
         reward_token: String,
         reward_token_code_hash: String,
-        reward_distributor_viewing_key: String,
     },
     Distribute {},
     Withdraw {},
-    CreateViewingKey { entropy: String },
-    SetViewingKey { key: String },
 }
 
 #[cw_serde]

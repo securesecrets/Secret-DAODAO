@@ -1,10 +1,11 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     to_binary, Addr, CosmosMsg, Deps, MessageInfo, StdError, StdResult, Uint128, WasmMsg,
 };
+use schemars::JsonSchema;
 use secret_utils::{must_pay, PaymentError};
 
-use dao_interface::voting::DenomResponse;
+use dao_interface::{state::AnyContractInfo, voting::DenomResponse};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use cw_denom::{CheckedDenom, DenomError, UncheckedDenom};
@@ -29,14 +30,18 @@ pub enum DepositError {
 }
 
 // The voting module token type to expect.
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum VotingModuleTokenType {
     Native,
     Cw20,
 }
 
 /// Information about the token to use for proposal deposits.
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum DepositToken {
     /// Use a specific token address as the deposit token.
     Token { denom: UncheckedDenom },
@@ -52,7 +57,9 @@ pub enum DepositToken {
 }
 
 /// Information about the deposit required to create a proposal.
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct UncheckedDepositInfo {
     /// The address of the token to be used for proposal deposits.
     pub denom: DepositToken,
@@ -63,7 +70,9 @@ pub struct UncheckedDepositInfo {
     pub refund_policy: DepositRefundPolicy,
 }
 
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum DepositRefundPolicy {
     /// Deposits should always be refunded.
     Always,
@@ -77,7 +86,9 @@ pub enum DepositRefundPolicy {
 /// processed. This type should never be constructed literally and
 /// should always by built by calling `into_checked` on a
 /// `DepositInfo` instance.
-#[cw_serde]
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct CheckedDepositInfo {
     /// The address of the cw20 token to be used for proposal
     /// deposits.
@@ -112,9 +123,9 @@ impl UncheckedDepositInfo {
         }
 
         let denom = match denom {
-            DepositToken::Token { denom } => denom.into_checked(deps, code_hash.clone()),
+            DepositToken::Token { denom } => denom.into_checked(deps),
             DepositToken::VotingModuleToken { token_type } => {
-                let voting_module: Addr = deps.querier.query_wasm_smart(
+                let voting_module: AnyContractInfo = deps.querier.query_wasm_smart(
                     code_hash.clone(),
                     dao,
                     &dao_interface::msg::QueryMsg::VotingModule {},
@@ -125,20 +136,20 @@ impl UncheckedDepositInfo {
                         // If the voting module has no native token denom this
                         // will error. This is desirable.
                         let denom: DenomResponse = deps.querier.query_wasm_smart(
-                            code_hash.clone(),
-                            voting_module,
+                            voting_module.code_hash.clone(),
+                            voting_module.addr.to_string().clone(),
                             &dao_interface::voting::Query::Denom {},
                         )?;
 
                         // Validate that native denom is formatted correctly.
-                        UncheckedDenom::Native(denom.denom).into_checked(deps, code_hash.clone())
+                        UncheckedDenom::Native(denom.denom).into_checked(deps)
                     }
                     VotingModuleTokenType::Cw20 => {
                         // If the voting module has no cw20 token this will
                         // error. This is desirable.
-                        let token_addr: Addr = deps.querier.query_wasm_smart(
-                            code_hash.clone(),
-                            voting_module,
+                        let token: AnyContractInfo = deps.querier.query_wasm_smart(
+                            voting_module.code_hash.clone(),
+                            voting_module.addr.to_string().clone(),
                             &dao_interface::voting::Query::TokenContract {},
                         )?;
 
@@ -146,7 +157,7 @@ impl UncheckedDepositInfo {
                         // returned a valid token. Conversion of the unchecked
                         // denom into a checked one will do a `TokenInfo {}`
                         // query.
-                        UncheckedDenom::Cw20(token_addr.into_string()).into_checked(deps, code_hash)
+                        UncheckedDenom::Cw20(token.addr.into_string(),token.code_hash).into_checked(deps)
                     }
                 }
             }
@@ -189,13 +200,12 @@ impl CheckedDepositInfo {
 
     pub fn get_take_deposit_messages(
         &self,
-        code_hash: String,
         depositor: &Addr,
         contract: &Addr,
     ) -> StdResult<Vec<CosmosMsg>> {
         let take_deposit_msg: Vec<CosmosMsg> = if let Self {
             amount,
-            denom: CheckedDenom::Cw20(address),
+            denom: CheckedDenom::Cw20(address,token_code_hash),
             ..
         } = self
         {
@@ -214,7 +224,7 @@ impl CheckedDepositInfo {
                         memo: None,
                         padding: None,
                     })?,
-                    code_hash,
+                    code_hash:token_code_hash.clone(),
                 }
                 .into()]
             }
@@ -229,7 +239,6 @@ impl CheckedDepositInfo {
     pub fn get_return_deposit_message(
         &self,
         depositor: &Addr,
-        code_hash: String,
     ) -> StdResult<Vec<CosmosMsg>> {
         // Should get caught in `into_checked()`, but to be pedantic.
         if self.amount.is_zero() {
@@ -237,7 +246,7 @@ impl CheckedDepositInfo {
         }
         let message = self
             .denom
-            .get_transfer_to_message(code_hash, depositor, self.amount)?;
+            .get_transfer_to_message(depositor, self.amount)?;
         Ok(vec![message])
     }
 }
@@ -270,7 +279,7 @@ pub mod tests {
 
         // Doesn't matter what we submit if it's a cw20 token.
         info.funds = vec![];
-        deposit_info.denom = CheckedDenom::Cw20(Addr::unchecked(CW20));
+        deposit_info.denom = CheckedDenom::Cw20(Addr::unchecked(CW20),"code_hash".to_string());
         deposit_info.check_native_deposit_paid(&info).unwrap();
 
         info.funds = coins(100, NATIVE_DENOM);
@@ -350,7 +359,6 @@ pub mod tests {
         };
         let messages = deposit_info
             .get_take_deposit_messages(
-                mock_env().contract.code_hash,
                 &Addr::unchecked("ekez"),
                 &Addr::unchecked(CW20),
             )
@@ -358,10 +366,9 @@ pub mod tests {
         assert_eq!(messages, vec![]);
 
         // Does something for cw20s.
-        deposit_info.denom = CheckedDenom::Cw20(Addr::unchecked(CW20));
+        deposit_info.denom = CheckedDenom::Cw20(Addr::unchecked(CW20),"code_hash".to_string());
         let messages = deposit_info
             .get_take_deposit_messages(
-                mock_env().contract.code_hash,
                 &Addr::unchecked("ekez"),
                 &Addr::unchecked("contract"),
             )
@@ -386,7 +393,6 @@ pub mod tests {
         deposit_info.amount = Uint128::zero();
         let messages = deposit_info
             .get_take_deposit_messages(
-                mock_env().contract.code_hash,
                 &Addr::unchecked("ekez"),
                 &Addr::unchecked(CW20),
             )
@@ -402,7 +408,7 @@ pub mod tests {
             refund_policy: DepositRefundPolicy::Always,
         };
         let messages = deposit_info
-            .get_return_deposit_message(&Addr::unchecked("ekez"), mock_env().contract.code_hash)
+            .get_return_deposit_message(&Addr::unchecked("ekez"))
             .unwrap();
         assert_eq!(
             messages,
@@ -415,7 +421,7 @@ pub mod tests {
         // Don't fire a message if there is nothing to send!
         deposit_info.amount = Uint128::zero();
         let messages = deposit_info
-            .get_return_deposit_message(&Addr::unchecked("ekez"), mock_env().contract.code_hash)
+            .get_return_deposit_message(&Addr::unchecked("ekez"))
             .unwrap();
         assert_eq!(messages, vec![]);
     }
@@ -423,12 +429,12 @@ pub mod tests {
     #[test]
     fn test_get_return_deposit_message_cw20() {
         let mut deposit_info = CheckedDepositInfo {
-            denom: CheckedDenom::Cw20(Addr::unchecked(CW20)),
+            denom: CheckedDenom::Cw20(Addr::unchecked(CW20),"code_hash".to_string()),
             amount: Uint128::new(10),
             refund_policy: DepositRefundPolicy::Always,
         };
         let messages = deposit_info
-            .get_return_deposit_message(&Addr::unchecked("ekez"), mock_env().contract.code_hash)
+            .get_return_deposit_message(&Addr::unchecked("ekez"))
             .unwrap();
         assert_eq!(
             messages,
@@ -447,7 +453,7 @@ pub mod tests {
         // Don't fire a message if there is nothing to send!
         deposit_info.amount = Uint128::zero();
         let messages = deposit_info
-            .get_return_deposit_message(&Addr::unchecked("ekez"), mock_env().contract.code_hash)
+            .get_return_deposit_message(&Addr::unchecked("ekez"))
             .unwrap();
         assert_eq!(messages, vec![]);
     }

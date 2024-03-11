@@ -5,9 +5,11 @@ use dao_dao_macros::voting_module_query;
 pub enum GroupContract {
     Existing {
         address: String,
+        code_hash: String,
     },
     New {
         cw4_group_code_id: u64,
+        cw4_group_code_hash: String,
         initial_members: Vec<cw4::Member>,
     },
 }
@@ -15,6 +17,7 @@ pub enum GroupContract {
 #[cw_serde]
 pub struct InstantiateMsg {
     pub group_contract: GroupContract,
+    pub dao_code_hash: String,
 }
 
 #[cw_serde]
@@ -24,7 +27,7 @@ pub enum ExecuteMsg {}
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(dao_interface::state::AnyContractInfo)]
     GroupContract {},
 }
 

@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{BlockInfo, Uint128};
-use cw_utils::Expiration;
+use secret_utils::Expiration;
 
 use crate::{
     m::{Stats, M},

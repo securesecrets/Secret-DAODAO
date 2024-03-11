@@ -17,3 +17,6 @@ dao-dao-macros = { workspace = true }
 cw-denom = { workspace = true }
 secret-utils = { workspace = true }
 secret-storage-plus = { workspace = true }
+serde ={ workspace = true }
+schemars ={ workspace = true }
+secret-cw-controllers ={ workspace = true }

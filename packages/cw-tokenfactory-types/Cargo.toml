@@ -8,14 +8,14 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [features]
-default = ["osmosis_tokenfactory"]
+default = ["cosmwasm_tokenfactory"]
 # use the /cosmwasm.tokenfactory... msg types
 cosmwasm_tokenfactory = []
 # use the /osmosis.tokenfactory... msg types
 osmosis_tokenfactory = []
 
 [dependencies]
-# cosmwasm-std = { workspace = true }
+cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
 dao-interface = { workspace = true }
 osmosis-std = { workspace = true }

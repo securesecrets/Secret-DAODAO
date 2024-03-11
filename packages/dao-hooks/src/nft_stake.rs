@@ -1,9 +1,11 @@
-use cosmwasm_schema::cw_serde;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use cw_hooks::Hooks;
 use cosmwasm_std::{to_binary, Addr, StdResult, Storage, SubMsg, WasmMsg};
 
 /// An enum representing NFT staking hooks.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum NftStakeChangedHookMsg {
     Stake { addr: Addr, token_id: String },
     Unstake { addr: Addr, token_ids: Vec<String> },
@@ -16,15 +18,14 @@ pub fn stake_nft_hook_msgs(
     storage: &dyn Storage,
     addr: Addr,
     token_id: String,
-    code_hash: String,
 ) -> StdResult<Vec<SubMsg>> {
     let msg = to_binary(&NftStakeChangedExecuteMsg::NftStakeChangeHook(
         NftStakeChangedHookMsg::Stake { addr, token_id },
     ))?;
-    hooks.prepare_hooks(storage, |a| {
+    hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
-            contract_addr: a.into_string(),
-            code_hash:code_hash.clone(),
+            contract_addr: hook_item.addr.into_string(),
+            code_hash:hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };
@@ -39,16 +40,15 @@ pub fn unstake_nft_hook_msgs(
     storage: &dyn Storage,
     addr: Addr,
     token_ids: Vec<String>,
-    code_hash: String,
 ) -> StdResult<Vec<SubMsg>> {
     let msg = to_binary(&NftStakeChangedExecuteMsg::NftStakeChangeHook(
         NftStakeChangedHookMsg::Unstake { addr, token_ids },
     ))?;
 
-    hooks.prepare_hooks(storage, |a| {
+    hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
-            contract_addr: a.into_string(),
-            code_hash:code_hash.clone(),
+            contract_addr: hook_item.addr.into_string(),
+            code_hash:hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };
@@ -56,7 +56,8 @@ pub fn unstake_nft_hook_msgs(
     })
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum NftStakeChangedExecuteMsg {
     NftStakeChangeHook(NftStakeChangedHookMsg),
 }

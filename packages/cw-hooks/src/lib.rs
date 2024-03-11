@@ -1,14 +1,17 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 
+use cosmwasm_schema::cw_serde;
 use thiserror::Error;
 
-use cosmwasm_schema::cw_serde;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use cosmwasm_std::{Addr, CustomQuery, Deps, StdError, StdResult, Storage, SubMsg};
 use secret_storage_plus::Item;
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct HooksResponse {
-    pub hooks: Vec<String>,
+    pub hooks: Vec<HookItem>,
 }
 
 #[derive(Error, Debug, PartialEq)]
@@ -23,27 +26,33 @@ pub enum HookError {
     HookNotRegistered {},
 }
 
+#[cw_serde]
+pub struct HookItem {
+    pub addr : Addr,
+    pub code_hash: String,
+}
 // store all hook addresses in one item. We cannot have many of them before the contract becomes unusable anyway.
-pub struct Hooks<'a>(Item<'a, Vec<Addr>>);
+pub struct Hooks<'a>(Item<'a, Vec<HookItem>>);
+
 
 impl<'a> Hooks<'a> {
     pub const fn new(storage_key: &'a str) -> Self {
         Hooks(Item::new(storage_key))
     }
 
-    pub fn add_hook(&self, storage: &mut dyn Storage, addr: Addr) -> Result<(), HookError> {
+    pub fn add_hook(&self, storage: &mut dyn Storage, hook_item: HookItem) -> Result<(), HookError> {
         let mut hooks = self.0.may_load(storage)?.unwrap_or_default();
-        if !hooks.iter().any(|h| h == &addr) {
-            hooks.push(addr);
+        if !hooks.iter().any(|h| h == &hook_item) {
+            hooks.push(hook_item);
         } else {
             return Err(HookError::HookAlreadyRegistered {});
         }
         Ok(self.0.save(storage, &hooks)?)
     }
 
-    pub fn remove_hook(&self, storage: &mut dyn Storage, addr: Addr) -> Result<(), HookError> {
+    pub fn remove_hook(&self, storage: &mut dyn Storage, hook_item: HookItem) -> Result<(), HookError> {
         let mut hooks = self.0.load(storage)?;
-        if let Some(p) = hooks.iter().position(|h| h == &addr) {
+        if let Some(p) = hooks.iter().position(|h| h == &hook_item) {
             hooks.remove(p);
         } else {
             return Err(HookError::HookNotRegistered {});
@@ -55,14 +64,14 @@ impl<'a> Hooks<'a> {
         &self,
         storage: &mut dyn Storage,
         index: u64,
-    ) -> Result<Addr, HookError> {
+    ) -> Result<HookItem, HookError> {
         let mut hooks = self.0.load(storage)?;
         let hook = hooks.remove(index as usize);
         self.0.save(storage, &hooks)?;
         Ok(hook)
     }
 
-    pub fn prepare_hooks<F: FnMut(Addr) -> StdResult<SubMsg>>(
+    pub fn prepare_hooks<F: FnMut(HookItem) -> StdResult<SubMsg>>(
         &self,
         storage: &dyn Storage,
         prep: F,
@@ -75,7 +84,7 @@ impl<'a> Hooks<'a> {
             .collect()
     }
 
-    pub fn prepare_hooks_custom_msg<F: FnMut(Addr) -> StdResult<SubMsg<T>>, T>(
+    pub fn prepare_hooks_custom_msg<F: FnMut(HookItem) -> StdResult<SubMsg<T>>, T>(
         &self,
         storage: &dyn Storage,
         prep: F,
@@ -99,7 +108,7 @@ impl<'a> Hooks<'a> {
 
     pub fn query_hooks<Q: CustomQuery>(&self, deps: Deps<Q>) -> StdResult<HooksResponse> {
         let hooks = self.0.may_load(deps.storage)?.unwrap_or_default();
-        let hooks = hooks.into_iter().map(String::from).collect();
+        // let hooks = hooks.into_iter().map(HookItem::from).collect();
         Ok(HooksResponse { hooks })
     }
 }

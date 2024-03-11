@@ -1,8 +1,10 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, WasmMsg};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// Top level config type for core module.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct Config {
     /// The name of the contract.
     pub name: String,
@@ -12,20 +14,22 @@ pub struct Config {
     pub image_url: Option<String>,
     /// If true the contract will automatically add received cw20
     /// tokens to its treasury.
-    pub automatically_add_cw20s: bool,
+    pub automatically_add_snip20s: bool,
     /// If true the contract will automatically add received cw721
     /// tokens to its treasury.
-    pub automatically_add_cw721s: bool,
+    pub automatically_add_snip721s: bool,
     /// The URI for the DAO as defined by the DAOstar standard
     /// <https://daostar.one/EIP>
     pub dao_uri: Option<String>,
 }
 
 /// Top level type describing a proposal module.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct ProposalModule {
     /// The address of the proposal module.
     pub address: Addr,
+    pub code_hash: String,
     /// The URL prefix of this proposal module as derived from the module ID.
     /// Prefixes are mapped to letters, e.g. 0 is 'A', and 26 is 'AA'.
     pub prefix: String,
@@ -33,8 +37,23 @@ pub struct ProposalModule {
     pub status: ProposalModuleStatus,
 }
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct VotingModuleInfo {
+    pub addr: Addr,
+    pub code_hash: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct AnyContractInfo {
+    pub addr: Addr,
+    pub code_hash: String,
+}
+
 /// The status of a proposal module.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum ProposalModuleStatus {
     Enabled,
     Disabled,
@@ -42,7 +61,8 @@ pub enum ProposalModuleStatus {
 
 /// Information about the CosmWasm level admin of a contract. Used in
 /// conjunction with `ModuleInstantiateInfo` to instantiate modules.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum Admin {
     /// Set the admin to a specified address.
     Address { addr: String },
@@ -51,7 +71,8 @@ pub enum Admin {
 }
 
 /// Information needed to instantiate a module.
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct ModuleInstantiateInfo {
     /// Code ID of the contract to be instantiated.
     pub code_id: u64,
@@ -68,13 +89,30 @@ pub struct ModuleInstantiateInfo {
     pub label: String,
 }
 
+// impl InitCallback for ModuleInstantiateInfo {
+//     const BLOCK_SIZE: usize = 256;
+// }
+
 impl ModuleInstantiateInfo {
-    pub fn into_wasm_msg(self, _dao: Addr) -> WasmMsg {
+    pub fn into_wasm_msg(self, dao: Addr) -> WasmMsg {
         WasmMsg::Instantiate {
-            // admin: self.admin.map(|admin| match admin {
-            //     Admin::Address { addr } => addr,
-            //     Admin::CoreModule {} => dao.into_string(),
-            // }),
+            admin: self.admin.map(|admin| match admin {
+                Admin::Address { addr } => addr,
+                Admin::CoreModule {} => dao.into_string(),
+            }),
+            code_id: self.code_id,
+            code_hash: self.code_hash,
+            msg: self.msg,
+            funds: self.funds,
+            label: self.label,
+        }
+    }
+    pub fn to_cosmos_msg(self, dao: Addr) -> WasmMsg {
+        WasmMsg::Instantiate {
+            admin: self.admin.map(|admin| match admin {
+                Admin::Address { addr } => addr,
+                Admin::CoreModule {} => dao.into_string(),
+            }),
             code_id: self.code_id,
             code_hash: self.code_hash,
             msg: self.msg,
@@ -85,7 +123,8 @@ impl ModuleInstantiateInfo {
 }
 
 /// Callbacks to be executed when a module is instantiated
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct ModuleInstantiateCallback {
     pub msgs: Vec<CosmosMsg>,
 }
@@ -109,7 +148,7 @@ mod tests {
         assert_eq!(
             no_admin.into_wasm_msg(Addr::unchecked("ekez")),
             WasmMsg::Instantiate {
-                // admin: None,
+                admin: None,
                 code_id: 42,
                 code_hash: "code_hash".into(),
                 msg: to_binary("foo").unwrap(),
@@ -134,7 +173,7 @@ mod tests {
         assert_eq!(
             no_admin.into_wasm_msg(Addr::unchecked("ekez")),
             WasmMsg::Instantiate {
-                // admin: Some("core".to_string()),
+                admin: Some("core".to_string()),
                 code_id: 42,
                 code_hash: "code_hash".into(),
                 msg: to_binary("foo").unwrap(),
@@ -157,7 +196,7 @@ mod tests {
         assert_eq!(
             no_admin.into_wasm_msg(Addr::unchecked("ekez")),
             WasmMsg::Instantiate {
-                // admin: Some("ekez".to_string()),
+                admin: Some("ekez".to_string()),
                 code_id: 42,
                 code_hash: "code_hash".into(),
                 msg: to_binary("foo").unwrap(),

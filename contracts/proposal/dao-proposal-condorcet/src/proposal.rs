@@ -1,14 +1,14 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_json_binary, Addr, BlockInfo, StdResult, SubMsg, Uint128, WasmMsg};
-use cw_utils::Expiration;
-use dao_voting::{
-    reply::mask_proposal_execution_proposal_id, threshold::PercentageThreshold,
-    voting::does_vote_count_pass,
-};
+use cosmwasm_std::{Addr, BlockInfo, StdResult, Storage, SubMsg, Uint128};
+use dao_voting::{threshold::PercentageThreshold, voting::does_vote_count_pass};
+use secret_cw_controllers::ReplyEvent;
+use secret_toolkit::utils::HandleCallback;
+use secret_utils::Expiration;
 
 use crate::{
     config::Config,
     msg::Choice,
+    state::REPLY_IDS,
     tally::{Tally, Winner},
 };
 
@@ -153,22 +153,33 @@ impl Proposal {
 
     /// Sets the proposal's status to executed and returns a
     /// submessage to be executed.
-    pub(crate) fn set_executed(&mut self, dao: Addr, winner: u32) -> StdResult<SubMsg> {
+    pub(crate) fn set_executed(
+        &mut self,
+        store: &mut dyn Storage,
+        dao: Addr,
+        dao_code_hash: String,
+        winner: u32,
+    ) -> StdResult<SubMsg> {
         debug_assert_eq!(self.last_status, Status::Passed { winner });
 
         self.last_status = Status::Executed;
 
         let msgs = self.choices[winner as usize].msgs.clone();
-        let core_exec = WasmMsg::Execute {
-            contract_addr: dao.into_string(),
-            msg: to_json_binary(&dao_interface::msg::ExecuteMsg::ExecuteProposalHook { msgs })?,
-            funds: vec![],
-        };
+        let core_exec = dao_interface::msg::ExecuteMsg::ExecuteProposalHook { msgs };
+
         Ok(if self.close_on_execution_failure {
-            let masked_id = mask_proposal_execution_proposal_id(self.id as u64);
-            SubMsg::reply_on_error(core_exec, masked_id)
+            let reply_id = REPLY_IDS.add_event(
+                store,
+                ReplyEvent::FailedProposalExecution {
+                    proposal_id: self.id as u64,
+                },
+            );
+            SubMsg::reply_on_error(
+                core_exec.to_cosmos_msg(dao_code_hash.clone(), dao.clone().to_string(), None)?,
+                reply_id.unwrap(),
+            )
         } else {
-            SubMsg::new(core_exec)
+            SubMsg::new(core_exec.to_cosmos_msg(dao_code_hash, dao.to_string(), None)?)
         })
     }
 

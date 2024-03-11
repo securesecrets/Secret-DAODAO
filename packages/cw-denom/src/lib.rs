@@ -39,7 +39,7 @@ pub enum CheckedDenom {
     /// A native (bank module) asset.
     Native(String),
     /// A cw20 asset.
-    Cw20(Addr),
+    Cw20(Addr,String),
 }
 
 /// A denom that has not been checked to confirm it points to a valid
@@ -49,7 +49,7 @@ pub enum UncheckedDenom {
     /// A native (bank module) asset.
     Native(String),
     /// A cw20 asset.
-    Cw20(String),
+    Cw20(String,String),
 }
 
 impl UncheckedDenom {
@@ -62,20 +62,20 @@ impl UncheckedDenom {
     /// `cw20::TokenInfoResponse`.
     ///
     /// [default SDK rules]: https://github.com/cosmos/cosmos-sdk/blob/7728516abfab950dc7a9120caad4870f1f962df5/types/coin.go#L865-L867
-    pub fn into_checked(self, deps: Deps, code_hash: String) -> Result<CheckedDenom, DenomError> {
+    pub fn into_checked(self, deps: Deps) -> Result<CheckedDenom, DenomError> {
         match self {
             Self::Native(denom) => validate_native_denom(denom),
-            Self::Cw20(addr) => {
+            Self::Cw20(addr,code_hash) => {
                 let addr = deps.api.addr_validate(&addr)?;
                 let _info: secret_toolkit::snip20::TokenInfoResponse = deps
                     .querier
                     .query_wasm_smart(
-                        code_hash,
+                        code_hash.clone(),
                         addr.clone(),
                         &secret_toolkit::snip20::QueryMsg::TokenInfo {},
                     )
                     .map_err(|err| DenomError::InvalidCw20 { err })?;
-                Ok(CheckedDenom::Cw20(addr))
+                Ok(CheckedDenom::Cw20(addr,code_hash))
             }
         }
     }
@@ -97,7 +97,7 @@ impl CheckedDenom {
     pub fn is_cw20(&self, cw20: &Addr) -> bool {
         match self {
             CheckedDenom::Native(_) => false,
-            CheckedDenom::Cw20(a) => a == cw20,
+            CheckedDenom::Cw20(a,_) => a == cw20,
         }
     }
 
@@ -116,7 +116,7 @@ impl CheckedDenom {
     pub fn is_native(&self, denom: &str) -> bool {
         match self {
             CheckedDenom::Native(n) => n == denom,
-            CheckedDenom::Cw20(_) => false,
+            CheckedDenom::Cw20(..) => false,
         }
     }
 
@@ -124,13 +124,12 @@ impl CheckedDenom {
     pub fn query_balance<C: CustomQuery>(
         &self,
         querier: &QuerierWrapper<C>,
-        code_hash: String,
         who: &Addr,
         key: String,
     ) -> StdResult<Uint128> {
         match self {
             CheckedDenom::Native(denom) => Ok(querier.query_balance(who, denom)?.amount),
-            CheckedDenom::Cw20(address) => {
+            CheckedDenom::Cw20(address,code_hash) => {
                 let balance: secret_toolkit::snip20::Balance = querier.query_wasm_smart(
                     code_hash,
                     address,
@@ -149,7 +148,6 @@ impl CheckedDenom {
     /// execution to fail.
     pub fn get_transfer_to_message(
         &self,
-        code_hash: String,
         who: &Addr,
         amount: Uint128,
     ) -> StdResult<CosmosMsg> {
@@ -162,9 +160,9 @@ impl CheckedDenom {
                 }],
             }
             .into(),
-            CheckedDenom::Cw20(address) => WasmMsg::Execute {
+            CheckedDenom::Cw20(address,code_hash) => WasmMsg::Execute {
                 contract_addr: address.to_string(),
-                code_hash,
+                code_hash:code_hash.to_string(),
                 msg: to_binary(&secret_toolkit::snip20::HandleMsg::Transfer {
                     recipient: who.to_string(),
                     amount,
@@ -210,7 +208,7 @@ impl fmt::Display for CheckedDenom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Native(inner) => write!(f, "{inner}"),
-            Self::Cw20(inner) => write!(f, "{inner}"),
+            Self::Cw20(inner,_) => write!(f, "{inner}"),
         }
     }
 }
@@ -225,6 +223,8 @@ mod tests {
     use super::*;
 
     const CW20_ADDR: &str = "cw20";
+    const CW20_CODE_HASH: &str = "CODE_HASH";
+
 
     fn token_info_mock_querier(works: bool) -> impl Fn(&WasmQuery) -> QuerierResult {
         move |query: &WasmQuery| -> QuerierResult {
@@ -263,12 +263,12 @@ mod tests {
         let mut deps = mock_dependencies();
         deps.querier = querier;
 
-        let unchecked = UncheckedDenom::Cw20(CW20_ADDR.to_string());
+        let unchecked = UncheckedDenom::Cw20(CW20_ADDR.to_string(),CW20_CODE_HASH.to_string());
         let checked = unchecked
-            .into_checked(deps.as_ref(), mock_env().contract.code_hash)
+            .into_checked(deps.as_ref())
             .unwrap();
 
-        assert_eq!(checked, CheckedDenom::Cw20(Addr::unchecked(CW20_ADDR)))
+        assert_eq!(checked, CheckedDenom::Cw20(Addr::unchecked(CW20_ADDR),CW20_CODE_HASH.to_string()))
     }
 
     #[test]
@@ -279,9 +279,9 @@ mod tests {
         let mut deps = mock_dependencies();
         deps.querier = querier;
 
-        let unchecked = UncheckedDenom::Cw20(CW20_ADDR.to_string());
+        let unchecked = UncheckedDenom::Cw20(CW20_ADDR.to_string(),CW20_CODE_HASH.to_string());
         let err = unchecked
-            .into_checked(deps.as_ref(), mock_env().contract.code_hash)
+            .into_checked(deps.as_ref())
             .unwrap_err();
         assert_eq!(
             err,
@@ -301,9 +301,9 @@ mod tests {
         let mut deps = mock_dependencies();
         deps.querier = querier;
 
-        let unchecked = UncheckedDenom::Cw20("HasCapitalsSoShouldNotValidate".to_string());
+        let unchecked = UncheckedDenom::Cw20("HasCapitalsSoShouldNotValidate".to_string(),"HasCapitalsSoShouldNotValidate".to_string());
         let err = unchecked
-            .into_checked(deps.as_ref(), mock_env().contract.code_hash)
+            .into_checked(deps.as_ref())
             .unwrap_err();
         assert_eq!(
             err,
@@ -384,7 +384,7 @@ mod tests {
     fn test_display() {
         let denom = CheckedDenom::Native("hello".to_string());
         assert_eq!(denom.to_string(), "hello".to_string());
-        let denom = CheckedDenom::Cw20(Addr::unchecked("hello"));
+        let denom = CheckedDenom::Cw20(Addr::unchecked("hello"),"CODE_HASH".to_string());
         assert_eq!(denom.to_string(), "hello".to_string());
     }
 }

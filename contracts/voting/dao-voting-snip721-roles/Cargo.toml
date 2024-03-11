@@ -1,0 +1,43 @@
+[package]
+name = "dao-voting-snip721-roles"
+authors = ["Jake Hartnell"]
+description = "A DAO DAO voting module based on non-transferrable cw721 tokens."
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[dependencies]
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+secret-storage-plus = { workspace = true }
+dao-snip721-extensions = { workspace = true }
+dao-dao-macros = { workspace = true }
+dao-interface = { workspace = true }
+# cw721-base = { workspace = true, features = ["library"] }
+snip721-controllers = { workspace = true }
+cw-ownable = { workspace = true }
+cw-paginate-storage = { workspace = true }
+# cw721 = { workspace = true }
+secret-utils = { workspace = true }
+secret-cw2 = { workspace = true }
+cw4 = { workspace = true }
+thiserror = { workspace = true }
+snip721-reference-impl ={ workspace=true }
+schemars ={ workspace = true }
+secret-toolkit ={ workspace = true }
+serde ={ workspace = true }
+snip721-roles = { workspace = true }
+
+[dev-dependencies]
+secret-multi-test = { workspace = true }
+snip721-roles = { workspace = true }
+anyhow = { workspace = true }
+dao-testing = { workspace = true }

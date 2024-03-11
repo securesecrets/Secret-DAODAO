@@ -1,11 +1,15 @@
 use cosmwasm_std::{Addr, StdError};
-use cw_utils::ParseReplyError;
+use secret_cw_controllers::ReplyError;
+use secret_utils::ParseReplyError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error(transparent)]
     Std(#[from] StdError),
+
+    #[error(transparent)]
+    ReplyUdError(#[from] ReplyError),
 
     #[error(transparent)]
     ParseReplyError(#[from] ParseReplyError),
@@ -56,4 +60,13 @@ pub enum ContractError {
 
     #[error("Can not migrate. Current version is up to date.")]
     AlreadyMigrated {},
+
+    #[error("Error instantiating  contract")]
+    InstantiateError {},
+
+    #[error("Error in executing token contract")]
+    TokenExecuteError {},
+
+    #[error("Error in reply event contract")]
+    ReplyError {},
 }

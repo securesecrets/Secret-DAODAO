@@ -2,7 +2,7 @@ use crate::snip20_msg::InitialBalance;
 use cosmwasm_schema::QueryResponses;
 use cosmwasm_std::Uint128;
 use dao_dao_macros::{active_query, cw20_token_query, voting_module_query};
-use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
+use dao_voting::threshold::ActiveThreshold;
 use schemars::JsonSchema;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,10 @@ pub enum StakingInfo {
     New {
         /// Code ID for staking contract to instantiate.
         staking_code_id: u64,
+        /// Code hash for staking contract to instantiate.
+        staking_code_hash: String,
+        /// label for the contract
+        label: String,
         /// See corresponding field in cw20-stake's
         /// instantiation. This will be used when instantiating the
         /// new staking contract.
@@ -39,9 +43,11 @@ pub enum Snip20TokenInfo {
         staking_contract: StakingInfo,
     },
     New {
-        /// Code ID for cw20 token contract.
+        /// Code ID for snip20 token contract.
         code_id: u64,
-        /// Label to use for instantiated cw20 contract.
+        /// Code hash for snip20 token contract
+        code_hash: String,
+        /// Label to use for instantiated snip20 contract.
         label: String,
 
         name: String,
@@ -50,6 +56,7 @@ pub enum Snip20TokenInfo {
         initial_balances: Vec<InitialBalance>,
 
         staking_code_id: u64,
+        staking_code_hash: String,
         unstaking_duration: Option<Duration>,
         initial_dao_balance: Option<Uint128>,
     },
@@ -61,6 +68,7 @@ pub struct InstantiateMsg {
     /// The number or percentage of tokens that must be staked
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
+    pub dao_code_hash: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -70,12 +78,6 @@ pub enum ExecuteMsg {
     /// method.
     UpdateActiveThreshold {
         new_threshold: Option<ActiveThreshold>,
-    },
-    CreateViewingKey {
-        entropy: String,
-    },
-    SetViewingKey {
-        key: String,
     },
 }
 
@@ -88,10 +90,8 @@ pub enum QueryMsg {
     /// is wrapping.
     #[returns(cosmwasm_std::Addr)]
     StakingContract {},
-    #[returns(ActiveThresholdResponse)]
+    #[returns(dao_voting::threshold::ActiveThresholdResponse)]
     ActiveThreshold {},
-    #[returns(cosmwasm_std::String)]
-    GetViewingKey {},
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

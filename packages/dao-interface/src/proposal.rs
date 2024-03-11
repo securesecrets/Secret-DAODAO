@@ -1,12 +1,16 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema:: QueryResponses;
 use secret_cw2::ContractVersion;
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub struct InfoResponse {
     pub info: ContractVersion,
 }
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 #[derive(QueryResponses)]
 pub enum Query {
     /// Returns the address of the DAO this module belongs to

@@ -2,6 +2,7 @@
 
 use cosmwasm_std::{Binary, Uint128};
 use schemars::JsonSchema;
+use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(test, derive(Eq, PartialEq))]
@@ -21,6 +22,10 @@ pub struct InstantiateMsg {
     pub prng_seed: Binary,
     pub config: Option<InitConfig>,
     pub supported_denoms: Option<Vec<String>>,
+}
+
+impl InitCallback for InstantiateMsg {
+    const BLOCK_SIZE: usize = 256;
 }
 
 /// This type represents optional configuration values which can be overridden.

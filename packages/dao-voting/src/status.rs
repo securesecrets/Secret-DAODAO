@@ -1,8 +1,9 @@
-use cosmwasm_schema::cw_serde;
+use schemars::JsonSchema;
 use secret_utils::Expiration;
+use serde::{Deserialize, Serialize};
 
-#[cw_serde]
-#[derive(Copy)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum Status {
     /// The proposal is open for voting.
     Open,

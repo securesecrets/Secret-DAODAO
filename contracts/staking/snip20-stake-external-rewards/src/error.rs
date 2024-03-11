@@ -25,6 +25,10 @@ pub enum ContractError {
     ZeroRewardDuration {},
     #[error("can not migrate. current version is up to date")]
     AlreadyMigrated {},
+    #[error("Error executing staking contract")]
+    Snip20StakeExecuteError {},
+    #[error("Got a submessage reply with unknown id: {id}")]
+    UnknownReplyId { id: u64 },
 }
 
 #[derive(Error, Debug, PartialEq)]

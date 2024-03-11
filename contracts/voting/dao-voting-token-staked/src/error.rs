@@ -1,12 +1,15 @@
 use cosmwasm_std::StdError;
-use cw_utils::{ParseReplyError, PaymentError};
 use dao_voting::threshold::ActiveThresholdError;
+use secret_utils::{ParseReplyError, PaymentError};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error(transparent)]
     Std(#[from] StdError),
+
+    #[error("Error instantiating token")]
+    TokenInstantiateError {},
 
     #[error(transparent)]
     ActiveThresholdError(#[from] ActiveThresholdError),
@@ -43,6 +46,9 @@ pub enum ContractError {
 
     #[error("Got a submessage reply with unknown id: {id}")]
     UnknownReplyId { id: u64 },
+
+    #[error("Got supply : {supply}")]
+    InvalidTokenSupply { supply: String },
 
     #[error("Factory message must serialize to WasmMsg::Execute")]
     UnsupportedFactoryMsg {},
