@@ -30,7 +30,7 @@ use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use secret_utils::{parse_reply_event_for_contract_address, Duration};
 
 use crate::msg::{CreateViewingKey, QueryWithPermit, ViewingKeyError};
-use crate::state::{DAO, REPLY_IDS};
+use crate::state::{Ballot, DAO, REPLY_IDS};
 use crate::{msg::MigrateMsg, state::CREATION_POLICY};
 use crate::{
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
@@ -410,66 +410,49 @@ pub fn execute_vote(
         return Err(ContractError::NotRegistered {});
     }
 
-    // BALLOTS.update(deps.storage, (proposal_id, &info.sender), |bal| match bal {
-    //     Some(current_ballot) => {
-    //         if prop.allow_revoting {
-    //             if current_ballot.vote == vote {
-    //                 // Don't allow casting the same vote more than
-    //                 // once. This seems liable to be confusing
-    //                 // behavior.
-    //                 Err(ContractError::AlreadyCast {})
-    //             } else {
-    //                 // Remove the old vote if this is a re-vote.
-    //                 prop.votes
-    //                     .remove_vote(current_ballot.vote, current_ballot.power)?;
-    //                 Ok(Ballot {
-    //                     power: vote_power,
-    //                     vote,
-    //                     rationale,
-    //                 })
-    //             }
-    //         } else {
-    //             Err(ContractError::AlreadyVoted {})
-    //         }
-    //     }
-    //     None => Ok(Ballot {
-    //         vote,
-    //         power: vote_power,
-    //         rationale,
-    //     }),
-    // })?;
 
-    let current_ballot = BALLOTS.get(deps.storage, &(proposal_id, info.sender.clone()));
-    if current_ballot.clone().is_some() {
-        if prop.allow_revoting {
-            if current_ballot.clone().unwrap().vote == vote {
-                //  Don't allow casting the same vote more than
-                // once. This seems liable to be confusing
-                // behavior.
-                return Err(ContractError::AlreadyCast {});
+    let ballot = BALLOTS.get(deps.storage, &(proposal_id, info.sender.clone()));
+    match ballot {
+              Some(current_ballot) => {
+            if prop.allow_revoting {
+                if current_ballot.vote == vote {
+                    // Don't allow casting the same vote more than
+                    // once. This seems liable to be confusing
+                    // behavior.
+                    return Err(ContractError::AlreadyCast {});
+                }
+                prop.votes
+                        .remove_vote(current_ballot.vote, current_ballot.power)?;
+                BALLOTS.insert(
+                        deps.storage,
+                        &(proposal_id, info.sender.clone()),
+                        &Ballot {
+                            power: vote_power,
+                            vote,
+                            // Roll over the previous rationale. If
+                            // you're changing your vote, you've also
+                            // likely changed your thinking.
+                            rationale: rationale.clone(),
+                        },
+                    )?;
             } else {
-                // Remove the old vote if this is a re-vote.
-                prop.votes.remove_vote(
-                    current_ballot.clone().unwrap().vote,
-                    current_ballot.clone().unwrap().power,
-                )?;
-                current_ballot.clone().unwrap().power = vote_power;
-                current_ballot.clone().unwrap().vote = vote;
-                current_ballot.clone().unwrap().rationale = rationale.clone();
+                return Err(ContractError::AlreadyVoted {});
             }
-        } else {
-            return Err(ContractError::AlreadyVoted {});
         }
-    } else {
-        current_ballot.clone().unwrap().power = vote_power;
-        current_ballot.clone().unwrap().vote = vote;
-        current_ballot.clone().unwrap().rationale = rationale.clone();
+        None => {
+
+        BALLOTS.insert(
+            deps.storage,
+            &(proposal_id, info.sender.clone()),
+            &Ballot {
+                power: vote_power,
+                vote,
+                rationale: rationale.clone(),
+            },
+        )?;
+        
     }
-    BALLOTS.insert(
-        deps.storage,
-        &(proposal_id, info.sender.clone()),
-        &current_ballot.unwrap(),
-    )?;
+}
 
     let old_status = prop.status;
 
@@ -636,7 +619,9 @@ pub fn execute_close(
     info: MessageInfo,
     proposal_id: u64,
 ) -> Result<Response<Empty>, ContractError> {
-    let mut prop = PROPOSALS.get(deps.storage, &proposal_id).unwrap();
+    let mut prop = PROPOSALS
+    .get(deps.storage, &proposal_id)
+    .ok_or(ContractError::NoSuchProposal { id: proposal_id })?;
 
     prop.update_status(&env.block)?;
     if prop.status != Status::Rejected {
@@ -756,22 +741,6 @@ pub fn execute_update_rationale(
     proposal_id: u64,
     rationale: Option<String>,
 ) -> Result<Response, ContractError> {
-    // BALLOTS.update(
-    //     deps.storage,
-    //     // info.sender can't be forged so we implicitly access control
-    //     // with the key.
-    //     (proposal_id, &info.sender),
-    //     |ballot| match ballot {
-    //         Some(ballot) => Ok(Ballot {
-    //             rationale: rationale.clone(),
-    //             ..ballot
-    //         }),
-    //         None => Err(ContractError::NoSuchVote {
-    //             id: proposal_id,
-    //             voter: info.sender.to_string(),
-    //         }),
-    //     },
-    // )?;
 
     let ballot = BALLOTS.get(deps.storage, &(proposal_id, info.sender.clone()));
     if ballot.clone().is_some() {

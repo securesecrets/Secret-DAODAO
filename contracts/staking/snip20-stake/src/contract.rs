@@ -28,6 +28,7 @@ pub use secret_toolkit::snip20::handle::{
 pub use secret_toolkit::snip20::query::{allowance_query, balance_query, minters_query};
 use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use secret_utils::Duration;
+use snip20_reference_impl::msg::QueryAnswer;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:snip20-stake";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -48,13 +49,17 @@ pub fn instantiate(
     // though this provides some protection against mistakes where the
     // wrong address is provided.
     let token_address = deps.api.addr_validate(&msg.token_address)?;
-    let token_info: secret_toolkit::snip20::query::TokenInfo = deps.querier.query_wasm_smart(
+    let token_info: snip20_reference_impl::msg::QueryAnswer = deps.querier.query_wasm_smart(
         msg.token_code_hash.clone().unwrap(),
         &token_address,
         &secret_toolkit::snip20::QueryMsg::TokenInfo {},
     )?;
-
-    let _supply = token_info.total_supply.unwrap();
+    match token_info {
+        QueryAnswer::TokenInfo { total_supply, .. } => {
+            let _supply = total_supply;
+        }
+        _ => (),
+    }
 
     validate_duration(msg.unstaking_duration)?;
 

@@ -4341,6 +4341,7 @@ dependencies = [
  "cw-ownable 0.5.1",
  "cw-paginate-storage 2.4.0",
  "cw-utils 0.13.4",
+ "cw20 1.1.2",
  "cw20-stake",
  "dao-hooks",
  "dao-voting 2.4.0",
@@ -4357,6 +4358,7 @@ dependencies = [
  "serde",
  "sha2 0.9.9",
  "snafu",
+ "snip20-reference-impl",
  "subtle",
  "thiserror",
 ]

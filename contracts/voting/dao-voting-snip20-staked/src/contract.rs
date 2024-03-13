@@ -18,6 +18,7 @@ use dao_voting::threshold::ActiveThresholdResponse;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 use secret_utils::parse_reply_event_for_contract_address;
+use snip20_reference_impl::msg::QueryAnswer;
 use std::convert::TryInto;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:dao-voting-snip20-staked";
@@ -228,13 +229,20 @@ pub fn assert_valid_absolute_count_threshold(
         return Err(ContractError::ZeroActiveCount {});
     }
 
-    let token_info: secret_toolkit::snip20::query::TokenInfo = deps.querier.query_wasm_smart(
+    let token_info: QueryAnswer = deps.querier.query_wasm_smart(
         token_code_hash.clone(),
         token_addr,
         &secret_toolkit::snip20::QueryMsg::TokenInfo {},
     )?;
+    let mut token_total_supply = Uint128::zero();
+    match token_info {
+        QueryAnswer::TokenInfo { total_supply, .. } => {
+            token_total_supply = total_supply.unwrap();
+        }
+        _ => (),
+    }
 
-    if count > token_info.total_supply.unwrap() {
+    if count > token_total_supply {
         return Err(ContractError::InvalidAbsoluteCount {});
     }
     Ok(())
@@ -406,16 +414,21 @@ pub fn query_is_active(deps: Deps) -> StdResult<Binary> {
                 // rounding is rounding down, so the whole thing can
                 // be safely unwrapped at the end of the day thank you
                 // for coming to my ted talk.
-                let total_potential_power: secret_toolkit::snip20::query::TokenInfo =
-                    deps.querier.query_wasm_smart(
-                        token_contract.code_hash,
-                        token_contract.addr,
-                        &secret_toolkit::snip20::QueryMsg::TokenInfo {},
-                    )?;
-                let total_power = total_potential_power
-                    .total_supply
-                    .unwrap()
-                    .full_mul(PRECISION_FACTOR);
+                let token_info: QueryAnswer = deps.querier.query_wasm_smart(
+                    token_contract.code_hash,
+                    token_contract.addr,
+                    &secret_toolkit::snip20::QueryMsg::TokenInfo {},
+                )?;
+
+                let mut total_potential_power = Uint128::zero();
+                match token_info {
+                    QueryAnswer::TokenInfo { total_supply, .. } => {
+                        total_potential_power = total_supply.unwrap();
+                    }
+                    _ => (),
+                }
+
+                let total_power = total_potential_power.full_mul(PRECISION_FACTOR);
                 // under the hood decimals are `atomics / 10^decimal_places`.
                 // cosmwasm doesn't give us a Decimal * Uint256
                 // implementation so we take the decimal apart and

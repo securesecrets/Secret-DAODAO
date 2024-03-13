@@ -26,6 +26,7 @@ cw-paginate-storage = { workspace = true }
 cw-ownable = { workspace = true }
 dao-hooks = { workspace = true }
 dao-voting = { workspace = true }
+cw20 ={ workspace = true }
 
 cw20-stake-v1 = { workspace = true, features = ["library"] }
 cw-utils-v1 = { workspace = true }
@@ -36,6 +37,8 @@ secret-toolkit = { workspace = true, default-features = false }
 secret-storage-plus = { workspace = true, default-features = false}
 secret-cw-controllers = { workspace = true }
 secret-cw2 = { workspace = true }
+
+snip20-reference-impl = { workspace = true }
 
 subtle = { version = "2.2.3", default-features = false }
 base64 = "0.12.3"

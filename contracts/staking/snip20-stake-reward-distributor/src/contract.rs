@@ -7,7 +7,7 @@ use cosmwasm_std::{
     WasmMsg,
 };
 use secret_toolkit::utils::HandleCallback;
-use snip20_reference_impl::msg::ExecuteAnswer;
+use snip20_reference_impl::msg::{ExecuteAnswer, QueryAnswer};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InfoResponse, InstantiateMsg, MigrateMsg, QueryMsg};
@@ -179,7 +179,7 @@ pub fn execute_update_owner(
 }
 
 pub fn validate_snip20(deps: Deps, snip20_addr: Addr, snip20_code_hash: String) -> bool {
-    let response: Result<secret_toolkit::snip20::query::TokenInfo, StdError> =
+    let response: Result<snip20_reference_impl::msg::QueryAnswer, StdError> =
         deps.querier.query_wasm_smart(
             snip20_code_hash,
             snip20_addr,
@@ -209,7 +209,7 @@ fn get_distribution_msg(deps: Deps, env: &Env) -> Result<CosmosMsg, ContractErro
 
     let pending_rewards: Uint128 = config.reward_rate * Uint128::new(block_diff.into());
 
-    let balance_info: secret_toolkit::snip20::query::Balance = deps.querier.query_wasm_smart(
+    let balance_info: snip20_reference_impl::msg::QueryAnswer = deps.querier.query_wasm_smart(
         config.reward_token_code_hash.clone(),
         config.reward_token.clone(),
         &secret_toolkit::snip20::QueryMsg::Balance {
@@ -217,7 +217,14 @@ fn get_distribution_msg(deps: Deps, env: &Env) -> Result<CosmosMsg, ContractErro
             key: token_viewing_key,
         },
     )?;
-    let amount = min(balance_info.amount, pending_rewards);
+    let mut balance = Uint128::zero();
+    match balance_info {
+        QueryAnswer::Balance { amount } => {
+            balance=amount;
+        }
+        _ => (),
+    }
+    let amount = min(balance, pending_rewards);
 
     if amount == Uint128::zero() {
         return Err(ContractError::ZeroRewards {});
@@ -258,7 +265,7 @@ pub fn execute_withdraw(
     let config = CONFIG.load(deps.storage)?;
     let token_viewing_key = TOKEN_VIEWING_KEY.load(deps.storage)?;
 
-    let balance_info: secret_toolkit::snip20::query::Balance = deps.querier.query_wasm_smart(
+    let balance_info: QueryAnswer = deps.querier.query_wasm_smart(
         config.reward_token_code_hash.clone(),
         config.reward_token.clone(),
         &secret_toolkit::snip20::QueryMsg::Balance {
@@ -267,11 +274,19 @@ pub fn execute_withdraw(
         },
     )?;
 
+    let mut balance = Uint128::zero();
+    match balance_info {
+        QueryAnswer::Balance { amount } => {
+            balance=amount;
+        }
+        _ => (),
+    }
+
     let msg = to_binary(&secret_toolkit::snip20::HandleMsg::Transfer {
         // `assert_owner` call above validates that the sender is the
         // owner.
         recipient: info.sender.to_string(),
-        amount: balance_info.amount,
+        amount: balance,
         memo: None,
         padding: None,
     })?;
@@ -286,7 +301,7 @@ pub fn execute_withdraw(
     Ok(Response::new()
         .add_message(send_msg)
         .add_attribute("action", "withdraw")
-        .add_attribute("amount", balance_info.amount)
+        .add_attribute("amount", balance)
         .add_attribute("recipient", &info.sender))
 }
 
@@ -315,7 +330,7 @@ fn query_info(deps: Deps, env: Env) -> StdResult<InfoResponse> {
     let config = CONFIG.load(deps.storage)?;
     let token_viewing_key = TOKEN_VIEWING_KEY.load(deps.storage)?;
     let last_payment_block = LAST_PAYMENT_BLOCK.load(deps.storage)?;
-    let balance_info: secret_toolkit::snip20::query::Balance = deps.querier.query_wasm_smart(
+    let balance_info: QueryAnswer = deps.querier.query_wasm_smart(
         config.reward_token_code_hash.clone(),
         config.reward_token.clone(),
         &secret_toolkit::snip20::QueryMsg::Balance {
@@ -324,10 +339,18 @@ fn query_info(deps: Deps, env: Env) -> StdResult<InfoResponse> {
         },
     )?;
 
+    let mut balance = Uint128::zero();
+    match balance_info {
+        QueryAnswer::Balance { amount } => {
+            balance=amount;
+        }
+        _ => (),
+    }
+
     Ok(InfoResponse {
         config,
         last_payment_block,
-        balance: balance_info.amount,
+        balance,
     })
 }
 

@@ -90,7 +90,7 @@ pub enum ReceiveMsg {
     Fund {},
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, QueryResponses)]
+#[derive(Serialize, Deserialize, Clone, JsonSchema, Debug, QueryResponses)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     #[returns(StakedBalanceAtHeightResponse)]
@@ -142,7 +142,7 @@ impl QueryMsg {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, QueryResponses)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, QueryResponses)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 #[serde(rename_all = "snake_case")]
 pub enum QueryWithPermit {

@@ -84,7 +84,7 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    /// Used to stake NFTs. To stake a NFT send a cw721 send message
+    /// Used to stake NFTs. To stake a NFT send a snip721 send message
     /// to this contract with the NFT you would like to stake. The
     /// `msg` field is ignored.
     ReceiveNft(Snip721ReceiveMsg),
