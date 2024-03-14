@@ -32,7 +32,7 @@ use crate::msg::{CreateViewingKey, ViewingKeyError};
 use crate::msg::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, NftContract, QueryMsg, Snip721ReceiveMsg,
 };
-use crate::snip721;
+use crate::snip721::{self, Snip721QueryAnswer};
 use crate::state::{
     register_staked_nft, register_unstaked_nfts, Config, NftBalancesStore, StakedNftsTotalStore,
     ACTIVE_THRESHOLD, CONFIG, DAO, HOOKS, INITIAL_NFTS, MAX_CLAIMS, NFT_CLAIMS,
@@ -69,11 +69,7 @@ impl NftInstantiateMsg {
         }
     }
 
-    // fn to_binary(&self) -> Result<Binary, StdError> {
-    //     match self {
-    //         NftInstantiateMsg::Snip721(msg) => to_binary(&msg),
-    //     }
-    // }
+
 }
 
 pub fn try_deserialize_nft_instantiate_msg(
@@ -120,16 +116,23 @@ pub fn instantiate(
                     ref code_hash,
                 } = msg.nft_contract
                 {
-                    let nft_supply: snip721::NumTokens = deps.querier.query_wasm_smart(
+                    let nft_supply_res: Snip721QueryAnswer = deps.querier.query_wasm_smart(
                         code_hash,
                         address,
                         &snip721::Snip721QueryMsg::NumTokens { viewer: None },
                     )?;
+                    let mut nft_supply_count = 0;
+                    match nft_supply_res {
+                        Snip721QueryAnswer::NumTokens { count } => {
+                            nft_supply_count = count;
+                        }
+                        _ => (),
+                    }
                     // Check the absolute count is less than the supply of NFTs and
                     // greater than zero.
                     assert_valid_absolute_count_threshold(
                         *count,
-                        Uint128::new(nft_supply.count.into()),
+                        Uint128::new(nft_supply_count.into()),
                     )?;
                 }
             }
@@ -539,15 +542,21 @@ pub fn execute_update_active_threshold(
                 assert_valid_percentage_threshold(percent)?;
             }
             ActiveThreshold::AbsoluteCount { count } => {
-                let nft_supply: secret_toolkit::snip721::query::NumTokens =
-                    deps.querier.query_wasm_smart(
-                        config.nft_code_hash.clone(),
-                        config.nft_address,
-                        &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
-                    )?;
+                let nft_supply_res: Snip721QueryAnswer = deps.querier.query_wasm_smart(
+                    config.nft_code_hash.clone(),
+                    config.nft_address,
+                    &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
+                )?;
+                let mut nft_supply_count = 0;
+                match nft_supply_res {
+                    Snip721QueryAnswer::NumTokens { count } => {
+                        nft_supply_count = count;
+                    }
+                    _ => (),
+                }
                 assert_valid_absolute_count_threshold(
                     count,
-                    Uint128::new(nft_supply.count.into()),
+                    Uint128::new(nft_supply_count.into()),
                 )?;
             }
         }
@@ -700,11 +709,18 @@ pub fn query_is_active(deps: Deps, env: Env) -> StdResult<Binary> {
     if let Some(threshold) = threshold {
         let config = CONFIG.load(deps.storage)?;
         let staked_nfts = StakedNftsTotalStore::may_load_at_height(deps.storage, env.block.height)?;
-        let total_nfts: secret_toolkit::snip721::query::NumTokens = deps.querier.query_wasm_smart(
+        let total_nfts_res: Snip721QueryAnswer = deps.querier.query_wasm_smart(
             config.nft_code_hash.clone(),
             config.nft_address,
             &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
         )?;
+        let mut total_nfts_count = 0;
+        match total_nfts_res {
+            Snip721QueryAnswer::NumTokens { count } => {
+                total_nfts_count = count;
+            }
+            _ => (),
+        }
 
         match threshold {
             ActiveThreshold::AbsoluteCount { count } => to_binary(&IsActiveResponse {
@@ -738,7 +754,7 @@ pub fn query_is_active(deps: Deps, env: Env) -> StdResult<Binary> {
                 // rounding is rounding down, so the whole thing can
                 // be safely unwrapped at the end of the day thank you
                 // for coming to my ted talk.
-                let total_nfts_count = Uint128::from(total_nfts.count).full_mul(PRECISION_FACTOR);
+                let total_nfts_count = Uint128::from(total_nfts_count).full_mul(PRECISION_FACTOR);
 
                 // under the hood decimals are `atomics / 10^decimal_places`.
                 // cosmwasm doesn't give us a Decimal * Uint256
@@ -909,15 +925,22 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             let collection_code_hash = CONFIG.load(deps.storage)?.nft_code_hash;
 
             // Query the total supply of the NFT contract
-            let nft_supply: secret_toolkit::snip721::query::NumTokens =
-                deps.querier.query_wasm_smart(
-                    collection_code_hash.clone(),
-                    collection_addr.clone(),
-                    &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
-                )?;
+            let nft_supply_res: Snip721QueryAnswer = deps.querier.query_wasm_smart(
+                collection_code_hash.clone(),
+                collection_addr.clone(),
+                &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
+            )?;
+
+            let mut nft_supply_count = 0;
+            match nft_supply_res {
+                Snip721QueryAnswer::NumTokens { count } => {
+                    nft_supply_count = count;
+                }
+                _ => (),
+            }
 
             // Check greater than zero
-            if nft_supply.count == 0 {
+            if nft_supply_count == 0 {
                 return Err(ContractError::NoInitialNfts {});
             }
 
@@ -928,7 +951,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             {
                 assert_valid_absolute_count_threshold(
                     count,
-                    Uint128::new(nft_supply.count.into()),
+                    Uint128::new(nft_supply_count.into()),
                 )?;
             }
 
@@ -968,12 +991,11 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     let nft_address = deps.api.addr_validate(&info.nft_contract)?;
 
                     // Validate that this is an NFT with a query
-                    deps.querier
-                        .query_wasm_smart::<secret_toolkit::snip721::query::NumTokens>(
-                            info.nft_code_hash.clone(),
-                            nft_address.clone(),
-                            &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
-                        )?;
+                    deps.querier.query_wasm_smart::<Snip721QueryAnswer>(
+                        info.nft_code_hash.clone(),
+                        nft_address.clone(),
+                        &secret_toolkit::snip721::QueryMsg::NumTokens { viewer: None },
+                    )?;
 
                     // Update NFT contract
                     config.nft_address = nft_address;

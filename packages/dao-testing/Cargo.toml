@@ -20,7 +20,7 @@ test-tube = []
 # targeting wasm.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 cosmwasm-schema = { workspace = true }
-# cosmwasm-std = { workspace = true }
+cosmwasm-std = { workspace = true }
 cw-multi-test = { workspace = true }
 cw-utils = { workspace = true }
 cw2 = { workspace = true }

@@ -1,8 +1,8 @@
 use cosmwasm_std::{Addr, Empty, Uint128};
-use cw2::ContractVersion;
-use cw20::{Cw20Coin, MinterResponse, TokenInfoResponse};
-use cw_multi_test::{App, Contract, ContractWrapper, Executor};
-use dao_interface::voting::{InfoResponse, VotingPowerAtHeightResponse};
+use secret_cw2::ContractVersion;
+use snip20_reference_impl::msg::QueryAnswer;
+use secret_multi_test::{App, Contract, ContractWrapper, Executor};
+use dao_interface::{token::InitialBalance, voting::{InfoResponse, VotingPowerAtHeightResponse}};
 
 use crate::msg::{InstantiateMsg, QueryMsg};
 
@@ -11,9 +11,9 @@ const CREATOR_ADDR: &str = "creator";
 
 fn cw20_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw20_base::contract::execute,
-        cw20_base::contract::instantiate,
-        cw20_base::contract::query,
+        snip20_reference_impl::contract::execute,
+        snip20_reference_impl::contract::instantiate,
+        snip20_reference_impl::contract::query,
     );
     Box::new(contract)
 }
@@ -56,7 +56,7 @@ fn test_instantiate_zero_supply() {
                 name: "DAO DAO".to_string(),
                 symbol: "DAO".to_string(),
                 decimals: 6,
-                initial_balances: vec![Cw20Coin {
+                initial_balances: vec![InitialBalance {
                     address: CREATOR_ADDR.to_string(),
                     amount: Uint128::zero(),
                 }],
@@ -105,7 +105,7 @@ fn test_contract_info() {
                 name: "DAO DAO".to_string(),
                 symbol: "DAO".to_string(),
                 decimals: 6,
-                initial_balances: vec![Cw20Coin {
+                initial_balances: vec![InitialBalance {
                     address: CREATOR_ADDR.to_string(),
                     amount: Uint128::from(2u64),
                 }],
@@ -145,7 +145,7 @@ fn test_new_cw20() {
                 name: "DAO DAO".to_string(),
                 symbol: "DAO".to_string(),
                 decimals: 6,
-                initial_balances: vec![Cw20Coin {
+                initial_balances: vec![InitialBalance {
                     address: CREATOR_ADDR.to_string(),
                     amount: Uint128::from(2u64),
                 }],
@@ -159,13 +159,13 @@ fn test_new_cw20() {
         .query_wasm_smart(voting_addr.clone(), &QueryMsg::TokenContract {})
         .unwrap();
 
-    let token_info: TokenInfoResponse = app
+    let token_info: QueryAnswer = app
         .wrap()
         .query_wasm_smart(token_addr.clone(), &cw20::Cw20QueryMsg::TokenInfo {})
         .unwrap();
     assert_eq!(
         token_info,
-        TokenInfoResponse {
+        QueryAnswer {
             name: "DAO DAO".to_string(),
             symbol: "DAO".to_string(),
             decimals: 6,
@@ -173,13 +173,13 @@ fn test_new_cw20() {
         }
     );
 
-    let minter_info: Option<MinterResponse> = app
+    let minter_info: Option<QueryAnswer> = app
         .wrap()
         .query_wasm_smart(token_addr.clone(), &cw20::Cw20QueryMsg::Minter {})
         .unwrap();
     assert_eq!(
         minter_info,
-        Some(MinterResponse {
+        Some(QueryAnswer {
             minter: DAO_ADDR.to_string(),
             cap: None,
         })
@@ -268,7 +268,7 @@ fn test_existing_cw20() {
                 name: "DAO DAO".to_string(),
                 symbol: "DAO".to_string(),
                 decimals: 3,
-                initial_balances: vec![Cw20Coin {
+                initial_balances: vec![InitialBalance {
                     address: CREATOR_ADDR.to_string(),
                     amount: Uint128::from(2u64),
                 }],
@@ -296,13 +296,13 @@ fn test_existing_cw20() {
         .query_wasm_smart(voting_addr.clone(), &QueryMsg::TokenContract {})
         .unwrap();
 
-    let token_info: TokenInfoResponse = app
+    let token_info: QueryAnswer = app
         .wrap()
         .query_wasm_smart(token_addr.clone(), &cw20::Cw20QueryMsg::TokenInfo {})
         .unwrap();
     assert_eq!(
         token_info,
-        TokenInfoResponse {
+        QueryAnswer {
             name: "DAO DAO".to_string(),
             symbol: "DAO".to_string(),
             decimals: 3,
@@ -310,7 +310,7 @@ fn test_existing_cw20() {
         }
     );
 
-    let minter_info: Option<MinterResponse> = app
+    let minter_info: Option<QueryAnswer> = app
         .wrap()
         .query_wasm_smart(token_addr.clone(), &cw20::Cw20QueryMsg::Minter {})
         .unwrap();

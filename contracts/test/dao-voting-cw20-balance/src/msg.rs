@@ -4,6 +4,7 @@ use cw20::Cw20Coin;
 use cw20_base::msg::InstantiateMarketingInfo;
 
 use dao_dao_macros::{cw20_token_query, voting_module_query};
+use dao_interface::token::InitialBalance;
 
 #[cw_serde]
 pub enum TokenInfo {
@@ -17,7 +18,7 @@ pub enum TokenInfo {
         name: String,
         symbol: String,
         decimals: u8,
-        initial_balances: Vec<Cw20Coin>,
+        initial_balances: Vec<InitialBalance>,
         marketing: Option<InstantiateMarketingInfo>,
     },
 }

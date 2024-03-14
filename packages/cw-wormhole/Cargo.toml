@@ -12,3 +12,4 @@ cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 secret-storage-plus = { workspace = true }
 serde = { workspace = true }
+secret-toolkit ={ workspace = true }

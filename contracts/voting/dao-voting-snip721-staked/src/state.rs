@@ -20,6 +20,7 @@ pub struct Config {
 pub const ACTIVE_THRESHOLD: Item<ActiveThreshold> = Item::new("active_threshold");
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const DAO: Item<AnyContractInfo> = Item::new("dao");
+pub const DUMMY : Item<String> = Item::new("dummy");
 
 // Holds initial NFTs messages during instantiation.
 pub const INITIAL_NFTS: Item<Vec<Binary>> = Item::new("initial_nfts");

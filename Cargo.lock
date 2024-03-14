@@ -1268,6 +1268,7 @@ dependencies = [
  "cosmwasm-schema 1.1.11",
  "secret-cosmwasm-std",
  "secret-storage-plus",
+ "secret-toolkit",
  "serde",
 ]
 
@@ -1986,6 +1987,7 @@ dependencies = [
  "osmosis-std 0.21.0",
  "osmosis-test-tube",
  "rand",
+ "secret-cosmwasm-std",
  "serde",
  "serde_json",
  "snip20-stake",
@@ -2028,15 +2030,14 @@ name = "dao-voting-cw20-balance"
 version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
- "cw-multi-test",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
- "cw20 1.1.2",
- "cw20-base 1.1.2",
  "dao-dao-macros",
  "dao-interface",
  "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-utils",
+ "snip20-reference-impl",
  "thiserror",
 ]
 
