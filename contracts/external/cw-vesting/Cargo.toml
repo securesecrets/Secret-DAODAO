@@ -18,22 +18,24 @@ library = []
 
 [dependencies]
 cosmwasm-schema = { workspace = true }
-cosmwasm-std = { workspace = true, features = ["staking"] }
+cosmwasm-std = { workspace = true}
 cw-denom = { workspace = true }
 cw-ownable = { workspace = true }
 cw-paginate-storage = { workspace = true }
 cw-stake-tracker = { workspace = true }
-cw-storage-plus = { workspace = true }
-cw-utils = { workspace = true }
+secret-storage-plus = { workspace = true }
+secret-utils = { workspace = true }
 cw-wormhole = { workspace = true }
-cw2 = { workspace = true }
-cw20 = { workspace = true }
+secret-cw2 = { workspace = true }
+secret-toolkit = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 wynd-utils = { workspace = true }
+snip20-reference-impl = { workspace = true }
+
 
 [dev-dependencies]
 anyhow = { workspace = true }
-cw-multi-test = { workspace = true }
-cw20-base = { workspace = true }
-dao-testing = { workspace = true }
+secret-multi-test = { workspace = true }
+snip20-reference-impl = { workspace = true }
+# dao-testing = { workspace = true }

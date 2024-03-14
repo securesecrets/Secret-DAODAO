@@ -1,15 +1,15 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_json, to_json_binary, Binary, Coin, CosmosMsg, DelegationResponse, Deps, DepsMut,
+    from_binary, to_binary, Binary, Coin, CosmosMsg, DelegationResponse, Deps, DepsMut,
     DistributionMsg, Env, MessageInfo, Response, StakingMsg, StakingQuery, StdResult, Timestamp,
     Uint128,
 };
-use cw2::set_contract_version;
-use cw20::Cw20ReceiveMsg;
+use secret_cw2::set_contract_version;
+use snip20_reference_impl::receiver::Snip20ReceiveMsg;
 use cw_denom::CheckedDenom;
 use cw_ownable::OwnershipError;
-use cw_utils::{must_pay, nonpayable};
+use secret_utils::{must_pay, nonpayable};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg};
@@ -77,7 +77,7 @@ pub fn instantiate(
                 None
             }
         }
-        CheckedDenom::Cw20(_) => {
+        CheckedDenom::Cw20(_,_) => {
             nonpayable(&info)?; // Funding happens in ExecuteMsg::Receive.
             None
         }
@@ -132,12 +132,12 @@ pub fn execute_receive_cw20(
     _env: Env,
     deps: DepsMut,
     info: MessageInfo,
-    receive_msg: Cw20ReceiveMsg,
+    receive_msg: Snip20ReceiveMsg,
 ) -> Result<Response, ContractError> {
     // Only accepts cw20 tokens
     nonpayable(&info)?;
 
-    let msg: ReceiveMsg = from_json(&receive_msg.msg)?;
+    let msg: ReceiveMsg = from_binary(&receive_msg.msg.unwrap())?;
 
     match msg {
         ReceiveMsg::Fund {} => {
@@ -446,20 +446,20 @@ pub fn execute_register_slash(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Ownership {} => to_json_binary(&cw_ownable::get_ownership(deps.storage)?),
-        QueryMsg::Info {} => to_json_binary(&PAYMENT.get_vest(deps.storage)?),
-        QueryMsg::Distributable { t } => to_json_binary(&PAYMENT.distributable(
+        QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
+        QueryMsg::Info {} => to_binary(&PAYMENT.get_vest(deps.storage)?),
+        QueryMsg::Distributable { t } => to_binary(&PAYMENT.distributable(
             deps.storage,
             &PAYMENT.get_vest(deps.storage)?,
             t.unwrap_or(env.block.time),
         )?),
         QueryMsg::Stake(q) => PAYMENT.query_stake(deps.storage, q),
-        QueryMsg::Vested { t } => to_json_binary(
+        QueryMsg::Vested { t } => to_binary(
             &PAYMENT
                 .get_vest(deps.storage)?
                 .vested(t.unwrap_or(env.block.time)),
         ),
-        QueryMsg::TotalToVest {} => to_json_binary(&PAYMENT.get_vest(deps.storage)?.total()),
-        QueryMsg::VestDuration {} => to_json_binary(&PAYMENT.duration(deps.storage)?),
+        QueryMsg::TotalToVest {} => to_binary(&PAYMENT.get_vest(deps.storage)?.total()),
+        QueryMsg::VestDuration {} => to_binary(&PAYMENT.duration(deps.storage)?),
     }
 }

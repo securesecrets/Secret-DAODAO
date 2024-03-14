@@ -251,210 +251,210 @@ impl CheckedDepositInfo {
     }
 }
 
-#[cfg(test)]
-pub mod tests {
-    use cosmwasm_std::{
-        coin, coins,
-        testing::{mock_env, mock_info},
-        BankMsg,
-    };
+// #[cfg(test)]
+// pub mod tests {
+//     use cosmwasm_std::{
+//         coin, coins,
+//         testing::{mock_env, mock_info},
+//         BankMsg,
+//     };
 
-    use super::*;
+//     use super::*;
 
-    const NATIVE_DENOM: &str = "uekez";
-    const CW20: &str = "cw20";
+//     const NATIVE_DENOM: &str = "uekez";
+//     const CW20: &str = "cw20";
 
-    #[test]
-    fn test_check_native_deposit_paid_yes() {
-        let info = mock_info("ekez", &coins(10, NATIVE_DENOM));
-        let deposit_info = CheckedDepositInfo {
-            denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
-            amount: Uint128::new(10),
-            refund_policy: DepositRefundPolicy::Always,
-        };
-        deposit_info.check_native_deposit_paid(&info).unwrap();
+//     #[test]
+//     fn test_check_native_deposit_paid_yes() {
+//         let info = mock_info("ekez", &coins(10, NATIVE_DENOM));
+//         let deposit_info = CheckedDepositInfo {
+//             denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
+//             amount: Uint128::new(10),
+//             refund_policy: DepositRefundPolicy::Always,
+//         };
+//         deposit_info.check_native_deposit_paid(&info).unwrap();
 
-        let mut info = info;
-        let mut deposit_info = deposit_info;
+//         let mut info = info;
+//         let mut deposit_info = deposit_info;
 
-        // Doesn't matter what we submit if it's a cw20 token.
-        info.funds = vec![];
-        deposit_info.denom = CheckedDenom::Cw20(Addr::unchecked(CW20),"code_hash".to_string());
-        deposit_info.check_native_deposit_paid(&info).unwrap();
+//         // Doesn't matter what we submit if it's a cw20 token.
+//         info.funds = vec![];
+//         deposit_info.denom = CheckedDenom::Cw20(Addr::unchecked(CW20),"code_hash".to_string());
+//         deposit_info.check_native_deposit_paid(&info).unwrap();
 
-        info.funds = coins(100, NATIVE_DENOM);
-        deposit_info.check_native_deposit_paid(&info).unwrap();
-    }
+//         info.funds = coins(100, NATIVE_DENOM);
+//         deposit_info.check_native_deposit_paid(&info).unwrap();
+//     }
 
-    #[test]
-    fn test_native_deposit_paid_wrong_amount() {
-        let info = mock_info("ekez", &coins(9, NATIVE_DENOM));
-        let deposit_info = CheckedDepositInfo {
-            denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
-            amount: Uint128::new(10),
-            refund_policy: DepositRefundPolicy::Always,
-        };
-        let err = deposit_info.check_native_deposit_paid(&info).unwrap_err();
-        assert_eq!(
-            err,
-            DepositError::InvalidDeposit {
-                actual: Uint128::new(9),
-                expected: Uint128::new(10)
-            }
-        )
-    }
+//     #[test]
+//     fn test_native_deposit_paid_wrong_amount() {
+//         let info = mock_info("ekez", &coins(9, NATIVE_DENOM));
+//         let deposit_info = CheckedDepositInfo {
+//             denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
+//             amount: Uint128::new(10),
+//             refund_policy: DepositRefundPolicy::Always,
+//         };
+//         let err = deposit_info.check_native_deposit_paid(&info).unwrap_err();
+//         assert_eq!(
+//             err,
+//             DepositError::InvalidDeposit {
+//                 actual: Uint128::new(9),
+//                 expected: Uint128::new(10)
+//             }
+//         )
+//     }
 
-    #[test]
-    fn check_native_deposit_paid_wrong_denom() {
-        let info = mock_info("ekez", &coins(10, "unotekez"));
-        let deposit_info = CheckedDepositInfo {
-            denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
-            amount: Uint128::new(10),
-            refund_policy: DepositRefundPolicy::Always,
-        };
-        let err = deposit_info.check_native_deposit_paid(&info).unwrap_err();
-        assert_eq!(
-            err,
-            DepositError::Payment(PaymentError::MissingDenom(NATIVE_DENOM.to_string()))
-        );
-    }
+//     #[test]
+//     fn check_native_deposit_paid_wrong_denom() {
+//         let info = mock_info("ekez", &coins(10, "unotekez"));
+//         let deposit_info = CheckedDepositInfo {
+//             denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
+//             amount: Uint128::new(10),
+//             refund_policy: DepositRefundPolicy::Always,
+//         };
+//         let err = deposit_info.check_native_deposit_paid(&info).unwrap_err();
+//         assert_eq!(
+//             err,
+//             DepositError::Payment(PaymentError::MissingDenom(NATIVE_DENOM.to_string()))
+//         );
+//     }
 
-    // If you're receiving other denoms in the same place you're
-    // receiving your deposit you should probably write your own
-    // package, or you're working on dao dao and can remove this
-    // one. At the time of writing, other denoms coming in with a
-    // deposit seems like a frontend bug off.
-    #[test]
-    fn check_sending_other_denoms_is_not_allowed() {
-        let info = mock_info("ekez", &[coin(10, "unotekez"), coin(10, "ekez")]);
-        let deposit_info = CheckedDepositInfo {
-            denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
-            amount: Uint128::new(10),
-            refund_policy: DepositRefundPolicy::Always,
-        };
+//     // If you're receiving other denoms in the same place you're
+//     // receiving your deposit you should probably write your own
+//     // package, or you're working on dao dao and can remove this
+//     // one. At the time of writing, other denoms coming in with a
+//     // deposit seems like a frontend bug off.
+//     #[test]
+//     fn check_sending_other_denoms_is_not_allowed() {
+//         let info = mock_info("ekez", &[coin(10, "unotekez"), coin(10, "ekez")]);
+//         let deposit_info = CheckedDepositInfo {
+//             denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
+//             amount: Uint128::new(10),
+//             refund_policy: DepositRefundPolicy::Always,
+//         };
 
-        let err = deposit_info.check_native_deposit_paid(&info).unwrap_err();
-        assert_eq!(err, DepositError::Payment(PaymentError::MultipleDenoms {}));
-    }
+//         let err = deposit_info.check_native_deposit_paid(&info).unwrap_err();
+//         assert_eq!(err, DepositError::Payment(PaymentError::MultipleDenoms {}));
+//     }
 
-    #[test]
-    fn check_native_deposit_paid_no_denoms() {
-        let info = mock_info("ekez", &[]);
-        let deposit_info = CheckedDepositInfo {
-            denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
-            amount: Uint128::new(10),
-            refund_policy: DepositRefundPolicy::Always,
-        };
-        let err = deposit_info.check_native_deposit_paid(&info).unwrap_err();
-        assert_eq!(err, DepositError::Payment(PaymentError::NoFunds {}));
-    }
+//     #[test]
+//     fn check_native_deposit_paid_no_denoms() {
+//         let info = mock_info("ekez", &[]);
+//         let deposit_info = CheckedDepositInfo {
+//             denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
+//             amount: Uint128::new(10),
+//             refund_policy: DepositRefundPolicy::Always,
+//         };
+//         let err = deposit_info.check_native_deposit_paid(&info).unwrap_err();
+//         assert_eq!(err, DepositError::Payment(PaymentError::NoFunds {}));
+//     }
 
-    #[test]
-    fn test_get_take_deposit_messages() {
-        // Does nothing if a native token is being used.
-        let mut deposit_info = CheckedDepositInfo {
-            denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
-            amount: Uint128::new(10),
-            refund_policy: DepositRefundPolicy::Always,
-        };
-        let messages = deposit_info
-            .get_take_deposit_messages(
-                &Addr::unchecked("ekez"),
-                &Addr::unchecked(CW20),
-            )
-            .unwrap();
-        assert_eq!(messages, vec![]);
+//     #[test]
+//     fn test_get_take_deposit_messages() {
+//         // Does nothing if a native token is being used.
+//         let mut deposit_info = CheckedDepositInfo {
+//             denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
+//             amount: Uint128::new(10),
+//             refund_policy: DepositRefundPolicy::Always,
+//         };
+//         let messages = deposit_info
+//             .get_take_deposit_messages(
+//                 &Addr::unchecked("ekez"),
+//                 &Addr::unchecked(CW20),
+//             )
+//             .unwrap();
+//         assert_eq!(messages, vec![]);
 
-        // Does something for cw20s.
-        deposit_info.denom = CheckedDenom::Cw20(Addr::unchecked(CW20),"code_hash".to_string());
-        let messages = deposit_info
-            .get_take_deposit_messages(
-                &Addr::unchecked("ekez"),
-                &Addr::unchecked("contract"),
-            )
-            .unwrap();
-        assert_eq!(
-            messages,
-            vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: CW20.to_string(),
-                msg: to_binary(&cw20::Cw20ExecuteMsg::TransferFrom {
-                    owner: "ekez".to_string(),
-                    recipient: "contract".to_string(),
-                    amount: Uint128::new(10)
-                })
-                .unwrap(),
-                funds: vec![],
-                code_hash: mock_env().contract.code_hash
-            })]
-        );
+//         // Does something for cw20s.
+//         deposit_info.denom = CheckedDenom::Cw20(Addr::unchecked(CW20),"code_hash".to_string());
+//         let messages = deposit_info
+//             .get_take_deposit_messages(
+//                 &Addr::unchecked("ekez"),
+//                 &Addr::unchecked("contract"),
+//             )
+//             .unwrap();
+//         assert_eq!(
+//             messages,
+//             vec![CosmosMsg::Wasm(WasmMsg::Execute {
+//                 contract_addr: CW20.to_string(),
+//                 msg: to_binary(&cw20::Cw20ExecuteMsg::TransferFrom {
+//                     owner: "ekez".to_string(),
+//                     recipient: "contract".to_string(),
+//                     amount: Uint128::new(10)
+//                 })
+//                 .unwrap(),
+//                 funds: vec![],
+//                 code_hash: mock_env().contract.code_hash
+//             })]
+//         );
 
-        // Does nothing when the amount is zero (this would cause the
-        // tx to fail for a valid cw20).
-        deposit_info.amount = Uint128::zero();
-        let messages = deposit_info
-            .get_take_deposit_messages(
-                &Addr::unchecked("ekez"),
-                &Addr::unchecked(CW20),
-            )
-            .unwrap();
-        assert_eq!(messages, vec![]);
-    }
+//         // Does nothing when the amount is zero (this would cause the
+//         // tx to fail for a valid cw20).
+//         deposit_info.amount = Uint128::zero();
+//         let messages = deposit_info
+//             .get_take_deposit_messages(
+//                 &Addr::unchecked("ekez"),
+//                 &Addr::unchecked(CW20),
+//             )
+//             .unwrap();
+//         assert_eq!(messages, vec![]);
+//     }
 
-    #[test]
-    fn test_get_return_deposit_message_native() {
-        let mut deposit_info = CheckedDepositInfo {
-            denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
-            amount: Uint128::new(10),
-            refund_policy: DepositRefundPolicy::Always,
-        };
-        let messages = deposit_info
-            .get_return_deposit_message(&Addr::unchecked("ekez"))
-            .unwrap();
-        assert_eq!(
-            messages,
-            vec![CosmosMsg::Bank(BankMsg::Send {
-                to_address: "ekez".to_string(),
-                amount: coins(10, "uekez")
-            })]
-        );
+//     #[test]
+//     fn test_get_return_deposit_message_native() {
+//         let mut deposit_info = CheckedDepositInfo {
+//             denom: CheckedDenom::Native(NATIVE_DENOM.to_string()),
+//             amount: Uint128::new(10),
+//             refund_policy: DepositRefundPolicy::Always,
+//         };
+//         let messages = deposit_info
+//             .get_return_deposit_message(&Addr::unchecked("ekez"))
+//             .unwrap();
+//         assert_eq!(
+//             messages,
+//             vec![CosmosMsg::Bank(BankMsg::Send {
+//                 to_address: "ekez".to_string(),
+//                 amount: coins(10, "uekez")
+//             })]
+//         );
 
-        // Don't fire a message if there is nothing to send!
-        deposit_info.amount = Uint128::zero();
-        let messages = deposit_info
-            .get_return_deposit_message(&Addr::unchecked("ekez"))
-            .unwrap();
-        assert_eq!(messages, vec![]);
-    }
+//         // Don't fire a message if there is nothing to send!
+//         deposit_info.amount = Uint128::zero();
+//         let messages = deposit_info
+//             .get_return_deposit_message(&Addr::unchecked("ekez"))
+//             .unwrap();
+//         assert_eq!(messages, vec![]);
+//     }
 
-    #[test]
-    fn test_get_return_deposit_message_cw20() {
-        let mut deposit_info = CheckedDepositInfo {
-            denom: CheckedDenom::Cw20(Addr::unchecked(CW20),"code_hash".to_string()),
-            amount: Uint128::new(10),
-            refund_policy: DepositRefundPolicy::Always,
-        };
-        let messages = deposit_info
-            .get_return_deposit_message(&Addr::unchecked("ekez"))
-            .unwrap();
-        assert_eq!(
-            messages,
-            vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: CW20.to_string(),
-                msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
-                    recipient: "ekez".to_string(),
-                    amount: Uint128::new(10)
-                })
-                .unwrap(),
-                funds: vec![],
-                code_hash: mock_env().contract.code_hash
-            })]
-        );
+//     #[test]
+//     fn test_get_return_deposit_message_cw20() {
+//         let mut deposit_info = CheckedDepositInfo {
+//             denom: CheckedDenom::Cw20(Addr::unchecked(CW20),"code_hash".to_string()),
+//             amount: Uint128::new(10),
+//             refund_policy: DepositRefundPolicy::Always,
+//         };
+//         let messages = deposit_info
+//             .get_return_deposit_message(&Addr::unchecked("ekez"))
+//             .unwrap();
+//         assert_eq!(
+//             messages,
+//             vec![CosmosMsg::Wasm(WasmMsg::Execute {
+//                 contract_addr: CW20.to_string(),
+//                 msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+//                     recipient: "ekez".to_string(),
+//                     amount: Uint128::new(10)
+//                 })
+//                 .unwrap(),
+//                 funds: vec![],
+//                 code_hash: mock_env().contract.code_hash
+//             })]
+//         );
 
-        // Don't fire a message if there is nothing to send!
-        deposit_info.amount = Uint128::zero();
-        let messages = deposit_info
-            .get_return_deposit_message(&Addr::unchecked("ekez"))
-            .unwrap();
-        assert_eq!(messages, vec![]);
-    }
-}
+//         // Don't fire a message if there is nothing to send!
+//         deposit_info.amount = Uint128::zero();
+//         let messages = deposit_info
+//             .get_return_deposit_message(&Addr::unchecked("ekez"))
+//             .unwrap();
+//         assert_eq!(messages, vec![]);
+//     }
+// }

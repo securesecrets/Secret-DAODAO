@@ -357,13 +357,13 @@ impl Suite {
 
     pub fn query_receiver_vesting_token_balance(&self) -> Uint128 {
         let vest = self.query_vest();
-        self.query_vesting_token_balance(vest.recipient)
+        self.query_vesting_token_balance(vest.recipient,"")
     }
 
-    pub fn query_vesting_token_balance<S: Into<String>>(&self, who: S) -> Uint128 {
+    pub fn query_vesting_token_balance<S: Into<String>, K: Into<String>>(&self, who: S, key: K) -> Uint128 {
         let vest = self.query_vest();
         vest.denom
-            .query_balance(&self.app.wrap(), &Addr::unchecked(who.into()))
+            .query_balance(&self.app.wrap(), &Addr::unchecked(who.into()),key)
             .unwrap()
     }
 

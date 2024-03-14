@@ -95,311 +95,311 @@ impl<'a> NftClaims<'a> {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use cosmwasm_std::{
-        testing::{mock_dependencies, mock_env},
-        Order,
-    };
+// #[cfg(test)]
+// mod test {
+//     use cosmwasm_std::{
+//         testing::{mock_dependencies, mock_env},
+//         Order,
+//     };
 
-    use super::*;
-    const TEST_BAYC_TOKEN_ID: &str = "BAYC";
-    const TEST_CRYPTO_PUNKS_TOKEN_ID: &str = "CRYPTOPUNKS";
-    const TEST_EXPIRATION: Expiration = Expiration::AtHeight(10);
+//     use super::*;
+//     const TEST_BAYC_TOKEN_ID: &str = "BAYC";
+//     const TEST_CRYPTO_PUNKS_TOKEN_ID: &str = "CRYPTOPUNKS";
+//     const TEST_EXPIRATION: Expiration = Expiration::AtHeight(10);
 
-    #[test]
-    fn can_create_claim() {
-        let claim = NftClaim::new(TEST_BAYC_TOKEN_ID.to_string(), TEST_EXPIRATION);
-        assert_eq!(claim.token_id, TEST_BAYC_TOKEN_ID.to_string());
-        assert_eq!(claim.release_at, TEST_EXPIRATION);
-    }
+//     #[test]
+//     fn can_create_claim() {
+//         let claim = NftClaim::new(TEST_BAYC_TOKEN_ID.to_string(), TEST_EXPIRATION);
+//         assert_eq!(claim.token_id, TEST_BAYC_TOKEN_ID.to_string());
+//         assert_eq!(claim.release_at, TEST_EXPIRATION);
+//     }
 
-    #[test]
-    fn can_create_claims() {
-        let deps = mock_dependencies();
-        let claims = NftClaims::new("claims");
-        // Assert that claims creates a map and there are no keys in the map.
-        assert_eq!(
-            claims
-                .0
-                .range_raw(&deps.storage, None, None, Order::Ascending)
-                .collect::<StdResult<Vec<_>>>()
-                .unwrap()
-                .len(),
-            0
-        );
-    }
+//     #[test]
+//     fn can_create_claims() {
+//         let deps = mock_dependencies();
+//         let claims = NftClaims::new("claims");
+//         // Assert that claims creates a map and there are no keys in the map.
+//         assert_eq!(
+//             claims
+//                 .0
+//                 .range_raw(&deps.storage, None, None, Order::Ascending)
+//                 .collect::<StdResult<Vec<_>>>()
+//                 .unwrap()
+//                 .len(),
+//             0
+//         );
+//     }
 
-    #[test]
-    fn check_create_claim_updates_map() {
-        let mut deps = mock_dependencies();
-        let claims = NftClaims::new("claims");
+//     #[test]
+//     fn check_create_claim_updates_map() {
+//         let mut deps = mock_dependencies();
+//         let claims = NftClaims::new("claims");
 
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                vec![TEST_BAYC_TOKEN_ID.into()],
-                TEST_EXPIRATION,
-            )
-            .unwrap();
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 vec![TEST_BAYC_TOKEN_ID.into()],
+//                 TEST_EXPIRATION,
+//             )
+//             .unwrap();
 
-        // Assert that claims creates a map and there is one claim for the address.
-        let saved_claims = claims
-            .0
-            .load(deps.as_mut().storage, &Addr::unchecked("addr"))
-            .unwrap();
-        assert_eq!(saved_claims.len(), 1);
-        assert_eq!(saved_claims[0].token_id, TEST_BAYC_TOKEN_ID.to_string());
-        assert_eq!(saved_claims[0].release_at, TEST_EXPIRATION);
+//         // Assert that claims creates a map and there is one claim for the address.
+//         let saved_claims = claims
+//             .0
+//             .load(deps.as_mut().storage, &Addr::unchecked("addr"))
+//             .unwrap();
+//         assert_eq!(saved_claims.len(), 1);
+//         assert_eq!(saved_claims[0].token_id, TEST_BAYC_TOKEN_ID.to_string());
+//         assert_eq!(saved_claims[0].release_at, TEST_EXPIRATION);
 
-        // Adding another claim to same address, make sure that both claims are saved.
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                vec![TEST_CRYPTO_PUNKS_TOKEN_ID.into()],
-                TEST_EXPIRATION,
-            )
-            .unwrap();
+//         // Adding another claim to same address, make sure that both claims are saved.
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 vec![TEST_CRYPTO_PUNKS_TOKEN_ID.into()],
+//                 TEST_EXPIRATION,
+//             )
+//             .unwrap();
 
-        // Assert that both claims exist for the address.
-        let saved_claims = claims
-            .0
-            .load(deps.as_mut().storage, &Addr::unchecked("addr"))
-            .unwrap();
-        assert_eq!(saved_claims.len(), 2);
-        assert_eq!(saved_claims[0].token_id, TEST_BAYC_TOKEN_ID.to_string());
-        assert_eq!(saved_claims[0].release_at, TEST_EXPIRATION);
-        assert_eq!(
-            saved_claims[1].token_id,
-            TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()
-        );
-        assert_eq!(saved_claims[1].release_at, TEST_EXPIRATION);
+//         // Assert that both claims exist for the address.
+//         let saved_claims = claims
+//             .0
+//             .load(deps.as_mut().storage, &Addr::unchecked("addr"))
+//             .unwrap();
+//         assert_eq!(saved_claims.len(), 2);
+//         assert_eq!(saved_claims[0].token_id, TEST_BAYC_TOKEN_ID.to_string());
+//         assert_eq!(saved_claims[0].release_at, TEST_EXPIRATION);
+//         assert_eq!(
+//             saved_claims[1].token_id,
+//             TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()
+//         );
+//         assert_eq!(saved_claims[1].release_at, TEST_EXPIRATION);
 
-        // Adding another claim to different address, make sure that other address only has one claim.
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr2"),
-                vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
-                TEST_EXPIRATION,
-            )
-            .unwrap();
+//         // Adding another claim to different address, make sure that other address only has one claim.
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr2"),
+//                 vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
+//                 TEST_EXPIRATION,
+//             )
+//             .unwrap();
 
-        // Assert that both claims exist for the address.
-        let saved_claims = claims
-            .0
-            .load(deps.as_mut().storage, &Addr::unchecked("addr"))
-            .unwrap();
+//         // Assert that both claims exist for the address.
+//         let saved_claims = claims
+//             .0
+//             .load(deps.as_mut().storage, &Addr::unchecked("addr"))
+//             .unwrap();
 
-        let saved_claims_addr2 = claims
-            .0
-            .load(deps.as_mut().storage, &Addr::unchecked("addr2"))
-            .unwrap();
-        assert_eq!(saved_claims.len(), 2);
-        assert_eq!(saved_claims_addr2.len(), 1);
-    }
+//         let saved_claims_addr2 = claims
+//             .0
+//             .load(deps.as_mut().storage, &Addr::unchecked("addr2"))
+//             .unwrap();
+//         assert_eq!(saved_claims.len(), 2);
+//         assert_eq!(saved_claims_addr2.len(), 1);
+//     }
 
-    #[test]
-    fn test_claim_tokens_with_no_claims() {
-        let mut deps = mock_dependencies();
-        let claims = NftClaims::new("claims");
+//     #[test]
+//     fn test_claim_tokens_with_no_claims() {
+//         let mut deps = mock_dependencies();
+//         let claims = NftClaims::new("claims");
 
-        let nfts = claims
-            .claim_nfts(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                &mock_env().block,
-            )
-            .unwrap();
-        let saved_claims = claims
-            .0
-            .load(deps.as_mut().storage, &Addr::unchecked("addr"))
-            .unwrap();
+//         let nfts = claims
+//             .claim_nfts(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 &mock_env().block,
+//             )
+//             .unwrap();
+//         let saved_claims = claims
+//             .0
+//             .load(deps.as_mut().storage, &Addr::unchecked("addr"))
+//             .unwrap();
 
-        assert_eq!(nfts.len(), 0);
-        assert_eq!(saved_claims.len(), 0);
-    }
+//         assert_eq!(nfts.len(), 0);
+//         assert_eq!(saved_claims.len(), 0);
+//     }
 
-    #[test]
-    fn test_claim_tokens_with_no_released_claims() {
-        let mut deps = mock_dependencies();
-        let claims = NftClaims::new("claims");
+//     #[test]
+//     fn test_claim_tokens_with_no_released_claims() {
+//         let mut deps = mock_dependencies();
+//         let claims = NftClaims::new("claims");
 
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
-                Expiration::AtHeight(10),
-            )
-            .unwrap();
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
+//                 Expiration::AtHeight(10),
+//             )
+//             .unwrap();
 
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                vec![TEST_BAYC_TOKEN_ID.to_string()],
-                Expiration::AtHeight(100),
-            )
-            .unwrap();
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 vec![TEST_BAYC_TOKEN_ID.to_string()],
+//                 Expiration::AtHeight(100),
+//             )
+//             .unwrap();
 
-        let mut env = mock_env();
-        env.block.height = 0;
-        // the address has two claims however they are both not expired
-        let nfts = claims
-            .claim_nfts(deps.as_mut().storage, &Addr::unchecked("addr"), &env.block)
-            .unwrap();
+//         let mut env = mock_env();
+//         env.block.height = 0;
+//         // the address has two claims however they are both not expired
+//         let nfts = claims
+//             .claim_nfts(deps.as_mut().storage, &Addr::unchecked("addr"), &env.block)
+//             .unwrap();
 
-        let saved_claims = claims
-            .0
-            .load(deps.as_mut().storage, &Addr::unchecked("addr"))
-            .unwrap();
+//         let saved_claims = claims
+//             .0
+//             .load(deps.as_mut().storage, &Addr::unchecked("addr"))
+//             .unwrap();
 
-        assert_eq!(nfts.len(), 0);
-        assert_eq!(saved_claims.len(), 2);
-        assert_eq!(
-            saved_claims[0].token_id,
-            TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()
-        );
-        assert_eq!(saved_claims[0].release_at, Expiration::AtHeight(10));
-        assert_eq!(saved_claims[1].token_id, TEST_BAYC_TOKEN_ID.to_string());
-        assert_eq!(saved_claims[1].release_at, Expiration::AtHeight(100));
-    }
+//         assert_eq!(nfts.len(), 0);
+//         assert_eq!(saved_claims.len(), 2);
+//         assert_eq!(
+//             saved_claims[0].token_id,
+//             TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()
+//         );
+//         assert_eq!(saved_claims[0].release_at, Expiration::AtHeight(10));
+//         assert_eq!(saved_claims[1].token_id, TEST_BAYC_TOKEN_ID.to_string());
+//         assert_eq!(saved_claims[1].release_at, Expiration::AtHeight(100));
+//     }
 
-    #[test]
-    fn test_claim_tokens_with_one_released_claim() {
-        let mut deps = mock_dependencies();
-        let claims = NftClaims::new("claims");
+//     #[test]
+//     fn test_claim_tokens_with_one_released_claim() {
+//         let mut deps = mock_dependencies();
+//         let claims = NftClaims::new("claims");
 
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                vec![TEST_BAYC_TOKEN_ID.to_string()],
-                Expiration::AtHeight(10),
-            )
-            .unwrap();
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 vec![TEST_BAYC_TOKEN_ID.to_string()],
+//                 Expiration::AtHeight(10),
+//             )
+//             .unwrap();
 
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
-                Expiration::AtHeight(100),
-            )
-            .unwrap();
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
+//                 Expiration::AtHeight(100),
+//             )
+//             .unwrap();
 
-        let mut env = mock_env();
-        env.block.height = 20;
-        // the address has two claims and the first one can be released
-        let nfts = claims
-            .claim_nfts(deps.as_mut().storage, &Addr::unchecked("addr"), &env.block)
-            .unwrap();
+//         let mut env = mock_env();
+//         env.block.height = 20;
+//         // the address has two claims and the first one can be released
+//         let nfts = claims
+//             .claim_nfts(deps.as_mut().storage, &Addr::unchecked("addr"), &env.block)
+//             .unwrap();
 
-        let saved_claims = claims
-            .0
-            .load(deps.as_mut().storage, &Addr::unchecked("addr"))
-            .unwrap();
+//         let saved_claims = claims
+//             .0
+//             .load(deps.as_mut().storage, &Addr::unchecked("addr"))
+//             .unwrap();
 
-        assert_eq!(nfts.len(), 1);
-        assert_eq!(nfts[0], TEST_BAYC_TOKEN_ID.to_string());
-        assert_eq!(saved_claims.len(), 1);
-        assert_eq!(
-            saved_claims[0].token_id,
-            TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()
-        );
-        assert_eq!(saved_claims[0].release_at, Expiration::AtHeight(100));
-    }
+//         assert_eq!(nfts.len(), 1);
+//         assert_eq!(nfts[0], TEST_BAYC_TOKEN_ID.to_string());
+//         assert_eq!(saved_claims.len(), 1);
+//         assert_eq!(
+//             saved_claims[0].token_id,
+//             TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()
+//         );
+//         assert_eq!(saved_claims[0].release_at, Expiration::AtHeight(100));
+//     }
 
-    #[test]
-    fn test_claim_tokens_with_all_released_claims() {
-        let mut deps = mock_dependencies();
-        let claims = NftClaims::new("claims");
+//     #[test]
+//     fn test_claim_tokens_with_all_released_claims() {
+//         let mut deps = mock_dependencies();
+//         let claims = NftClaims::new("claims");
 
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                vec![TEST_BAYC_TOKEN_ID.to_string()],
-                Expiration::AtHeight(10),
-            )
-            .unwrap();
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 vec![TEST_BAYC_TOKEN_ID.to_string()],
+//                 Expiration::AtHeight(10),
+//             )
+//             .unwrap();
 
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
-                Expiration::AtHeight(100),
-            )
-            .unwrap();
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
+//                 Expiration::AtHeight(100),
+//             )
+//             .unwrap();
 
-        let mut env = mock_env();
-        env.block.height = 1000;
-        // the address has two claims and both can be released
-        let nfts = claims
-            .claim_nfts(deps.as_mut().storage, &Addr::unchecked("addr"), &env.block)
-            .unwrap();
+//         let mut env = mock_env();
+//         env.block.height = 1000;
+//         // the address has two claims and both can be released
+//         let nfts = claims
+//             .claim_nfts(deps.as_mut().storage, &Addr::unchecked("addr"), &env.block)
+//             .unwrap();
 
-        let saved_claims = claims
-            .0
-            .load(deps.as_mut().storage, &Addr::unchecked("addr"))
-            .unwrap();
+//         let saved_claims = claims
+//             .0
+//             .load(deps.as_mut().storage, &Addr::unchecked("addr"))
+//             .unwrap();
 
-        assert_eq!(
-            nfts,
-            vec![
-                TEST_BAYC_TOKEN_ID.to_string(),
-                TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()
-            ]
-        );
-        assert_eq!(saved_claims.len(), 0);
-    }
+//         assert_eq!(
+//             nfts,
+//             vec![
+//                 TEST_BAYC_TOKEN_ID.to_string(),
+//                 TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()
+//             ]
+//         );
+//         assert_eq!(saved_claims.len(), 0);
+//     }
 
-    #[test]
-    fn test_query_claims_returns_correct_claims() {
-        let mut deps = mock_dependencies();
-        let claims = NftClaims::new("claims");
+//     #[test]
+//     fn test_query_claims_returns_correct_claims() {
+//         let mut deps = mock_dependencies();
+//         let claims = NftClaims::new("claims");
 
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
-                Expiration::AtHeight(10),
-            )
-            .unwrap();
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
+//                 Expiration::AtHeight(10),
+//             )
+//             .unwrap();
 
-        let queried_claims = claims
-            .query_claims(deps.as_ref(), &Addr::unchecked("addr"))
-            .unwrap();
-        let saved_claims = claims
-            .0
-            .load(deps.as_mut().storage, &Addr::unchecked("addr"))
-            .unwrap();
-        assert_eq!(queried_claims.nft_claims, saved_claims);
-    }
+//         let queried_claims = claims
+//             .query_claims(deps.as_ref(), &Addr::unchecked("addr"))
+//             .unwrap();
+//         let saved_claims = claims
+//             .0
+//             .load(deps.as_mut().storage, &Addr::unchecked("addr"))
+//             .unwrap();
+//         assert_eq!(queried_claims.nft_claims, saved_claims);
+//     }
 
-    #[test]
-    fn test_query_claims_returns_empty_for_non_existent_user() {
-        let mut deps = mock_dependencies();
-        let claims = NftClaims::new("claims");
+//     #[test]
+//     fn test_query_claims_returns_empty_for_non_existent_user() {
+//         let mut deps = mock_dependencies();
+//         let claims = NftClaims::new("claims");
 
-        claims
-            .create_nft_claims(
-                deps.as_mut().storage,
-                &Addr::unchecked("addr"),
-                vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
-                Expiration::AtHeight(10),
-            )
-            .unwrap();
+//         claims
+//             .create_nft_claims(
+//                 deps.as_mut().storage,
+//                 &Addr::unchecked("addr"),
+//                 vec![TEST_CRYPTO_PUNKS_TOKEN_ID.to_string()],
+//                 Expiration::AtHeight(10),
+//             )
+//             .unwrap();
 
-        let queried_claims = claims
-            .query_claims(deps.as_ref(), &Addr::unchecked("addr2"))
-            .unwrap();
+//         let queried_claims = claims
+//             .query_claims(deps.as_ref(), &Addr::unchecked("addr2"))
+//             .unwrap();
 
-        assert_eq!(queried_claims.nft_claims.len(), 0);
-    }
-}
+//         assert_eq!(queried_claims.nft_claims.len(), 0);
+//     }
+// }

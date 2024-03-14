@@ -3,9 +3,9 @@ use cosmwasm_std::entry_point;
 
 use cosmos_sdk_proto::cosmos::bank;
 use cosmwasm_std::{
-    coins, from_binary, to_binary, to_vec, BankMsg, Binary, ContractResult, CosmosMsg, Deps,
-    DepsMut, Empty, Env, MessageInfo, QueryRequest, Reply, Response, StdError, StdResult, SubMsg,
-    SystemResult, Uint128, Uint256, WasmMsg,
+    coins, to_binary, to_vec, BankMsg, Binary, ContractResult, CosmosMsg, Deps,
+    DepsMut, Empty, Env, MessageInfo, QueryRequest, Response, StdError, StdResult,
+    SystemResult, Uint128, Uint256,
 };
 use cw_hooks::HookItem;
 // use cw_tokenfactory_issuer::msg::{
@@ -15,7 +15,7 @@ use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
 use dao_interface::{
     // state::ModuleInstantiateCallback,
     state::AnyContractInfo,
-    token::TokenFactoryCallback,
+    // token::TokenFactoryCallback,
     voting::{
         DenomResponse, IsActiveResponse, TotalPowerAtHeightResponse, VotingPowerAtHeightResponse,
     },
@@ -35,7 +35,7 @@ use secret_toolkit::{
     viewing_key::{ViewingKey, ViewingKeyStore},
 };
 // use secret_toolkit::utils::InitCallback;
-use secret_utils::{must_pay, parse_reply_execute_data, Duration};
+use secret_utils::{must_pay, Duration};
 
 use crate::msg::{
     CreateViewingKey, ExecuteMsg, GetHooksResponse, InstantiateMsg, ListStakersResponse,
@@ -55,7 +55,7 @@ const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
 
 // const INSTANTIATE_TOKEN_FACTORY_ISSUER_REPLY_ID: u64 = 0;
-const FACTORY_EXECUTE_REPLY_ID: u64 = 2;
+// const FACTORY_EXECUTE_REPLY_ID: u64 = 2;
 
 // We multiply by this when calculating needed power for being active
 // when using active threshold with percent
@@ -149,31 +149,31 @@ pub fn instantiate(
         //         .add_attribute("token", "new_token")
         //         .add_submessage(issuer_instantiate_msg))
         // }
-        TokenInfo::Factory(binary) => match from_binary(&binary)? {
-            WasmMsg::Execute {
-                msg,
-                contract_addr,
-                code_hash,
-                funds,
-            } => {
-                // Call factory contract. Use only a trusted factory contract,
-                // as this is a critical security component and valdiation of
-                // setup will happen in the factory.
-                Ok(Response::new()
-                    .add_attribute("action", "intantiate")
-                    .add_attribute("token", "custom_factory")
-                    .add_submessage(SubMsg::reply_on_success(
-                        WasmMsg::Execute {
-                            contract_addr,
-                            code_hash,
-                            msg,
-                            funds,
-                        },
-                        FACTORY_EXECUTE_REPLY_ID,
-                    )))
-            }
-            _ => Err(ContractError::UnsupportedFactoryMsg {}),
-        },
+        // TokenInfo::Factory(binary) => match from_binary(&binary)? {
+        //     WasmMsg::Execute {
+        //         msg,
+        //         contract_addr,
+        //         code_hash,
+        //         funds,
+        //     } => {
+        //         // Call factory contract. Use only a trusted factory contract,
+        //         // as this is a critical security component and valdiation of
+        //         // setup will happen in the factory.
+        //         Ok(Response::new()
+        //             .add_attribute("action", "intantiate")
+        //             .add_attribute("token", "custom_factory")
+        //             .add_submessage(SubMsg::reply_on_success(
+        //                 WasmMsg::Execute {
+        //                     contract_addr,
+        //                     code_hash,
+        //                     msg,
+        //                     funds,
+        //                 },
+        //                 FACTORY_EXECUTE_REPLY_ID,
+        //             )))
+        //     }
+        //     _ => Err(ContractError::UnsupportedFactoryMsg {}),
+        // },
     }
 }
 
@@ -801,223 +801,223 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
     Ok(Response::new().add_attribute("action", "migrate"))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    match msg.id {
-        // INSTANTIATE_TOKEN_FACTORY_ISSUER_REPLY_ID => {
-        //     match msg.result {
-        //         cosmwasm_std::SubMsgResult::Ok(res) => {
-        //             // Parse and save address of cw-tokenfactory-issuer
-        //             let data: cw_tokenfactory_issuer::msg::InstantiateResponse =
-        //                 from_binary(&res.data.unwrap())?;
-        //             TOKEN_ISSUER_CONTRACT.save(deps.storage, &data.contact_address)?;
+// #[cfg_attr(not(feature = "library"), entry_point)]
+// pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+//     match msg.id {
+//         // INSTANTIATE_TOKEN_FACTORY_ISSUER_REPLY_ID => {
+//         //     match msg.result {
+//         //         cosmwasm_std::SubMsgResult::Ok(res) => {
+//         //             // Parse and save address of cw-tokenfactory-issuer
+//         //             let data: cw_tokenfactory_issuer::msg::InstantiateResponse =
+//         //                 from_binary(&res.data.unwrap())?;
+//         //             TOKEN_ISSUER_CONTRACT.save(deps.storage, &data.contact_address)?;
 
-        //             // Load info for new token and remove temporary data
-        //             let token_info = TOKEN_INSTANTIATION_INFO.load(deps.storage)?;
-        //             TOKEN_INSTANTIATION_INFO.remove(deps.storage);
+//         //             // Load info for new token and remove temporary data
+//         //             let token_info = TOKEN_INSTANTIATION_INFO.load(deps.storage)?;
+//         //             TOKEN_INSTANTIATION_INFO.remove(deps.storage);
 
-        //             match token_info {
-        //                 TokenInfo::New(token) => {
-        //                     // Load the DAO address
-        //                     let dao = DAO.load(deps.storage)?;
+//         //             match token_info {
+//         //                 TokenInfo::New(token) => {
+//         //                     // Load the DAO address
+//         //                     let dao = DAO.load(deps.storage)?;
 
-        //                     // Format the denom and save it
-        //                     let denom = format!(
-        //                         "factory/{}/{}",
-        //                         &data.contact_address.clone(),
-        //                         token.subdenom
-        //                     );
+//         //                     // Format the denom and save it
+//         //                     let denom = format!(
+//         //                         "factory/{}/{}",
+//         //                         &data.contact_address.clone(),
+//         //                         token.subdenom
+//         //                     );
 
-        //                     DENOM.save(deps.storage, &denom)?;
+//         //                     DENOM.save(deps.storage, &denom)?;
 
-        //                     // Check supply is greater than zero, iterate through initial
-        //                     // balances and sum them, add DAO balance as well.
-        //                     let initial_supply = token
-        //                         .initial_balances
-        //                         .iter()
-        //                         .fold(Uint128::zero(), |previous, new_balance| {
-        //                             previous + new_balance.amount
-        //                         });
-        //                     let total_supply =
-        //                         initial_supply + token.initial_dao_balance.unwrap_or_default();
+//         //                     // Check supply is greater than zero, iterate through initial
+//         //                     // balances and sum them, add DAO balance as well.
+//         //                     let initial_supply = token
+//         //                         .initial_balances
+//         //                         .iter()
+//         //                         .fold(Uint128::zero(), |previous, new_balance| {
+//         //                             previous + new_balance.amount
+//         //                         });
+//         //                     let total_supply =
+//         //                         initial_supply + token.initial_dao_balance.unwrap_or_default();
 
-        //                     // Validate active threshold absolute count if configured
-        //                     if let Some(ActiveThreshold::AbsoluteCount { count }) =
-        //                         ACTIVE_THRESHOLD.may_load(deps.storage)?
-        //                     {
-        //                         // We use initial_supply here because the DAO balance is not
-        //                         // able to be staked by users.
-        //                         assert_valid_absolute_count_threshold(count, initial_supply)?;
-        //                     }
+//         //                     // Validate active threshold absolute count if configured
+//         //                     if let Some(ActiveThreshold::AbsoluteCount { count }) =
+//         //                         ACTIVE_THRESHOLD.may_load(deps.storage)?
+//         //                     {
+//         //                         // We use initial_supply here because the DAO balance is not
+//         //                         // able to be staked by users.
+//         //                         assert_valid_absolute_count_threshold(count, initial_supply)?;
+//         //                     }
 
-        //                     // Cannot instantiate with no initial token owners because it would
-        //                     // immediately lock the DAO.
-        //                     if initial_supply.is_zero() {
-        //                         return Err(ContractError::InitialBalancesError {});
-        //                     }
+//         //                     // Cannot instantiate with no initial token owners because it would
+//         //                     // immediately lock the DAO.
+//         //                     if initial_supply.is_zero() {
+//         //                         return Err(ContractError::InitialBalancesError {});
+//         //                     }
 
-        //                     // Msgs to be executed to finalize setup
-        //                     let mut msgs: Vec<WasmMsg> = vec![];
+//         //                     // Msgs to be executed to finalize setup
+//         //                     let mut msgs: Vec<WasmMsg> = vec![];
 
-        //                     // Grant an allowance to mint the initial supply
-        //                     msgs.push(WasmMsg::Execute {
-        //                         contract_addr: data.contact_address.clone().into_string(),
-        //                         code_hash: data.code_hash.clone(),
-        //                         msg: to_binary(&IssuerExecuteMsg::SetMinterAllowance {
-        //                             address: env.contract.address.to_string(),
-        //                             allowance: total_supply,
-        //                         })?,
-        //                         funds: vec![],
-        //                     });
+//         //                     // Grant an allowance to mint the initial supply
+//         //                     msgs.push(WasmMsg::Execute {
+//         //                         contract_addr: data.contact_address.clone().into_string(),
+//         //                         code_hash: data.code_hash.clone(),
+//         //                         msg: to_binary(&IssuerExecuteMsg::SetMinterAllowance {
+//         //                             address: env.contract.address.to_string(),
+//         //                             allowance: total_supply,
+//         //                         })?,
+//         //                         funds: vec![],
+//         //                     });
 
-        //                     // If metadata, set it by calling the contract
-        //                     if let Some(metadata) = token.metadata {
-        //                         // The first denom_unit must be the same as the tf and base denom.
-        //                         // It must have an exponent of 0. This the smallest unit of the token.
-        //                         // For more info: // https://docs.cosmos.network/main/architecture/adr-024-coin-metadata
-        //                         let mut denom_units = vec![DenomUnit {
-        //                             denom: denom.clone(),
-        //                             exponent: 0,
-        //                             aliases: vec![token.subdenom],
-        //                         }];
+//         //                     // If metadata, set it by calling the contract
+//         //                     if let Some(metadata) = token.metadata {
+//         //                         // The first denom_unit must be the same as the tf and base denom.
+//         //                         // It must have an exponent of 0. This the smallest unit of the token.
+//         //                         // For more info: // https://docs.cosmos.network/main/architecture/adr-024-coin-metadata
+//         //                         let mut denom_units = vec![DenomUnit {
+//         //                             denom: denom.clone(),
+//         //                             exponent: 0,
+//         //                             aliases: vec![token.subdenom],
+//         //                         }];
 
-        //                         // Caller can optionally define additional units
-        //                         if let Some(mut additional_units) = metadata.additional_denom_units
-        //                         {
-        //                             denom_units.append(&mut additional_units);
-        //                         }
+//         //                         // Caller can optionally define additional units
+//         //                         if let Some(mut additional_units) = metadata.additional_denom_units
+//         //                         {
+//         //                             denom_units.append(&mut additional_units);
+//         //                         }
 
-        //                         // Sort denom units by exponent, must be in ascending order
-        //                         denom_units.sort_by(|a, b| a.exponent.cmp(&b.exponent));
+//         //                         // Sort denom units by exponent, must be in ascending order
+//         //                         denom_units.sort_by(|a, b| a.exponent.cmp(&b.exponent));
 
-        //                         msgs.push(WasmMsg::Execute {
-        //                             contract_addr: data.contact_address.clone().into_string(),
-        //                             code_hash: data.code_hash.clone(),
-        //                             msg: to_binary(&IssuerExecuteMsg::SetDenomMetadata {
-        //                                 metadata: Metadata {
-        //                                     description: metadata.description,
-        //                                     denom_units,
-        //                                     base: denom.clone(),
-        //                                     display: metadata.display,
-        //                                     name: metadata.name,
-        //                                     symbol: metadata.symbol,
-        //                                     uri: metadata.uri,
-        //                                     uri_hash: metadata.uri_hash,
-        //                                 },
-        //                             })?,
-        //                             funds: vec![],
-        //                         });
-        //                     }
+//         //                         msgs.push(WasmMsg::Execute {
+//         //                             contract_addr: data.contact_address.clone().into_string(),
+//         //                             code_hash: data.code_hash.clone(),
+//         //                             msg: to_binary(&IssuerExecuteMsg::SetDenomMetadata {
+//         //                                 metadata: Metadata {
+//         //                                     description: metadata.description,
+//         //                                     denom_units,
+//         //                                     base: denom.clone(),
+//         //                                     display: metadata.display,
+//         //                                     name: metadata.name,
+//         //                                     symbol: metadata.symbol,
+//         //                                     uri: metadata.uri,
+//         //                                     uri_hash: metadata.uri_hash,
+//         //                                 },
+//         //                             })?,
+//         //                             funds: vec![],
+//         //                         });
+//         //                     }
 
-        //                     // Call issuer contract to mint tokens for initial balances
-        //                     token
-        //                         .initial_balances
-        //                         .iter()
-        //                         .for_each(|b: &InitialBalance| {
-        //                             msgs.push(WasmMsg::Execute {
-        //                                 contract_addr: data.contact_address.clone().into_string(),
-        //                                 code_hash: data.code_hash.clone(),
-        //                                 msg: to_binary(&IssuerExecuteMsg::Mint {
-        //                                     to_address: b.address.clone(),
-        //                                     amount: b.amount,
-        //                                 })
-        //                                 .unwrap_or_default(),
-        //                                 funds: vec![],
-        //                             });
-        //                         });
+//         //                     // Call issuer contract to mint tokens for initial balances
+//         //                     token
+//         //                         .initial_balances
+//         //                         .iter()
+//         //                         .for_each(|b: &InitialBalance| {
+//         //                             msgs.push(WasmMsg::Execute {
+//         //                                 contract_addr: data.contact_address.clone().into_string(),
+//         //                                 code_hash: data.code_hash.clone(),
+//         //                                 msg: to_binary(&IssuerExecuteMsg::Mint {
+//         //                                     to_address: b.address.clone(),
+//         //                                     amount: b.amount,
+//         //                                 })
+//         //                                 .unwrap_or_default(),
+//         //                                 funds: vec![],
+//         //                             });
+//         //                         });
 
-        //                     // Add initial DAO balance to initial_balances if nonzero.
-        //                     if let Some(initial_dao_balance) = token.initial_dao_balance {
-        //                         if !initial_dao_balance.is_zero() {
-        //                             msgs.push(WasmMsg::Execute {
-        //                                 contract_addr: data.contact_address.clone().into_string(),
-        //                                 code_hash: data.code_hash.clone(),
-        //                                 msg: to_binary(&IssuerExecuteMsg::Mint {
-        //                                     to_address: dao.to_string(),
-        //                                     amount: initial_dao_balance,
-        //                                 })?,
-        //                                 funds: vec![],
-        //                             });
-        //                         }
-        //                     }
+//         //                     // Add initial DAO balance to initial_balances if nonzero.
+//         //                     if let Some(initial_dao_balance) = token.initial_dao_balance {
+//         //                         if !initial_dao_balance.is_zero() {
+//         //                             msgs.push(WasmMsg::Execute {
+//         //                                 contract_addr: data.contact_address.clone().into_string(),
+//         //                                 code_hash: data.code_hash.clone(),
+//         //                                 msg: to_binary(&IssuerExecuteMsg::Mint {
+//         //                                     to_address: dao.to_string(),
+//         //                                     amount: initial_dao_balance,
+//         //                                 })?,
+//         //                                 funds: vec![],
+//         //                             });
+//         //                         }
+//         //                     }
 
-        //                     // Begin update issuer contract owner to be the DAO, this is a
-        //                     // two-step ownership transfer.
-        //                     msgs.push(WasmMsg::Execute {
-        //                         contract_addr: data.contact_address.clone().into_string(),
-        //                         code_hash: data.code_hash.clone(),
-        //                         msg: to_binary(&IssuerExecuteMsg::UpdateOwnership(
-        //                             cw_ownable::Action::TransferOwnership {
-        //                                 new_owner: dao.to_string(),
-        //                                 expiry: None,
-        //                             },
-        //                         ))?,
-        //                         funds: vec![],
-        //                     });
+//         //                     // Begin update issuer contract owner to be the DAO, this is a
+//         //                     // two-step ownership transfer.
+//         //                     msgs.push(WasmMsg::Execute {
+//         //                         contract_addr: data.contact_address.clone().into_string(),
+//         //                         code_hash: data.code_hash.clone(),
+//         //                         msg: to_binary(&IssuerExecuteMsg::UpdateOwnership(
+//         //                             cw_ownable::Action::TransferOwnership {
+//         //                                 new_owner: dao.to_string(),
+//         //                                 expiry: None,
+//         //                             },
+//         //                         ))?,
+//         //                         funds: vec![],
+//         //                     });
 
-        //                     // On setup success, have the DAO complete the second part of
-        //                     // ownership transfer by accepting ownership in a
-        //                     // ModuleInstantiateCallback.
-        //                     let callback = to_binary(&ModuleInstantiateCallback {
-        //                         msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-        //                             contract_addr: data.contact_address.clone().into_string(),
-        //                             code_hash: data.code_hash.clone(),
-        //                             msg: to_binary(&IssuerExecuteMsg::UpdateOwnership(
-        //                                 cw_ownable::Action::AcceptOwnership {},
-        //                             ))?,
-        //                             funds: vec![],
-        //                         })],
-        //                     })?;
+//         //                     // On setup success, have the DAO complete the second part of
+//         //                     // ownership transfer by accepting ownership in a
+//         //                     // ModuleInstantiateCallback.
+//         //                     let callback = to_binary(&ModuleInstantiateCallback {
+//         //                         msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+//         //                             contract_addr: data.contact_address.clone().into_string(),
+//         //                             code_hash: data.code_hash.clone(),
+//         //                             msg: to_binary(&IssuerExecuteMsg::UpdateOwnership(
+//         //                                 cw_ownable::Action::AcceptOwnership {},
+//         //                             ))?,
+//         //                             funds: vec![],
+//         //                         })],
+//         //                     })?;
 
-        //                     Ok(Response::new()
-        //                         .add_attribute("denom", denom)
-        //                         .add_attribute(
-        //                             "token_contract",
-        //                             data.contact_address.clone().to_string(),
-        //                         )
-        //                         .add_messages(msgs)
-        //                         .set_data(callback))
-        //                 }
-        //                 _ => unreachable!(),
-        //             }
-        //         }
-        //         cosmwasm_std::SubMsgResult::Err(_) => Err(ContractError::TokenInstantiateError {}),
-        //     }
-        // }
-        FACTORY_EXECUTE_REPLY_ID => {
-            // Parse reply
-            let res = parse_reply_execute_data(msg)?;
-            match res.data {
-                Some(data) => {
-                    // Parse info from the callback, this will fail
-                    // if incorrectly formatted.
-                    let info: TokenFactoryCallback = from_binary(&data)?;
+//         //                     Ok(Response::new()
+//         //                         .add_attribute("denom", denom)
+//         //                         .add_attribute(
+//         //                             "token_contract",
+//         //                             data.contact_address.clone().to_string(),
+//         //                         )
+//         //                         .add_messages(msgs)
+//         //                         .set_data(callback))
+//         //                 }
+//         //                 _ => unreachable!(),
+//         //             }
+//         //         }
+//         //         cosmwasm_std::SubMsgResult::Err(_) => Err(ContractError::TokenInstantiateError {}),
+//         //     }
+//         // }
+//         FACTORY_EXECUTE_REPLY_ID => {
+//             // Parse reply
+//             let res = parse_reply_execute_data(msg)?;
+//             match res.data {
+//                 Some(data) => {
+//                     // Parse info from the callback, this will fail
+//                     // if incorrectly formatted.
+//                     let info: TokenFactoryCallback = from_binary(&data)?;
 
-                    // Save Denom
-                    DENOM.save(deps.storage, &info.denom)?;
+//                     // Save Denom
+//                     DENOM.save(deps.storage, &info.denom)?;
 
-                    // Save token issuer contract if one is returned
-                    if let Some(ref token_contract) = info.token_contract {
-                        TOKEN_ISSUER_CONTRACT
-                            .save(deps.storage, &deps.api.addr_validate(token_contract)?)?;
-                    }
+//                     // Save token issuer contract if one is returned
+//                     if let Some(ref token_contract) = info.token_contract {
+//                         TOKEN_ISSUER_CONTRACT
+//                             .save(deps.storage, &deps.api.addr_validate(token_contract)?)?;
+//                     }
 
-                    // Construct the response
-                    let mut res = Response::new()
-                        .add_attribute("denom", info.denom)
-                        .add_attribute("token_contract", info.token_contract.unwrap_or_default());
+//                     // Construct the response
+//                     let mut res = Response::new()
+//                         .add_attribute("denom", info.denom)
+//                         .add_attribute("token_contract", info.token_contract.unwrap_or_default());
 
-                    // If a callback has been configured, set the module
-                    // instantiate callback data.
-                    if let Some(callback) = info.module_instantiate_callback {
-                        res = res.set_data(to_binary(&callback)?);
-                    }
+//                     // If a callback has been configured, set the module
+//                     // instantiate callback data.
+//                     if let Some(callback) = info.module_instantiate_callback {
+//                         res = res.set_data(to_binary(&callback)?);
+//                     }
 
-                    Ok(res)
-                }
-                None => Err(ContractError::NoFactoryCallback {}),
-            }
-        }
-        _ => Err(ContractError::UnknownReplyId { id: msg.id }),
-    }
-}
+//                     Ok(res)
+//                 }
+//                 None => Err(ContractError::NoFactoryCallback {}),
+//             }
+//         }
+//         _ => Err(ContractError::UnknownReplyId { id: msg.id }),
+//     }
+// }

@@ -36,5 +36,5 @@ schemars ={ workspace=true }
 
 [dev-dependencies]
 secret-multi-test   = { workspace = true }
-dao-testing     = { workspace = true }
+# dao-testing     = { workspace = true }
 dao-voting-snip721-staked = { workspace = true }

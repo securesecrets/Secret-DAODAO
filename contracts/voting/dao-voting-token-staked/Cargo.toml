@@ -37,7 +37,7 @@ dao-hooks = { workspace = true }
 dao-interface = { workspace = true }
 dao-voting = { workspace = true }
 cw-paginate-storage = { workspace = true }
-cw-tokenfactory-issuer = { workspace = true, features = ["library"] }
+# cw-tokenfactory-issuer = { workspace = true, features = ["library"] }
 secret-toolkit={workspace=true}
 cosmos-sdk-proto = {workspace=true}
 prost ={ workspace = true}
@@ -48,11 +48,11 @@ bincode ={ workspace=true }
 [dev-dependencies]
 anyhow = { workspace = true }
 secret-multi-test = { workspace = true }
-cw-tokenfactory-issuer = { workspace = true }
+# cw-tokenfactory-issuer = { workspace = true }
 dao-proposal-single = { workspace = true }
-dao-proposal-hook-counter = { workspace = true }
-dao-test-custom-factory = { workspace = true }
-dao-testing = { workspace = true, features = ["test-tube"] }
-osmosis-std = { workspace = true }
-osmosis-test-tube = { workspace = true }
+# dao-proposal-hook-counter = { workspace = true }
+# dao-test-custom-factory = { workspace = true }
+# dao-testing = { workspace = true, features = ["test-tube"] }
+# osmosis-std = { workspace = true }
+# osmosis-test-tube = { workspace = true }
 serde = { workspace = true }

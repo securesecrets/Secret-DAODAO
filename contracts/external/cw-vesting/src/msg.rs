@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Timestamp, Uint128};
-use cw20::Cw20ReceiveMsg;
+use snip20_reference_impl::receiver::Snip20ReceiveMsg;
 use cw_denom::UncheckedDenom;
 use cw_ownable::cw_ownable_execute;
 use cw_stake_tracker::StakeTrackerQuery;
@@ -68,7 +68,7 @@ pub enum ExecuteMsg {
     /// as the amount to be vested (as set during instantiation).
     /// Anyone may call this method so long as the contract has not
     /// yet been funded.
-    Receive(Cw20ReceiveMsg),
+    Receive(Snip20ReceiveMsg),
     /// Distribute vested tokens to the vest receiver. Anyone may call
     /// this method.
     Distribute {

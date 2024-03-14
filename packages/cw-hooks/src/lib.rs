@@ -136,7 +136,7 @@ mod tests {
             .prepare_hooks(storage, |a| {
                 Ok(SubMsg::reply_always(
                     BankMsg::Burn {
-                        amount: coins(a.as_str().len() as u128, "uekez"),
+                        amount: coins(a.addr.as_str().len() as u128, "uekez"),
                     },
                     2,
                 ))
@@ -144,8 +144,8 @@ mod tests {
             .unwrap();
         assert_eq!(msgs, vec![]);
 
-        hooks.add_hook(storage, addr!("ekez")).unwrap();
-        hooks.add_hook(storage, addr!("meow")).unwrap();
+        hooks.add_hook(storage, HookItem { addr: addr!("ekez"), code_hash: "def".to_string() }).unwrap();
+        hooks.add_hook(storage, HookItem { addr: addr!("meow"), code_hash: "abc".to_string() }).unwrap();
 
         assert_eq!(hooks.hook_count(storage).unwrap(), 2);
 
@@ -157,7 +157,7 @@ mod tests {
             .prepare_hooks(storage, |a| {
                 Ok(SubMsg::reply_always(
                     BankMsg::Burn {
-                        amount: coins(a.as_str().len() as u128, "uekez"),
+                        amount: coins(a.addr.as_str().len() as u128, "uekez"),
                     },
                     2,
                 ))
@@ -181,7 +181,7 @@ mod tests {
             .prepare_hooks_custom_msg(storage, |a| {
                 Ok(SubMsg::<Empty>::reply_always(
                     BankMsg::Burn {
-                        amount: coins(a.as_str().len() as u128, "uekez"),
+                        amount: coins(a.addr.as_str().len() as u128, "uekez"),
                     },
                     2,
                 ))
@@ -200,14 +200,14 @@ mod tests {
 
         // Query hooks returns all hooks added
         let HooksResponse { hooks: the_hooks } = hooks.query_hooks(deps.as_ref()).unwrap();
-        assert_eq!(the_hooks, vec![addr!("meow")]);
+        assert_eq!(the_hooks, vec![HookItem { addr: addr!("meow"), code_hash: "abc".to_string() }]);
 
         // Remove last hook
-        hooks.remove_hook(&mut deps.storage, addr!("meow")).unwrap();
+        hooks.remove_hook(&mut deps.storage, HookItem { addr: addr!("meow"), code_hash: "abc".to_string() }).unwrap();
 
         // Query hooks returns empty vector if no hooks added
         let HooksResponse { hooks: the_hooks } = hooks.query_hooks(deps.as_ref()).unwrap();
-        let no_hooks: Vec<String> = vec![];
+        let no_hooks: Vec<HookItem> = vec![];
         assert_eq!(the_hooks, no_hooks);
     }
 }

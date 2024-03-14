@@ -5,7 +5,7 @@ use cosmwasm_std::{
     Addr, Binary, CosmosMsg, DistributionMsg, StdResult, Storage, Timestamp, Uint128, Uint64,
 };
 use cw_denom::CheckedDenom;
-use cw_storage_plus::Item;
+use secret_storage_plus::Item;
 use wynd_utils::{Curve, PiecewiseLinear, SaturatingLinear};
 
 use cw_stake_tracker::{StakeTracker, StakeTrackerQuery};
@@ -83,9 +83,9 @@ pub struct VestInit {
 impl<'a> Payment<'a> {
     pub const fn new(
         vesting_prefix: &'a str,
-        staked_prefix: &'a str,
-        validator_prefix: &'a str,
-        cardinality_prefix: &'a str,
+        staked_prefix: &'a [u8],
+        validator_prefix: &'a [u8],
+        cardinality_prefix: &'a [u8],
     ) -> Self {
         Self {
             vesting: Item::new(vesting_prefix),

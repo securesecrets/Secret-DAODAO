@@ -48,5 +48,5 @@ cw4-v1                        = { version = "0.13", package = "cw4" }
 [dev-dependencies]
 cosmwasm-schema = { workspace = true }
 cw-multi-test   = { workspace = true }
-dao-testing     = { workspace = true }
+# dao-testing     = { workspace = true }
 anyhow          = { workspace = true }

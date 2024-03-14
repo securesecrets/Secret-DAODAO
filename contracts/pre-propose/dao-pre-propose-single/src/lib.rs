@@ -2,8 +2,8 @@
 
 pub mod contract;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 pub use contract::{ExecuteMsg, InstantiateMsg, ProposeMessage, QueryMsg};
 

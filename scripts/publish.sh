@@ -86,7 +86,7 @@ cd contracts/test/dao-proposal-sudo
 cargo publish
 cd "$START_DIR"
 
-cd contracts/test/dao-voting-cw20-balance
+cd contracts/test/dao-voting-snip20-balance
 cargo publish
 cd "$START_DIR"
 

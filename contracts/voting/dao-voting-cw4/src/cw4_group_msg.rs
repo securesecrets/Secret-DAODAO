@@ -72,9 +72,8 @@ pub enum Cw4GroupQueryMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, QueryResponses)]
-#[cfg_attr(test, derive(Eq, PartialEq))]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
+#[derive(QueryResponses)]
 pub enum QueryWithPermit {
     #[returns(cw4::MemberResponse)]
     Member {

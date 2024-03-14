@@ -23,6 +23,7 @@ fn voting_module_query_derive() {
     let _test = Test::VotingPowerAtHeight {
         address: "foo".to_string(),
         height: Some(10),
+        key: "key".to_string(),
     };
 
     let test = Test::TotalPowerAtHeight { height: Some(10) };
@@ -36,6 +37,7 @@ fn voting_module_query_derive() {
         | Test::VotingPowerAtHeight {
             height: _,
             address: _,
+            key: _,
         }
         | Test::Info {} => "yay",
         Test::Dao {} => "yay",

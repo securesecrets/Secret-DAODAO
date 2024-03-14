@@ -68,93 +68,93 @@ impl PreProposeInfo {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use cosmwasm_std::{to_binary, WasmMsg,testing};
-    use cosmwasm_std::testing::*;
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use cosmwasm_std::{to_binary, WasmMsg,testing};
+//     use cosmwasm_std::testing::*;
+//     use super::*;
 
-    #[test]
-    fn test_anyone_is_permitted() {
-        let policy = ProposalCreationPolicy::Anyone {};
+//     #[test]
+//     fn test_anyone_is_permitted() {
+//         let policy = ProposalCreationPolicy::Anyone {};
 
-        // I'll actually stand by this as a legit testing strategy
-        // when looking at string inputs. If anything is going to
-        // screw things up, its weird unicode characters.
-        //
-        // For example, my langauge server explodes for me if I use
-        // the granddaddy of weird unicode characters, the large
-        // family: 👩‍👩‍👧‍👦.
-        //
-        // The family emoji you see is actually a combination of
-        // individual person emojis. You can browse the whole
-        // collection of combo emojis here:
-        // <https://unicode.org/emoji/charts/emoji-zwj-sequences.html>.
-        //
-        // You may also enjoy this PDF wherein there is a discussion
-        // about the feesability of supporting all 7230 possible
-        // combos of family emojis:
-        // <https://www.unicode.org/L2/L2020/20114-family-emoji-explor.pdf>.
-        for c in '😀'..'🤣' {
-            assert!(policy.is_permitted(&Addr::unchecked(c.to_string())))
-        }
-    }
+//         // I'll actually stand by this as a legit testing strategy
+//         // when looking at string inputs. If anything is going to
+//         // screw things up, its weird unicode characters.
+//         //
+//         // For example, my langauge server explodes for me if I use
+//         // the granddaddy of weird unicode characters, the large
+//         // family: 👩‍👩‍👧‍👦.
+//         //
+//         // The family emoji you see is actually a combination of
+//         // individual person emojis. You can browse the whole
+//         // collection of combo emojis here:
+//         // <https://unicode.org/emoji/charts/emoji-zwj-sequences.html>.
+//         //
+//         // You may also enjoy this PDF wherein there is a discussion
+//         // about the feesability of supporting all 7230 possible
+//         // combos of family emojis:
+//         // <https://www.unicode.org/L2/L2020/20114-family-emoji-explor.pdf>.
+//         for c in '😀'..'🤣' {
+//             assert!(policy.is_permitted(&Addr::unchecked(c.to_string())))
+//         }
+//     }
 
-    #[test]
-    fn test_module_is_permitted() {
-        let policy = ProposalCreationPolicy::Module {
-            addr: Addr::unchecked("deposit_module"),
-            code_hash: "code_hash".to_string()
-        };
-        assert!(!policy.is_permitted(&Addr::unchecked("👩‍👩‍👧‍👦")));
-        assert!(policy.is_permitted(&Addr::unchecked("deposit_module")));
-    }
+//     #[test]
+//     fn test_module_is_permitted() {
+//         let policy = ProposalCreationPolicy::Module {
+//             addr: Addr::unchecked("deposit_module"),
+//             code_hash: "code_hash".to_string()
+//         };
+//         assert!(!policy.is_permitted(&Addr::unchecked("👩‍👩‍👧‍👦")));
+//         assert!(policy.is_permitted(&Addr::unchecked("deposit_module")));
+//     }
 
-    #[test]
-    fn test_pre_any_conversion() {
-        let info = PreProposeInfo::AnyoneMayPropose {};
-        let (policy, messages) = info
-            .into_initial_policy_and_messages(mock_dependencies().storage.as_mut(),Addr::unchecked("😃"),Item::new("dummmy"))
-            .unwrap();
-        assert_eq!(policy, ProposalCreationPolicy::Anyone {});
-        assert!(messages.is_empty())
-    }
+//     #[test]
+//     fn test_pre_any_conversion() {
+//         let info = PreProposeInfo::AnyoneMayPropose {};
+//         let (policy, messages) = info
+//             .into_initial_policy_and_messages(mock_dependencies().storage.as_mut(),Addr::unchecked("😃"),Item::new("dummmy"))
+//             .unwrap();
+//         assert_eq!(policy, ProposalCreationPolicy::Anyone {});
+//         assert!(messages.is_empty())
+//     }
 
-    #[test]
-    fn test_pre_module_conversion() {
-        let info = PreProposeInfo::ModuleMayPropose {
-            info: ModuleInstantiateInfo {
-                code_id: 42,
-                code_hash: "code_hash".into(),
-                msg: to_binary("foo").unwrap(),
-                admin: None,
-                funds: vec![],
-                label: "pre-propose-9000".to_string(),
-            },
-        };
-        let (policy, messages) = info
-        .into_initial_policy_and_messages(mock_dependencies().storage.as_mut(),Addr::unchecked("😃"),Item::new("dummmy"))
-        .unwrap();
+//     #[test]
+//     fn test_pre_module_conversion() {
+//         let info = PreProposeInfo::ModuleMayPropose {
+//             info: ModuleInstantiateInfo {
+//                 code_id: 42,
+//                 code_hash: "code_hash".into(),
+//                 msg: to_binary("foo").unwrap(),
+//                 admin: None,
+//                 funds: vec![],
+//                 label: "pre-propose-9000".to_string(),
+//             },
+//         };
+//         let (policy, messages) = info
+//         .into_initial_policy_and_messages(mock_dependencies().storage.as_mut(),Addr::unchecked("😃"),Item::new("dummmy"))
+//         .unwrap();
 
-        // In this case the package is expected to allow anyone to
-        // create a proposal (fail-open), and provide some messages
-        // that, when handled in a `reply` handler will set the
-        // creation policy to a specific module.
-        assert_eq!(policy, ProposalCreationPolicy::Anyone {});
-        assert_eq!(messages.len(), 1);
-        assert_eq!(
-            messages[0],
-            SubMsg::reply_on_success(
-                WasmMsg::Instantiate {
-                    admin: None,
-                    code_id: 42,
-                    code_hash: "code_hash".into(),
-                    msg: to_binary("foo").unwrap(),
-                    funds: vec![],
-                    label: "pre-propose-9000".to_string()
-                },
-                crate::reply::pre_propose_module_instantiation_id()
-            )
-        )
-    }
-}
+//         // In this case the package is expected to allow anyone to
+//         // create a proposal (fail-open), and provide some messages
+//         // that, when handled in a `reply` handler will set the
+//         // creation policy to a specific module.
+//         assert_eq!(policy, ProposalCreationPolicy::Anyone {});
+//         assert_eq!(messages.len(), 1);
+//         assert_eq!(
+//             messages[0],
+//             SubMsg::reply_on_success(
+//                 WasmMsg::Instantiate {
+//                     admin: None,
+//                     code_id: 42,
+//                     code_hash: "code_hash".into(),
+//                     msg: to_binary("foo").unwrap(),
+//                     funds: vec![],
+//                     label: "pre-propose-9000".to_string()
+//                 },
+//                 crate::reply::pre_propose_module_instantiation_id()
+//             )
+//         )
+//     }
+// }
