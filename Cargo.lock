@@ -691,20 +691,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw-address-like"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "451a4691083a88a3c0630a8a88799e9d4cd6679b7ce8ff22b8da2873ff31d380"
-dependencies = [
- "cosmwasm-std 1.5.0",
-]
-
-[[package]]
 name = "cw-admin-factory"
 version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
- "cw20-base 1.1.2",
  "dao-dao-core",
  "dao-interface",
  "secret-cosmwasm-std",
@@ -745,7 +735,7 @@ dependencies = [
  "cw-utils 0.13.4",
  "cw2 0.13.4",
  "cw20 0.13.4",
- "cw721 0.13.4",
+ "cw721",
  "schemars",
  "serde",
  "thiserror",
@@ -801,31 +791,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw-multi-test"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "579e2c2f2c0877b839c5cad85e67811074e854a50c1ff3085eb8290b1c27809c"
-dependencies = [
- "anyhow",
- "cosmwasm-std 1.5.0",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "derivative",
- "itertools 0.11.0",
- "prost 0.12.3",
- "schemars",
- "serde",
- "sha2 0.10.8",
- "thiserror",
-]
-
-[[package]]
 name = "cw-ownable"
 version = "0.5.1"
 dependencies = [
  "cosmwasm-schema 1.1.11",
- "cw-address-like 1.0.4",
- "cw-ownable-derive 0.5.1",
+ "cw-address-like",
+ "cw-ownable-derive",
  "secret-cosmwasm-std",
  "secret-storage-plus",
  "secret-utils",
@@ -833,34 +804,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw-ownable"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "093dfb4520c48b5848274dd88ea99e280a04bc08729603341c7fb0d758c74321"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw-address-like 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "cw-ownable-derive 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "thiserror",
-]
-
-[[package]]
 name = "cw-ownable-derive"
 version = "0.5.1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "cw-ownable-derive"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1d3bf2e0f341bb6cc100d7d441d31cf713fbd3ce0c511f91e79f14b40a889af"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -912,17 +857,6 @@ dependencies = [
 
 [[package]]
 name = "cw-storage-plus"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b6f91c0b94481a3e9ef1ceb183c37d00764f8751e39b45fc09f4d9b970d469"
-dependencies = [
- "cosmwasm-std 1.5.0",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw-storage-plus"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5ff29294ee99373e2cd5fd21786a3c0ced99a52fec2ca347d565489c61b723c"
@@ -940,21 +874,6 @@ checksum = "9dbaecb78c8e8abfd6b4258c7f4fbeb5c49a5e45ee4d910d3240ee8e1d714e1b"
 dependencies = [
  "cosmwasm-std 1.5.0",
  "schemars",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "cw-utils"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6a84c6c1c0acc3616398eba50783934bd6c964bad6974241eaee3460c8f5b26"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw2 0.16.0",
- "schemars",
- "semver",
  "serde",
  "thiserror",
 ]
@@ -992,19 +911,6 @@ checksum = "04cf4639517490dd36b333bbd6c4fbd92e325fd0acf4683b41753bc5eb63bfc1"
 dependencies = [
  "cosmwasm-std 1.5.0",
  "cw-storage-plus 0.13.4",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw2"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91398113b806f4d2a8d5f8d05684704a20ffd5968bf87e3473e1973710b884ad"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw-storage-plus 0.16.0",
  "schemars",
  "serde",
 ]
@@ -1066,23 +972,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw20-base"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17ad79e86ea3707229bf78df94e08732e8f713207b4a77b2699755596725e7d9"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw-storage-plus 1.2.0",
- "cw2 1.1.2",
- "cw20 1.1.2",
- "schemars",
- "semver",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "cw20-stake"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1095,7 +984,7 @@ dependencies = [
  "cw-utils 0.13.4",
  "cw2 0.13.4",
  "cw20 0.13.4",
- "cw20-base 0.13.4",
+ "cw20-base",
  "schemars",
  "serde",
  "thiserror",
@@ -1157,76 +1046,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw721"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94a1ea6e6277bdd6dfc043a9b1380697fe29d6e24b072597439523658d21d791"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw-utils 0.16.0",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw721"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3c4d286625ccadc957fe480dd3bdc54ada19e0e6b5b9325379db3130569e914"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw-utils 1.0.3",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw721-base"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77518e27431d43214cff4cdfbd788a7508f68d9b1f32389e6fce513e7eaccbef"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw-storage-plus 0.16.0",
- "cw-utils 0.16.0",
- "cw2 0.16.0",
- "cw721 0.16.0",
- "schemars",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "cw721-base"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da518d9f68bfda7d972cbaca2e8fcf04651d0edc3de72b04ae2bcd9289c81614"
-dependencies = [
- "cosmwasm-schema 1.5.0",
- "cosmwasm-std 1.5.0",
- "cw-ownable 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "cw-storage-plus 1.2.0",
- "cw-utils 1.0.3",
- "cw2 1.1.2",
- "cw721 0.18.0",
- "cw721-base 0.16.0",
- "schemars",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "dao-dao-core"
 version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-core",
  "cw-paginate-storage 2.4.0",
- "cw20-base 1.1.2",
- "cw721-base 0.18.0",
  "dao-dao-macros",
  "dao-interface",
  "schemars",
@@ -1293,9 +1118,6 @@ dependencies = [
  "cw-denom",
  "cw-hooks",
  "cw-paginate-storage 2.4.0",
- "cw-utils 1.0.3",
- "cw20 1.1.2",
- "cw20-base 1.1.2",
  "cw4-group",
  "dao-dao-core",
  "dao-hooks",
@@ -1310,6 +1132,7 @@ dependencies = [
  "secret-multi-test",
  "secret-storage-plus",
  "secret-toolkit",
+ "secret-utils",
  "thiserror",
 ]
 
@@ -1319,8 +1142,6 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-denom",
- "cw20 1.1.2",
- "cw20-base 1.1.2",
  "cw4-group",
  "dao-dao-core",
  "dao-hooks",
@@ -1365,8 +1186,6 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-denom",
- "cw20 1.1.2",
- "cw20-base 1.1.2",
  "cw4-group",
  "dao-dao-core",
  "dao-hooks",
@@ -1389,10 +1208,6 @@ dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-denom",
  "cw-hooks",
- "cw-multi-test",
- "cw-utils 1.0.3",
- "cw20 1.1.2",
- "cw20-base 1.1.2",
  "cw4-group",
  "dao-interface",
  "dao-pre-propose-base",
@@ -1400,6 +1215,8 @@ dependencies = [
  "dao-voting 2.4.0",
  "secret-cosmwasm-std",
  "secret-cw2",
+ "secret-multi-test",
+ "secret-utils",
 ]
 
 [[package]]
@@ -1435,12 +1252,9 @@ dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-denom",
  "cw-hooks",
- "cw20 1.1.2",
- "cw20-base 1.1.2",
  "cw3",
  "cw4",
  "cw4-group",
- "cw721-base 0.18.0",
  "dao-dao-macros",
  "dao-hooks",
  "dao-interface",
@@ -1571,8 +1385,7 @@ name = "dao-voting-snip20-staked"
 version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
- "cw-ownable 0.5.1",
- "cw20-base 1.1.2",
+ "cw-ownable",
  "dao-dao-macros",
  "dao-interface",
  "dao-voting 2.4.0",
@@ -1597,7 +1410,7 @@ version = "2.4.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema 1.1.11",
- "cw-ownable 0.5.1",
+ "cw-ownable",
  "cw-paginate-storage 2.4.0",
  "cw4",
  "dao-dao-macros",
@@ -1625,8 +1438,6 @@ dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-hooks",
  "cw-paginate-storage 2.4.0",
- "cw721 0.18.0",
- "cw721-base 0.18.0",
  "dao-dao-macros",
  "dao-hooks",
  "dao-interface",
@@ -1654,7 +1465,7 @@ dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema 1.1.11",
  "cw-hooks",
- "cw-ownable 0.5.1",
+ "cw-ownable",
  "cw-paginate-storage 2.4.0",
  "dao-dao-macros",
  "dao-hooks",
@@ -3123,10 +2934,9 @@ dependencies = [
  "bincode",
  "cosmwasm-schema 1.1.11",
  "cw-hooks",
- "cw-ownable 0.5.1",
+ "cw-ownable",
  "cw-paginate-storage 2.4.0",
  "cw-utils 0.13.4",
- "cw20 1.1.2",
  "cw20-stake",
  "dao-hooks",
  "dao-voting 2.4.0",
@@ -3154,9 +2964,8 @@ version = "2.4.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema 1.1.11",
- "cw-ownable 0.5.1",
+ "cw-ownable",
  "cw20 0.13.4",
- "cw20 1.1.2",
  "dao-hooks",
  "schemars",
  "secret-cosmwasm-std",
@@ -3178,9 +2987,7 @@ name = "snip20-stake-reward-distributor"
 version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
- "cw-ownable 0.5.1",
- "cw20 1.1.2",
- "cw20-base 1.1.2",
+ "cw-ownable",
  "schemars",
  "secret-cosmwasm-std",
  "secret-cw-controllers",
@@ -3202,7 +3009,7 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "secret-cosmwasm-std",
- "secret-storage-plus",
+ "secret-toolkit",
  "secret-utils",
  "thiserror",
 ]
@@ -3228,7 +3035,7 @@ name = "snip721-roles"
 version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
- "cw-ownable 0.5.1",
+ "cw-ownable",
  "cw4",
  "dao-snip721-extensions",
  "dao-voting-snip721-staked",
@@ -3278,7 +3085,7 @@ dependencies = [
  "cw-utils 0.13.4",
  "cw2 0.13.4",
  "cw20 0.13.4",
- "cw20-base 0.13.4",
+ "cw20-base",
  "cw20-stake",
  "schemars",
  "serde",
@@ -3297,7 +3104,7 @@ dependencies = [
  "cw-utils 0.13.4",
  "cw2 0.13.4",
  "cw20 0.13.4",
- "cw20-base 0.13.4",
+ "cw20-base",
  "cw20-stake",
  "schemars",
  "serde",

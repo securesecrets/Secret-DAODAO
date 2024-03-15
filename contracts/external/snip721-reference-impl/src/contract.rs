@@ -16,7 +16,6 @@ use secret_toolkit::{
     viewing_key::{ViewingKey, ViewingKeyStore},
 };
 
-use crate::{inventory::{Inventory, InventoryIter}, msg::ContractInfo};
 use crate::mint_run::{SerialNumber, StoredMintRunInfo};
 use crate::msg::{
     AccessLevel, BatchNftDossierElement, Burn, ContractStatus, Cw721Approval, Cw721OwnerOfResponse,
@@ -37,6 +36,10 @@ use crate::token::{Metadata, Token};
 use crate::{
     expiration::Expiration,
     msg::{InstantiateResponse, Minters, NftInfo, NumTokens, OwnerOf},
+};
+use crate::{
+    inventory::{Inventory, InventoryIter},
+    msg::ContractInfo,
 };
 
 /// pad handle responses and log attributes to blocks of 256 bytes to prevent leaking info based on

@@ -10,8 +10,8 @@ use std::any::type_name;
 use crate::{keys::Key, Serde};
 
 use cosmwasm_std::{
-    to_vec, Addr, Binary, ContractResult, CustomQuery, QuerierWrapper, QueryRequest,
-    StdError, StdResult, SystemResult, WasmQuery,
+    to_vec, Addr, Binary, ContractResult, CustomQuery, QuerierWrapper, QueryRequest, StdError,
+    StdResult, SystemResult, WasmQuery,
 };
 
 /// may_deserialize parses json bytes from storage (Option), returning Ok(None) if no data present
@@ -28,7 +28,9 @@ pub(crate) fn may_deserialize<T: DeserializeOwned, Ser: Serde>(
 }
 
 /// must_deserialize parses json bytes from storage (Option), returning NotFound error if no data present
-pub(crate) fn must_deserialize<T: DeserializeOwned, Ser: Serde>(value: &Option<Vec<u8>>) -> StdResult<T> {
+pub(crate) fn must_deserialize<T: DeserializeOwned, Ser: Serde>(
+    value: &Option<Vec<u8>>,
+) -> StdResult<T> {
     match value {
         Some(vec) => Ok(Ser::deserialize(vec)?),
         None => Err(StdError::not_found(type_name::<T>())),

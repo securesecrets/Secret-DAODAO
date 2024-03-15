@@ -1,12 +1,12 @@
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
+use cosmwasm_std::{to_binary, Empty, StdResult, Storage, SubMsg, WasmMsg};
 use cw_hooks::Hooks;
 use dao_voting::{
     pre_propose::ProposalCreationPolicy,
     reply::{failed_pre_propose_module_hook_id, mask_proposal_hook_index},
     status::Status,
 };
-use cosmwasm_std::{to_binary, Empty, StdResult, Storage, SubMsg, WasmMsg};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// An enum representing proposal hook messages.
 /// Either a new propsoal hook, fired when a new proposal is created,
@@ -45,7 +45,7 @@ pub fn new_proposal_hooks(
     let messages = hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
             contract_addr: hook_item.addr.to_string(),
-            code_hash:hook_item.code_hash.clone(),
+            code_hash: hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };
@@ -83,7 +83,7 @@ pub fn proposal_status_changed_hooks(
     let messages = hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
             contract_addr: hook_item.addr.to_string(),
-            code_hash:hook_item.code_hash.clone(),
+            code_hash: hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };
@@ -109,7 +109,7 @@ pub fn proposal_completed_hooks(
     let mut hooks: Vec<SubMsg> = vec![];
     match proposal_creation_policy {
         ProposalCreationPolicy::Anyone {} => (),
-        ProposalCreationPolicy::Module { addr,code_hash } => {
+        ProposalCreationPolicy::Module { addr, code_hash } => {
             let msg = to_binary(&PreProposeHookMsg::ProposalCompletedHook {
                 proposal_id,
                 new_status,

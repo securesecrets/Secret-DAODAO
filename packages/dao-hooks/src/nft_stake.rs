@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
-use cw_hooks::Hooks;
 use cosmwasm_std::{to_binary, Addr, StdResult, Storage, SubMsg, WasmMsg};
+use cw_hooks::Hooks;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// An enum representing NFT staking hooks.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -25,7 +25,7 @@ pub fn stake_nft_hook_msgs(
     hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
             contract_addr: hook_item.addr.into_string(),
-            code_hash:hook_item.code_hash.clone(),
+            code_hash: hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };
@@ -48,7 +48,7 @@ pub fn unstake_nft_hook_msgs(
     hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
             contract_addr: hook_item.addr.into_string(),
-            code_hash:hook_item.code_hash.clone(),
+            code_hash: hook_item.code_hash.clone(),
             msg: msg.clone(),
             funds: vec![],
         };

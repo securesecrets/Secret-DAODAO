@@ -1,6 +1,6 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 
-use cosmwasm_std::{Deps, StdResult,StdError};
+use cosmwasm_std::{Deps, StdError, StdResult};
 use secret_toolkit::storage::{
     keymap::{KeyItemIter, KeyIter},
     Keymap,
@@ -38,7 +38,6 @@ impl From<Order> for i32 {
     }
 }
 
-
 /// Generic function for paginating a list of (K, V) pairs in a
 /// CosmWasm Map.
 pub fn paginate_map<K, V>(
@@ -54,7 +53,6 @@ where
     let items = KeyItemIter::new(map, deps.storage, start, end)
         .flatten()
         .collect();
-
 
     Ok(items)
 }
@@ -201,7 +199,7 @@ where
 //             &map,
 //             Some("1".to_string()),
 //             None,
-           
+
 //         )
 //         .unwrap();
 //         assert_eq!(items, vec!["2"]);

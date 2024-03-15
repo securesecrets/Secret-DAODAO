@@ -123,7 +123,7 @@ pub fn voting_module_query(metadata: TokenStream, input: TokenStream) -> TokenSt
     let vp = dao_interface_path("voting::VotingPowerAtHeightResponse");
     let tp = dao_interface_path("voting::TotalPowerAtHeightResponse");
     let ci = dao_interface_path("state::AnyContractInfo");
-    
+
     merge_variants(
         metadata,
         input,

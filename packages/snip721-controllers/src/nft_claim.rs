@@ -1,6 +1,7 @@
+
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, BlockInfo, CustomQuery, Deps, StdResult, Storage};
-use secret_storage_plus::Map;
+use cosmwasm_std::{Addr, BlockInfo, CustomQuery, Deps, StdError, StdResult, Storage};
+use secret_toolkit::storage::Keymap;
 use secret_utils::Expiration;
 
 #[cw_serde]
@@ -9,6 +10,7 @@ pub struct NftClaimsResponse {
 }
 
 #[cw_serde]
+#[derive(Default)]
 pub struct NftClaim {
     pub token_id: String,
     pub release_at: Expiration,
@@ -23,11 +25,11 @@ impl NftClaim {
     }
 }
 
-pub struct NftClaims<'a>(Map<'a, &'a Addr, Vec<NftClaim>>);
+pub struct NftClaims<'a>(Keymap<'a, Addr, Vec<NftClaim>>);
 
 impl<'a> NftClaims<'a> {
-    pub const fn new(storage_key: &'a str) -> Self {
-        NftClaims(Map::new(storage_key))
+    pub const fn new(storage_key: &'a [u8]) -> Self {
+        NftClaims(Keymap::new(storage_key))
     }
 
     /// Creates a number of NFT claims simeltaniously for a given
@@ -46,17 +48,44 @@ impl<'a> NftClaims<'a> {
         token_ids: Vec<String>,
         release_at: Expiration,
     ) -> StdResult<()> {
-        self.0.update(storage, addr, |old| -> StdResult<_> {
-            Ok(old
-                .unwrap_or_default()
-                .into_iter()
-                .chain(token_ids.into_iter().map(|token_id| NftClaim {
-                    token_id,
-                    release_at,
-                }))
-                .collect::<Vec<NftClaim>>())
-        })?;
+        // self.0.update(storage, addr, |old| -> StdResult<_> {
+        //     Ok(old
+        //         .unwrap_or_default()
+        //         .into_iter()
+        //         .chain(token_ids.into_iter().map(|token_id| NftClaim {
+        //             token_id,
+        //             release_at,
+        //         }))
+        //         .collect::<Vec<NftClaim>>())
+        // })?;
+        // Ok(())
+
+        let new_claims: Vec<NftClaim> = {
+            let mut old_claims = self.0.get(storage, addr).unwrap_or_default();
+            // Check for deduplication and if the token_ids are already in claims
+            let mut seen = std::collections::HashSet::new();
+            for token_id in &token_ids {
+                if !seen.insert(token_id) {
+                    return Err(StdError::generic_err("Duplicate token IDs are not allowed"));
+                }
+                if old_claims.iter().any(|c| c.token_id == *token_id) {
+                    return Err(StdError::generic_err("Token ID is already in claims queue"));
+                }
+            }
+            // Create new NFT claims
+            old_claims.extend(token_ids.into_iter().map(|token_id| NftClaim {
+                token_id,
+                release_at,
+            }));
+            old_claims
+        };
+    
+        // Insert the updated claims back into the storage
+        self.0.insert(storage, addr, &new_claims)?;
+    
         Ok(())
+
+
     }
 
     /// This iterates over all mature claims for the address, and removes them, up to an optional cap.
@@ -67,21 +96,49 @@ impl<'a> NftClaims<'a> {
         addr: &Addr,
         block: &BlockInfo,
     ) -> StdResult<Vec<String>> {
+        // let mut to_send = vec![];
+        // self.0.update(storage, addr, |nft_claims| -> StdResult<_> {
+        //     let (_send, waiting): (Vec<_>, _) =
+        //         nft_claims.unwrap_or_default().into_iter().partition(|c| {
+        //             // if mature and we can pay fully, then include in _send
+        //             if c.release_at.is_expired(block) {
+        //                 to_send.push(c.token_id.clone());
+        //                 true
+        //             } else {
+        //                 // not to send, leave in waiting and save again
+        //                 false
+        //             }
+        //         });
+        //     Ok(waiting)
+        // })?;
+        // Ok(to_send)
+
         let mut to_send = vec![];
-        self.0.update(storage, addr, |nft_claims| -> StdResult<_> {
-            let (_send, waiting): (Vec<_>, _) =
-                nft_claims.unwrap_or_default().into_iter().partition(|c| {
+
+        // Retrieve the current value associated with the address key
+        let mut nft_claims = self.0.get(storage, addr);
+    
+        // Update the value if it exists, or initialize it to default otherwise
+        let  _ = match nft_claims.take() {
+            Some(claims) => {
+                let (send, waiting): (Vec<_>, _) = claims.into_iter().partition(|c| {
                     // if mature and we can pay fully, then include in _send
                     if c.release_at.is_expired(block) {
                         to_send.push(c.token_id.clone());
                         true
                     } else {
-                        // not to send, leave in waiting and save again
+                        // not to send, leave in waiting
                         false
                     }
                 });
-            Ok(waiting)
-        })?;
+                // Save the updated value
+                self.0.insert(storage, addr, &waiting)?;
+                send
+            }
+            None => vec![], // No claims found for the address
+        };
+    
+        // Return the tokens to be sent
         Ok(to_send)
     }
 
@@ -90,7 +147,7 @@ impl<'a> NftClaims<'a> {
         deps: Deps<Q>,
         address: &Addr,
     ) -> StdResult<NftClaimsResponse> {
-        let nft_claims = self.0.may_load(deps.storage, address)?.unwrap_or_default();
+        let nft_claims = self.0.get(deps.storage, address).unwrap_or_default();
         Ok(NftClaimsResponse { nft_claims })
     }
 }

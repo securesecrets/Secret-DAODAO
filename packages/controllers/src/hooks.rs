@@ -33,10 +33,9 @@ pub enum HookError {
     HookNotRegistered {},
 }
 
-
 #[cw_serde]
 pub struct HookItem {
-    pub addr : Addr,
+    pub addr: Addr,
     pub code_hash: String,
 }
 // store all hook addresses in one item. We cannot have many of them before the contract becomes unusable anyway.
@@ -47,7 +46,11 @@ impl<'a> Hooks<'a> {
         Hooks(Item::new(storage_key))
     }
 
-    pub fn add_hook(&self, storage: &mut dyn Storage, hook_item: HookItem) -> Result<(), HookError> {
+    pub fn add_hook(
+        &self,
+        storage: &mut dyn Storage,
+        hook_item: HookItem,
+    ) -> Result<(), HookError> {
         let mut hooks = self.0.may_load(storage)?.unwrap_or_default();
         if !hooks.iter().any(|h| h == &hook_item) {
             hooks.push(hook_item);
@@ -57,7 +60,11 @@ impl<'a> Hooks<'a> {
         Ok(self.0.save(storage, &hooks)?)
     }
 
-    pub fn remove_hook(&self, storage: &mut dyn Storage, hook_item: HookItem) -> Result<(), HookError> {
+    pub fn remove_hook(
+        &self,
+        storage: &mut dyn Storage,
+        hook_item: HookItem,
+    ) -> Result<(), HookError> {
         let mut hooks = self.0.load(storage)?;
         if let Some(p) = hooks.iter().position(|x| x == &hook_item) {
             hooks.remove(p);
@@ -86,13 +93,19 @@ impl<'a> Hooks<'a> {
         deps: DepsMut<Q>,
         info: MessageInfo,
         addr: Addr,
-        code_hash: String
+        code_hash: String,
     ) -> Result<Response<C>, HookError>
     where
         C: Clone + fmt::Debug + PartialEq + JsonSchema,
     {
         admin.assert_admin(deps.as_ref(), &info.sender)?;
-        self.add_hook(deps.storage, HookItem { addr:addr.clone(), code_hash:code_hash.clone()})?;
+        self.add_hook(
+            deps.storage,
+            HookItem {
+                addr: addr.clone(),
+                code_hash: code_hash.clone(),
+            },
+        )?;
 
         let attributes = vec![
             attr("action", "add_hook"),
@@ -108,13 +121,19 @@ impl<'a> Hooks<'a> {
         deps: DepsMut<Q>,
         info: MessageInfo,
         addr: Addr,
-        code_hash: String
+        code_hash: String,
     ) -> Result<Response<C>, HookError>
     where
         C: Clone + fmt::Debug + PartialEq + JsonSchema,
     {
         admin.assert_admin(deps.as_ref(), &info.sender)?;
-        self.remove_hook(deps.storage, HookItem { addr:addr.clone(), code_hash:code_hash.clone()})?;
+        self.remove_hook(
+            deps.storage,
+            HookItem {
+                addr: addr.clone(),
+                code_hash: code_hash.clone(),
+            },
+        )?;
 
         let attributes = vec![
             attr("action", "remove_hook"),

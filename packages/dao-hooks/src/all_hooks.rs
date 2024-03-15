@@ -4,8 +4,8 @@ use crate::nft_stake::NftStakeChangedHookMsg;
 use crate::proposal::{PreProposeHookMsg, ProposalHookMsg};
 use crate::stake::StakeChangedHookMsg;
 use crate::vote::VoteHookMsg;
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// An enum representing all possible DAO hooks.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

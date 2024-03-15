@@ -1,5 +1,6 @@
 use cosmwasm_std::{OverflowError, StdError};
 use thiserror::Error;
+use cw_ownable::OwnershipError;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum RolesContractError {
@@ -19,7 +20,7 @@ pub enum RolesContractError {
     OverflowErr(#[from] OverflowError),
 
     #[error(transparent)]
-    Ownable(#[from] cw_ownable::OwnershipError),
+    Ownable(#[from]OwnershipError),
 
     #[error("Cannot burn NFT, member weight would be negative")]
     CannotBurn {},

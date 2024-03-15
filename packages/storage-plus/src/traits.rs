@@ -1,6 +1,6 @@
+use crate::{Item, Json, Map, PrimaryKey, Serde};
 use cosmwasm_std::{StdError, StdResult, Storage};
 use serde::{de::DeserializeOwned, Serialize};
-use crate::{Item, Json, Map, PrimaryKey, Serde};
 
 pub trait NaiveItemStorage<Ser = Json>: Serialize + DeserializeOwned
 where

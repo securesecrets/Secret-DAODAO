@@ -25,17 +25,15 @@ pub enum ReplyEvent {
     Snip20ModuleInstantiate { code_hash: String },
     Snip20ModuleCreateViewingKey {},
     FailedPreProposeModuleHook {},
-    FailedVoteHook{ idx: u64},
-    FailedProposalHook { idx: u64},
-    FailedProposalExecution {proposal_id : u64},
+    FailedVoteHook { idx: u64 },
+    FailedProposalHook { idx: u64 },
+    FailedProposalExecution { proposal_id: u64 },
 }
 // store all hook addresses in one item. We cannot have many of them before the contract becomes unusable anyway.
 pub struct ReplyIds<'a> {
     keys: Keymap<'a, u64, ReplyEvent, Json>,
     curr_id: Item<'a, u64>,
 }
-
-
 
 impl<'a> ReplyIds<'a> {
     pub const fn new(namespace: &'a [u8], count_namespace: &'a [u8]) -> Self {

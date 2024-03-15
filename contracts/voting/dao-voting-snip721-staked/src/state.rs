@@ -151,7 +151,7 @@ impl StakedNftsTotalStore {
 
 /// The maximum number of claims that may be outstanding.
 pub const MAX_CLAIMS: u64 = 70;
-pub const NFT_CLAIMS: NftClaims = NftClaims::new("nft_claims");
+pub const NFT_CLAIMS: NftClaims = NftClaims::new(b"nft_claims");
 
 // Hooks to contracts that will receive staking and unstaking
 // messages.

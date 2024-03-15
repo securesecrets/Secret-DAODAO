@@ -6,7 +6,7 @@ use rand::Rng;
 use std::mem;
 use std::time::Duration;
 
-use secret_storage_plus::{CwIntKey};
+use secret_storage_plus::CwIntKey;
 
 fn bench_signed_int_key(c: &mut Criterion) {
     let mut group = c.benchmark_group("Signed int keys");

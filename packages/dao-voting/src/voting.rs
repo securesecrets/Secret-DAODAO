@@ -1,5 +1,5 @@
-use dao_interface::voting;
 use cosmwasm_std::{Addr, Decimal, Deps, StdResult, Uint128, Uint256};
+use dao_interface::voting;
 use schemars::JsonSchema;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};

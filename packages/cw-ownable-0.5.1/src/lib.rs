@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
 use cosmwasm_schema::cw_serde;
-use cw_address_like::AddressLike;
 use cosmwasm_std::{Addr, Api, Attribute, BlockInfo, DepsMut, StdError, StdResult, Storage};
+use cw_address_like::AddressLike;
 use secret_storage_plus::Item;
 
 // re-export the proc macros and the Expiration class

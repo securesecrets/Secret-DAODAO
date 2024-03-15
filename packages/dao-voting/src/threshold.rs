@@ -1,7 +1,6 @@
 use cosmwasm_std::{Decimal, Uint128};
-use serde::{Serialize,Deserialize};
 use schemars::JsonSchema;
-
+use serde::{Deserialize, Serialize};
 
 use thiserror::Error;
 

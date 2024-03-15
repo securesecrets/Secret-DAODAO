@@ -14,9 +14,9 @@ pub struct MetadataExt {
 pub enum ExecuteExt {
     /// Add a new hook to be informed of all membership changes.
     /// Must be called by Admin
-    AddHook { addr: String ,code_hash: String},
+    AddHook { addr: String, code_hash: String },
     /// Remove a hook. Must be called by Admin
-    RemoveHook { addr: String,code_hash: String },
+    RemoveHook { addr: String, code_hash: String },
     /// Update the token_uri for a particular NFT. Must be called by minter / admin
     UpdateTokenUri {
         token_id: String,
@@ -72,7 +72,6 @@ pub enum QueryExt {
         permit: Permit,
         query: QueryWithPermit,
     },
-
 }
 
 impl QueryExt {
@@ -101,9 +100,10 @@ pub struct ViewingKeyError {
 #[derive(QueryResponses)]
 pub enum QueryWithPermit {
     #[returns(dao_interface::voting::VotingPowerAtHeightResponse)]
-    Member { addr: String,
-        at_height: Option<u64>,},
+    Member {
+        addr: String,
+        at_height: Option<u64>,
+    },
 }
-
 
 impl CustomMsg for QueryExt {}

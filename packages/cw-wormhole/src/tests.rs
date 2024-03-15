@@ -56,9 +56,6 @@
 // // Calls to update should visit values in ascending order in terms of
 // // time.
 
-
-
-
 // // #[test]
 // // fn test_update_visits_in_ascending_order() {
 // //     let storage = &mut mock_dependencies().storage;

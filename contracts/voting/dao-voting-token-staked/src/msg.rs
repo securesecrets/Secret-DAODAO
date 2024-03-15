@@ -16,7 +16,6 @@ pub enum TokenInfo {
         /// Token factory denom
         denom: String,
     },
-
     // NOTE* There is right now no way to create new token so will be using existing token
 
     // Creates a new Token Factory token via the issue contract with the DAO automatically

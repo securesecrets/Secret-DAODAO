@@ -78,18 +78,16 @@ impl<'n, K, V> Wormhole<'n, K, V> {
 
 impl<'n, K, V> Wormhole<'n, K, V>
 where
-   // 1. keys in the map can be cloned
-   K: Serialize + DeserializeOwned + Clone+PartialEq,
-   // 1.1. values in the map can be serialized and deserialized
-   V: serde::de::DeserializeOwned + serde::Serialize + Default + Clone
+    // 1. keys in the map can be cloned
+    K: Serialize + DeserializeOwned + Clone + PartialEq,
+    // 1.1. values in the map can be serialized and deserialized
+    V: serde::de::DeserializeOwned + serde::Serialize + Default + Clone,
 {
     /// Loads the value at a key at the specified time. If the key has
     /// no value at that time, returns `None`. Returns `Some(value)`
     /// otherwise.
     pub fn load(&self, storage: &dyn Storage, k: K, t: u64) -> StdResult<Option<V>> {
-        Ok(self
-            .snapshots()
-            .get(storage, &(k, t)))
+        Ok(self.snapshots().get(storage, &(k, t)))
     }
 
     /// Increments the value of key `k` at time `t` by amount `i`.
@@ -100,13 +98,13 @@ where
         self.update(storage, k, t, &mut |v, _| v + i.clone())
     }
 
-        /// Decrements the value of key `k` at time `t` by amount `i`.
-        pub fn decrement(&self, storage: &mut dyn Storage, k: K, t: u64, i: V) -> StdResult<V>
-        where
-            V: Sub<Output = V>,
-        {
-            self.update(storage, k, t, &mut |v, _| v - i.clone())
-        }
+    /// Decrements the value of key `k` at time `t` by amount `i`.
+    pub fn decrement(&self, storage: &mut dyn Storage, k: K, t: u64, i: V) -> StdResult<V>
+    where
+        V: Sub<Output = V>,
+    {
+        self.update(storage, k, t, &mut |v, _| v - i.clone())
+    }
 
     /// Gets the snapshot map with a namespace with a lifetime equal
     /// to the lifetime of `&'a self`.
@@ -129,24 +127,29 @@ where
         t: u64,
         update: &mut dyn FnMut(V, u64) -> V,
     ) -> StdResult<V> {
-     // Update the value at t.
-     let prev = self.load(storage, k.clone(), t)?.unwrap_or_default();
-     let updated = update(prev, t);
-     self.snapshots().insert(storage, &(k.clone(), t), &updated)?;
- 
-     // Update all values where t' > t.
-     let all_entries: Vec<_> = self.snapshots().iter(storage)?.collect::<StdResult<Vec<_>>>()?;
- 
-     for ((key, time), value) in all_entries {
-         if key == k && time > t {
-             let updated_value = update(value.clone(), time);
-             self.snapshots().insert(storage, &(key, time), &updated_value)?;
-         }
-     }
- 
-     Ok(updated)
- }
-  
+        // Update the value at t.
+        let prev = self.load(storage, k.clone(), t)?.unwrap_or_default();
+        let updated = update(prev, t);
+        self.snapshots()
+            .insert(storage, &(k.clone(), t), &updated)?;
+
+        // Update all values where t' > t.
+        let all_entries: Vec<_> = self
+            .snapshots()
+            .iter(storage)?
+            .collect::<StdResult<Vec<_>>>()?;
+
+        for ((key, time), value) in all_entries {
+            if key == k && time > t {
+                let updated_value = update(value.clone(), time);
+                self.snapshots()
+                    .insert(storage, &(key, time), &updated_value)?;
+            }
+        }
+
+        Ok(updated)
+    }
+
     /// Updates a single key `k` at time `t` without performing an
     /// update on values of `(k, t')` where `t' > t`.
     ///

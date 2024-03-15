@@ -6,9 +6,9 @@ use secret_cw_controllers::{AdminError, HookError, HookItem};
 use crate::contract::{
     execute, instantiate, query_list_members, query_member, query_total_weight, update_members,
 };
+use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg};
 use crate::state::{ADMIN, HOOKS};
-use crate::error::ContractError;
 
 const INIT_ADMIN: &str = "juan";
 const USER1: &str = "somebody";
@@ -284,9 +284,8 @@ fn add_remove_hooks() {
     let contract2 = String::from("hook2");
     let contract2_code_hash = String::from("shshsh");
 
-
     let add_msg = ExecuteMsg::AddHook {
-        hook:HookItem{
+        hook: HookItem {
             addr: Addr::unchecked(contract1.clone()),
             code_hash: contract1_code_hash.clone(),
         },
@@ -313,14 +312,17 @@ fn add_remove_hooks() {
     )
     .unwrap();
     let hooks = HOOKS.query_hooks(deps.as_ref()).unwrap();
-    assert_eq!(hooks.hooks, vec![HookItem{
-        addr: Addr::unchecked(contract1.clone()),
-        code_hash: contract1_code_hash.clone()
-    }]);
+    assert_eq!(
+        hooks.hooks,
+        vec![HookItem {
+            addr: Addr::unchecked(contract1.clone()),
+            code_hash: contract1_code_hash.clone()
+        }]
+    );
 
     // cannot remove a non-registered contract
     let remove_msg = ExecuteMsg::RemoveHook {
-        hook:HookItem{
+        hook: HookItem {
             addr: Addr::unchecked(contract2.clone()),
             code_hash: contract2_code_hash.clone(),
         },
@@ -330,40 +332,51 @@ fn add_remove_hooks() {
 
     // add second contract
     let add_msg2 = ExecuteMsg::AddHook {
-        hook:HookItem{
+        hook: HookItem {
             addr: Addr::unchecked(contract2.clone()),
             code_hash: contract2_code_hash.clone(),
         },
     };
     let _ = execute(deps.as_mut(), mock_env(), admin_info.clone(), add_msg2).unwrap();
     let hooks = HOOKS.query_hooks(deps.as_ref()).unwrap();
-    assert_eq!(hooks.hooks, vec![HookItem{
-        addr: Addr::unchecked(contract1.clone()),
-        code_hash: contract1_code_hash.clone()
-    }, HookItem{
-        addr:Addr::unchecked(contract2.clone()),
-        code_hash : contract2_code_hash.clone()
-    }]);
+    assert_eq!(
+        hooks.hooks,
+        vec![
+            HookItem {
+                addr: Addr::unchecked(contract1.clone()),
+                code_hash: contract1_code_hash.clone()
+            },
+            HookItem {
+                addr: Addr::unchecked(contract2.clone()),
+                code_hash: contract2_code_hash.clone()
+            }
+        ]
+    );
 
     // cannot re-add an existing contract
     let err = execute(deps.as_mut(), mock_env(), admin_info.clone(), add_msg).unwrap_err();
     assert_eq!(err, HookError::HookAlreadyRegistered {}.into());
 
     // non-admin cannot remove
-    let remove_msg = ExecuteMsg::RemoveHook { hook:HookItem{
-        addr: Addr::unchecked(contract1.clone()),
-        code_hash: contract1_code_hash.clone(),
-    },};
+    let remove_msg = ExecuteMsg::RemoveHook {
+        hook: HookItem {
+            addr: Addr::unchecked(contract1.clone()),
+            code_hash: contract1_code_hash.clone(),
+        },
+    };
     let err = execute(deps.as_mut(), mock_env(), user_info, remove_msg.clone()).unwrap_err();
     assert_eq!(err, HookError::Admin(AdminError::NotAdmin {}).into());
 
     // remove the original
     let _ = execute(deps.as_mut(), mock_env(), admin_info, remove_msg).unwrap();
     let hooks = HOOKS.query_hooks(deps.as_ref()).unwrap();
-    assert_eq!(hooks.hooks, vec![ HookItem{
-        addr:Addr::unchecked(contract2.clone()),
-        code_hash : contract2_code_hash.clone()
-    }]);
+    assert_eq!(
+        hooks.hooks,
+        vec![HookItem {
+            addr: Addr::unchecked(contract2.clone()),
+            code_hash: contract2_code_hash.clone()
+        }]
+    );
 }
 
 #[test]
@@ -383,13 +396,13 @@ fn hooks_fire() {
     // register 2 hooks
     let admin_info = mock_info(INIT_ADMIN, &[]);
     let add_msg = ExecuteMsg::AddHook {
-        hook:HookItem{
+        hook: HookItem {
             addr: Addr::unchecked(contract1.clone()),
             code_hash: contract1_code_hash.clone(),
         },
     };
     let add_msg2 = ExecuteMsg::AddHook {
-        hook:HookItem{
+        hook: HookItem {
             addr: Addr::unchecked(contract2.clone()),
             code_hash: contract2_code_hash.clone(),
         },

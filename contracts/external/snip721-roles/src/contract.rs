@@ -354,10 +354,8 @@ pub fn execute_burn(
         Snip721QueryAnswer::OwnerOf { owner, .. } => {
             owner_addr = owner;
         }
-        _ => ()
+        _ => (),
     }
-
-
 
     // Get the weight of the token
     let nft_info_res: Snip721QueryAnswer = deps.querier.query_wasm_smart(
@@ -367,12 +365,12 @@ pub fn execute_burn(
             token_id: token_id.clone(),
         },
     )?;
-    let mut extension_res = None ;
+    let mut extension_res = None;
     match nft_info_res {
-        Snip721QueryAnswer::NftInfo { extension , .. } => {
+        Snip721QueryAnswer::NftInfo { extension, .. } => {
             extension_res = extension;
         }
-        _ => ()
+        _ => (),
     }
 
     let mut total = Uint64::from(TotalStore::load(deps.storage));
@@ -595,14 +593,17 @@ pub fn execute_update_token_role(
             },
         )
         .map_err(|_| ContractError::NftDoesNotExist {})?;
-    let mut extension_res = None ;
+    let mut extension_res = None;
     let mut token_uri_res = Some(String::new());
     match token_res {
-        Snip721QueryAnswer::NftInfo { extension , token_uri } => {
+        Snip721QueryAnswer::NftInfo {
+            extension,
+            token_uri,
+        } => {
             extension_res = extension;
             token_uri_res = token_uri;
         }
-        _ => ()
+        _ => (),
     }
 
     // Update role with new value
@@ -627,11 +628,7 @@ pub fn execute_update_token_role(
                     youtube_url: Some(extension_res.clone().unwrap().youtube_url.unwrap()),
                     media: Some(extension_res.clone().unwrap().media.unwrap()),
                     protected_attributes: Some(
-                        extension_res
-                            .clone()
-                            .unwrap()
-                            .protected_attributes
-                            .unwrap(),
+                        extension_res.clone().unwrap().protected_attributes.unwrap(),
                     ),
                     token_subtype: Some(extension_res.clone().unwrap().token_subtype.unwrap()),
                     role: role.clone(),
@@ -672,13 +669,13 @@ pub fn execute_update_token_uri(
         )
         .map_err(|_| ContractError::NftDoesNotExist {})?;
 
-        let mut extension_res = None ;
-        match token_res {
-            Snip721QueryAnswer::NftInfo { extension , .. } => {
-                extension_res = extension;
-            }
-            _ => ()
+    let mut extension_res = None;
+    match token_res {
+        Snip721QueryAnswer::NftInfo { extension, .. } => {
+            extension_res = extension;
         }
+        _ => (),
+    }
 
     // Update role with new value
     let exec_msg = WasmMsg::Execute {
@@ -702,11 +699,7 @@ pub fn execute_update_token_uri(
                     youtube_url: Some(extension_res.clone().unwrap().youtube_url.unwrap()),
                     media: Some(extension_res.clone().unwrap().media.unwrap()),
                     protected_attributes: Some(
-                        extension_res
-                            .clone()
-                            .unwrap()
-                            .protected_attributes
-                            .unwrap(),
+                        extension_res.clone().unwrap().protected_attributes.unwrap(),
                     ),
                     token_subtype: Some(extension_res.clone().unwrap().token_subtype.unwrap()),
                     role: Some(extension_res.clone().unwrap().role.unwrap()),
@@ -747,15 +740,18 @@ pub fn execute_update_token_weight(
         )
         .map_err(|_| ContractError::NftDoesNotExist {})?;
 
-        let mut extension_res = None ;
-        let mut token_uri_res = Some(String::new());
-        match token_res {
-            Snip721QueryAnswer::NftInfo { extension , token_uri } => {
-                extension_res = extension;
-                token_uri_res = token_uri;
-            }
-            _ => ()
+    let mut extension_res = None;
+    let mut token_uri_res = Some(String::new());
+    match token_res {
+        Snip721QueryAnswer::NftInfo {
+            extension,
+            token_uri,
+        } => {
+            extension_res = extension;
+            token_uri_res = token_uri;
         }
+        _ => (),
+    }
 
     // Lookup the owner of the NFT
     let owner_res: Snip721QueryAnswer = deps.querier.query_wasm_smart(
@@ -773,7 +769,7 @@ pub fn execute_update_token_weight(
         Snip721QueryAnswer::OwnerOf { owner, .. } => {
             owner_addr = owner;
         }
-        _ => ()
+        _ => (),
     }
 
     let mut total = Uint64::from(TotalStore::load(deps.storage));
@@ -905,11 +901,7 @@ pub fn execute_update_token_weight(
                     youtube_url: Some(extension_res.clone().unwrap().youtube_url.unwrap()),
                     media: Some(extension_res.clone().unwrap().media.unwrap()),
                     protected_attributes: Some(
-                        extension_res
-                            .clone()
-                            .unwrap()
-                            .protected_attributes
-                            .unwrap(),
+                        extension_res.clone().unwrap().protected_attributes.unwrap(),
                     ),
                     token_subtype: Some(extension_res.clone().unwrap().token_subtype.unwrap()),
                     role: Some(extension_res.unwrap().role.unwrap()),
@@ -987,7 +979,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetNftContractInfo {} => to_binary(&get_info(deps)?),
         _ => {
             let snip721_info = SNIP721_INFO.load(deps.storage)?;
-            let res:Snip721QueryAnswer = deps.querier.query_wasm_smart(
+            let res: Snip721QueryAnswer = deps.querier.query_wasm_smart(
                 snip721_info.code_hash.clone(),
                 snip721_info.contract_address.to_string().clone(),
                 &msg,

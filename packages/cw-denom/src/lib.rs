@@ -39,7 +39,7 @@ pub enum CheckedDenom {
     /// A native (bank module) asset.
     Native(String),
     /// A cw20 asset.
-    Cw20(Addr,String),
+    Cw20(Addr, String),
 }
 
 /// A denom that has not been checked to confirm it points to a valid
@@ -49,7 +49,7 @@ pub enum UncheckedDenom {
     /// A native (bank module) asset.
     Native(String),
     /// A cw20 asset.
-    Cw20(String,String),
+    Cw20(String, String),
 }
 
 impl UncheckedDenom {
@@ -65,7 +65,7 @@ impl UncheckedDenom {
     pub fn into_checked(self, deps: Deps) -> Result<CheckedDenom, DenomError> {
         match self {
             Self::Native(denom) => validate_native_denom(denom),
-            Self::Cw20(addr,code_hash) => {
+            Self::Cw20(addr, code_hash) => {
                 let addr = deps.api.addr_validate(&addr)?;
                 let _info: secret_toolkit::snip20::TokenInfoResponse = deps
                     .querier
@@ -75,7 +75,7 @@ impl UncheckedDenom {
                         &secret_toolkit::snip20::QueryMsg::TokenInfo {},
                     )
                     .map_err(|err| DenomError::InvalidCw20 { err })?;
-                Ok(CheckedDenom::Cw20(addr,code_hash))
+                Ok(CheckedDenom::Cw20(addr, code_hash))
             }
         }
     }
@@ -97,7 +97,7 @@ impl CheckedDenom {
     pub fn is_cw20(&self, cw20: &Addr) -> bool {
         match self {
             CheckedDenom::Native(_) => false,
-            CheckedDenom::Cw20(a,_) => a == cw20,
+            CheckedDenom::Cw20(a, _) => a == cw20,
         }
     }
 
@@ -129,7 +129,7 @@ impl CheckedDenom {
     ) -> StdResult<Uint128> {
         match self {
             CheckedDenom::Native(denom) => Ok(querier.query_balance(who, denom)?.amount),
-            CheckedDenom::Cw20(address,code_hash) => {
+            CheckedDenom::Cw20(address, code_hash) => {
                 let balance: secret_toolkit::snip20::Balance = querier.query_wasm_smart(
                     code_hash,
                     address,
@@ -146,11 +146,7 @@ impl CheckedDenom {
     /// Gets a `CosmosMsg` that, when executed, will transfer AMOUNT
     /// tokens to WHO. AMOUNT being zero will cause the message
     /// execution to fail.
-    pub fn get_transfer_to_message(
-        &self,
-        who: &Addr,
-        amount: Uint128,
-    ) -> StdResult<CosmosMsg> {
+    pub fn get_transfer_to_message(&self, who: &Addr, amount: Uint128) -> StdResult<CosmosMsg> {
         Ok(match self {
             CheckedDenom::Native(denom) => BankMsg::Send {
                 to_address: who.to_string(),
@@ -160,9 +156,9 @@ impl CheckedDenom {
                 }],
             }
             .into(),
-            CheckedDenom::Cw20(address,code_hash) => WasmMsg::Execute {
+            CheckedDenom::Cw20(address, code_hash) => WasmMsg::Execute {
                 contract_addr: address.to_string(),
-                code_hash:code_hash.to_string(),
+                code_hash: code_hash.to_string(),
                 msg: to_binary(&secret_toolkit::snip20::HandleMsg::Transfer {
                     recipient: who.to_string(),
                     amount,
@@ -208,7 +204,7 @@ impl fmt::Display for CheckedDenom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Native(inner) => write!(f, "{inner}"),
-            Self::Cw20(inner,_) => write!(f, "{inner}"),
+            Self::Cw20(inner, _) => write!(f, "{inner}"),
         }
     }
 }
@@ -224,7 +220,6 @@ mod tests {
 
     const CW20_ADDR: &str = "cw20";
     const CW20_CODE_HASH: &str = "CODE_HASH";
-
 
     fn token_info_mock_querier(works: bool) -> impl Fn(&WasmQuery) -> QuerierResult {
         move |query: &WasmQuery| -> QuerierResult {
@@ -263,12 +258,13 @@ mod tests {
         let mut deps = mock_dependencies();
         deps.querier = querier;
 
-        let unchecked = UncheckedDenom::Cw20(CW20_ADDR.to_string(),CW20_CODE_HASH.to_string());
-        let checked = unchecked
-            .into_checked(deps.as_ref())
-            .unwrap();
+        let unchecked = UncheckedDenom::Cw20(CW20_ADDR.to_string(), CW20_CODE_HASH.to_string());
+        let checked = unchecked.into_checked(deps.as_ref()).unwrap();
 
-        assert_eq!(checked, CheckedDenom::Cw20(Addr::unchecked(CW20_ADDR),CW20_CODE_HASH.to_string()))
+        assert_eq!(
+            checked,
+            CheckedDenom::Cw20(Addr::unchecked(CW20_ADDR), CW20_CODE_HASH.to_string())
+        )
     }
 
     #[test]
@@ -279,10 +275,8 @@ mod tests {
         let mut deps = mock_dependencies();
         deps.querier = querier;
 
-        let unchecked = UncheckedDenom::Cw20(CW20_ADDR.to_string(),CW20_CODE_HASH.to_string());
-        let err = unchecked
-            .into_checked(deps.as_ref())
-            .unwrap_err();
+        let unchecked = UncheckedDenom::Cw20(CW20_ADDR.to_string(), CW20_CODE_HASH.to_string());
+        let err = unchecked.into_checked(deps.as_ref()).unwrap_err();
         assert_eq!(
             err,
             DenomError::InvalidCw20 {
@@ -301,10 +295,11 @@ mod tests {
         let mut deps = mock_dependencies();
         deps.querier = querier;
 
-        let unchecked = UncheckedDenom::Cw20("HasCapitalsSoShouldNotValidate".to_string(),"HasCapitalsSoShouldNotValidate".to_string());
-        let err = unchecked
-            .into_checked(deps.as_ref())
-            .unwrap_err();
+        let unchecked = UncheckedDenom::Cw20(
+            "HasCapitalsSoShouldNotValidate".to_string(),
+            "HasCapitalsSoShouldNotValidate".to_string(),
+        );
+        let err = unchecked.into_checked(deps.as_ref()).unwrap_err();
         assert_eq!(
             err,
             DenomError::Std(StdError::GenericErr {
@@ -384,7 +379,7 @@ mod tests {
     fn test_display() {
         let denom = CheckedDenom::Native("hello".to_string());
         assert_eq!(denom.to_string(), "hello".to_string());
-        let denom = CheckedDenom::Cw20(Addr::unchecked("hello"),"CODE_HASH".to_string());
+        let denom = CheckedDenom::Cw20(Addr::unchecked("hello"), "CODE_HASH".to_string());
         assert_eq!(denom.to_string(), "hello".to_string());
     }
 }

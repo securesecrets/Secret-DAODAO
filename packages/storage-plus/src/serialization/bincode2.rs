@@ -1,7 +1,7 @@
-use std::any::type_name;
-use serde::{de::DeserializeOwned, Serialize};
-use cosmwasm_std::{StdError, StdResult};
 use crate::Serde;
+use cosmwasm_std::{StdError, StdResult};
+use serde::{de::DeserializeOwned, Serialize};
+use std::any::type_name;
 
 /// Use bincode2 for serialization.
 #[derive(Copy, Clone, Debug)]

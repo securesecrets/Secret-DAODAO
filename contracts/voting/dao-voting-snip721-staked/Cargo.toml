@@ -28,8 +28,6 @@ cosmwasm-schema = { workspace = true }
 secret-storage-plus = { workspace = true }
 secret-cw-controllers = { workspace = true }
 cw-hooks = { workspace = true }
-cw721 = { workspace = true }
-cw721-base = { workspace = true, features = ["library"] }
 snip721-controllers = { workspace = true }
 cw-paginate-storage = { workspace = true }
 secret-utils = { workspace = true }

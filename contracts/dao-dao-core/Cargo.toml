@@ -37,7 +37,5 @@ secret-cw-controllers = { workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true, features = ["stargate"] }
-cw20-base = { workspace = true }
-cw721-base = { workspace = true }
 # dao-proposal-sudo = { workspace = true }
 # dao-voting-snip20-balance = { workspace = true }

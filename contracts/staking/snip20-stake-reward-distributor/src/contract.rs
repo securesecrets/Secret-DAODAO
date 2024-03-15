@@ -220,7 +220,7 @@ fn get_distribution_msg(deps: Deps, env: &Env) -> Result<CosmosMsg, ContractErro
     let mut balance = Uint128::zero();
     match balance_info {
         QueryAnswer::Balance { amount } => {
-            balance=amount;
+            balance = amount;
         }
         _ => (),
     }
@@ -277,7 +277,7 @@ pub fn execute_withdraw(
     let mut balance = Uint128::zero();
     match balance_info {
         QueryAnswer::Balance { amount } => {
-            balance=amount;
+            balance = amount;
         }
         _ => (),
     }
@@ -342,7 +342,7 @@ fn query_info(deps: Deps, env: Env) -> StdResult<InfoResponse> {
     let mut balance = Uint128::zero();
     match balance_info {
         QueryAnswer::Balance { amount } => {
-            balance=amount;
+            balance = amount;
         }
         _ => (),
     }

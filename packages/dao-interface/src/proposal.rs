@@ -1,7 +1,7 @@
-use cosmwasm_schema:: QueryResponses;
+use cosmwasm_schema::QueryResponses;
+use schemars::JsonSchema;
 use secret_cw2::ContractVersion;
 use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]

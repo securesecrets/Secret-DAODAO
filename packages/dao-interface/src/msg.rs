@@ -1,11 +1,11 @@
-use cosmwasm_schema:: QueryResponses;
+use crate::state::Config;
+use crate::{migrate_msg::MigrateParams, query::SubDao, state::ModuleInstantiateInfo};
+use cosmwasm_schema::QueryResponses;
 use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Uint128};
 use schemars::JsonSchema;
 use secret_toolkit::utils::HandleCallback;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
-use crate::state::Config;
-use crate::{migrate_msg::MigrateParams, query::SubDao, state::ModuleInstantiateInfo};
 
 /// Information about an item to be stored in the items list.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -57,7 +57,6 @@ pub struct InstantiateMsg {
     pub snip20_code_hash: String,
     pub snip721_code_hash: String,
 }
-
 
 /// Snip20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -182,7 +181,7 @@ pub enum ExecuteMsg {
 }
 
 impl HandleCallback for ExecuteMsg {
-    const BLOCK_SIZE: usize=256;
+    const BLOCK_SIZE: usize = 256;
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -283,7 +282,6 @@ pub enum QueryMsg {
     /// Returns the total voting power at a given block height.
     #[returns(crate::voting::TotalPowerAtHeightResponse)]
     TotalPowerAtHeight { height: Option<u64> },
-    
 }
 
 #[allow(clippy::large_enum_variant)]

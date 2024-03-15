@@ -35,25 +35,16 @@ incremental = false
 overflow-checks = true
 
 [workspace.dependencies]
-anyhow = { version = "1.0" }
-assert_matches = "1.5"
-cosm-orc = { version = "4.0" }
-cosm-tome = "0.2"
-# cosmwasm-schema = { version = "1.1.11", git = "https://github.com/scrtlabs/cosmwasm" }
-cw-controllers = "1.1"
-cw-multi-test = "0.18"
-cw-storage-plus = { version = "1.1" }
-cw-utils = "1.0"
-cw2 = "1.1"
-cw20 = "1.1"
-cw20-base = "1.1"
-cw3 = "1.1"
-cw4 = { path = "./packages/cw4-1.1.2/" }
-cw4-group = { path = "./packages/cw4-group-1.1.2/" }
-cw721 = "0.18"
-cw721-base = "0.18"
-env_logger = "0.10"
-once_cell = "1.18"
+anyhow = { version = "1.0",default-features = false }
+assert_matches = {version = "1.5",default-features = false}
+cosm-orc = { version = "4.0",default-features = false }
+cosm-tome = {version = "0.2",default-features = false}
+cw3 = {version = "1.1",default-features = false}
+cw4 = { path = "./packages/cw4-1.1.2/" ,default-features = false}
+cw4-group = { path = "./packages/cw4-group-1.1.2/" ,default-features = false}
+env_logger = {version = "0.10",default-features = false}
+once_cell = {version = "1.18",default-features = false}
+
 # osmosis-std = { path = "./packages/osmosis-std-0.21.0/" }
 # osmosis-std-derive = { path = "./packages/osmosis-std-derive-0.20.1/" }
 # osmosis-test-tube = { path = "./packages/osmosis-test-tube-20.1.2/" }
@@ -61,86 +52,82 @@ once_cell = "1.18"
 # osmosis-std = "0.22.0"
 # osmosis-std-derive = "0.20.1"
 # osmosis-test-tube = "22.1.0"
-proc-macro2 = "1.0"
-prost = { version = "0.12.3", features = ["prost-derive"] }
+proc-macro2 = {version = "1.0",default-features = false}
+prost = { version = "0.12.3", features = ["prost-derive"] ,default-features = false}
 prost-types = { version = "0.12.3", default-features = false }
-quote = "1.0"
-rand = "0.8"
-# schemars = "0.8"
-# serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde-cw-value = "0.7"
-serde_json = "1.0"
-serde_yaml = "0.9"
-sg-multi-test = "3.1.0"
-sg-std = "3.1.0"
-sg721 = "3.1.0"
-sg721-base = "3.1.0"
-syn = { version = "1.0", features = ["derive"] }
-test-context = "0.1"
-# thiserror = { version = "1.0" }
-wynd-utils = {path = "./packages/wynd-utils-0.4.1/"}
-bincode = "1.3.3"
+quote = {version = "1.0",default-features = false}
+rand = {version = "0.8",default-features = false}
+serde-cw-value = {version = "0.7",default-features = false}
+serde_json = {version = "1.0",default-features = false}
+serde_yaml = {version = "0.9",default-features = false}
+sg-multi-test = {version = "3.1.0",default-features = false}
+sg-std = {version = "3.1.0",default-features = false}
+sg721 = {version = "3.1.0",default-features = false}
+sg721-base = {version = "3.1.0",default-features = false}
+syn = { version = "1.0", features = ["derive"],default-features = false }
+test-context = {version = "0.1",default-features = false}
+wynd-utils = {path = "./packages/wynd-utils-0.4.1/",default-features = false}
+bincode = {version="1.3.3",default-features = false}
 
 
 # One commit ahead of version 0.3.0. Allows initialization with an
 # optional owner.
-cw-ownable = { path = "./packages/cw-ownable-0.5.1/" }
-# cw-ownable = "0.5"
+cw-ownable = { path = "./packages/cw-ownable-0.5.1/",default-features = false }
 
 
-cw-admin-factory = { path = "./contracts/external/cw-admin-factory", version = "2.4.0" }
-cw-denom = { path = "./packages/cw-denom", version = "2.4.0" }
-cw-hooks = { path = "./packages/cw-hooks", version = "2.4.0" }
-cw-paginate-storage = { path = "./packages/cw-paginate-storage", version = "2.4.0" }
+cw-admin-factory = { path = "./contracts/external/cw-admin-factory", version = "2.4.0" ,default-features = false}
+cw-denom = { path = "./packages/cw-denom", version = "2.4.0",default-features = false }
+cw-hooks = { path = "./packages/cw-hooks", version = "2.4.0",default-features = false }
+cw-paginate-storage = { path = "./packages/cw-paginate-storage", version = "2.4.0",default-features = false }
 cw-payroll-factory = { path = "./contracts/external/cw-payroll-factory", version = "2.4.0" }
-cw-stake-tracker = { path = "./packages/cw-stake-tracker", version = "2.4.0" }
+cw-stake-tracker = { path = "./packages/cw-stake-tracker", version = "2.4.0",default-features = false }
 # cw-tokenfactory-issuer = { path = "./contracts/external/cw-tokenfactory-issuer", version = "2.4.0" }
 # cw-tokenfactory-types = { path = "./packages/cw-tokenfactory-types", version = "2.4.0", default-features = false }
-cw-vesting = { path = "./contracts/external/cw-vesting", version = "2.4.0" }
-cw-wormhole = { path = "./packages/cw-wormhole", version = "2.4.0" }
-snip20-stake = { path = "./contracts/staking/snip20-stake", version = "2.4.0" }
-snip721-controllers = { path = "./packages/snip721-controllers", version = "2.4.0" }
-snip721-roles = { path = "./contracts/external/snip721-roles", version = "2.4.0" }
-dao-snip721-extensions = { path = "./packages/dao-snip721-extensions", version = "2.4.0" }
-dao-dao-core = { path = "./contracts/dao-dao-core", version = "2.4.0" }
-dao-dao-macros = { path = "./packages/dao-dao-macros", version = "2.4.0" }
-dao-hooks = { path = "./packages/dao-hooks", version = "2.4.0" }
-dao-interface = { path = "./packages/dao-interface", version = "2.4.0" }
-dao-pre-propose-approval-single = { path = "./contracts/pre-propose/dao-pre-propose-approval-single", version = "2.4.0" }
-dao-pre-propose-approver = { path = "./contracts/pre-propose/dao-pre-propose-approver", version = "2.4.0" }
-dao-pre-propose-base = { path = "./packages/dao-pre-propose-base", version = "2.4.0" }
-dao-pre-propose-multiple = { path = "./contracts/pre-propose/dao-pre-propose-multiple", version = "2.4.0" }
-dao-pre-propose-single = { path = "./contracts/pre-propose/dao-pre-propose-single", version = "2.4.0" }
-dao-proposal-condorcet = { path = "./contracts/proposal/dao-proposal-condorcet", version = "2.4.0" }
+cw-vesting = { path = "./contracts/external/cw-vesting", version = "2.4.0",default-features = false }
+cw-wormhole = { path = "./packages/cw-wormhole", version = "2.4.0",default-features = false }
+snip20-stake = { path = "./contracts/staking/snip20-stake", version = "2.4.0",default-features = false }
+snip721-controllers = { path = "./packages/snip721-controllers", version = "2.4.0",default-features = false }
+snip721-roles = { path = "./contracts/external/snip721-roles", version = "2.4.0",default-features = false }
+dao-snip721-extensions = { path = "./packages/dao-snip721-extensions", version = "2.4.0",default-features = false }
+dao-dao-core = { path = "./contracts/dao-dao-core", version = "2.4.0",default-features = false }
+dao-dao-macros = { path = "./packages/dao-dao-macros", version = "2.4.0",default-features = false }
+dao-hooks = { path = "./packages/dao-hooks", version = "2.4.0" ,default-features = false}
+dao-interface = { path = "./packages/dao-interface", version = "2.4.0",default-features = false }
+dao-pre-propose-approval-single = { path = "./contracts/pre-propose/dao-pre-propose-approval-single", version = "2.4.0",default-features = false }
+dao-pre-propose-approver = { path = "./contracts/pre-propose/dao-pre-propose-approver", version = "2.4.0" ,default-features = false}
+dao-pre-propose-base = { path = "./packages/dao-pre-propose-base", version = "2.4.0",default-features = false }
+dao-pre-propose-multiple = { path = "./contracts/pre-propose/dao-pre-propose-multiple", version = "2.4.0" ,default-features = false}
+dao-pre-propose-single = { path = "./contracts/pre-propose/dao-pre-propose-single", version = "2.4.0" ,default-features = false}
+dao-proposal-condorcet = { path = "./contracts/proposal/dao-proposal-condorcet", version = "2.4.0",default-features = false }
 # dao-proposal-hook-counter = { path = "./contracts/test/dao-proposal-hook-counter", version = "2.4.0" }
-dao-proposal-multiple = { path = "./contracts/proposal/dao-proposal-multiple", version = "2.4.0" }
-dao-proposal-single = { path = "./contracts/proposal/dao-proposal-single", version = "2.4.0" }
+dao-proposal-multiple = { path = "./contracts/proposal/dao-proposal-multiple", version = "2.4.0",default-features = false }
+dao-proposal-single = { path = "./contracts/proposal/dao-proposal-single", version = "2.4.0",default-features = false }
 # dao-proposal-sudo = { path = "./contracts/test/dao-proposal-sudo", version = "2.4.0" }
 # dao-test-custom-factory = { path = "./contracts/test/dao-test-custom-factory", version = "2.4.0" }
 # dao-testing = { path = "./packages/dao-testing", version = "2.4.0" }
-dao-voting = { path = "./packages/dao-voting", version = "2.4.0" }
+dao-voting = { path = "./packages/dao-voting", version = "2.4.0",default-features = false }
 # dao-voting-snip20-balance = { path = "./contracts/test/dao-voting-snip20-balance", version = "2.4.0" }
-dao-voting-snip20-staked = { path = "./contracts/voting/dao-voting-snip20-staked", version = "2.4.0" }
-dao-voting-cw4 = { path = "./contracts/voting/dao-voting-cw4", version = "2.4.0" }
-dao-voting-snip721-roles = { path = "./contracts/voting/dao-voting-snip721-roles", version = "2.4.0" }
-dao-voting-snip721-staked = { path = "./contracts/voting/dao-voting-snip721-staked", version = "2.4.0" }
-dao-voting-token-staked = { path = "./contracts/voting/dao-voting-token-staked", version = "2.4.0" }
+dao-voting-snip20-staked = { path = "./contracts/voting/dao-voting-snip20-staked", version = "2.4.0",default-features = false }
+dao-voting-cw4 = { path = "./contracts/voting/dao-voting-cw4", version = "2.4.0",default-features = false }
+dao-voting-snip721-roles = { path = "./contracts/voting/dao-voting-snip721-roles", version = "2.4.0" ,default-features = false}
+dao-voting-snip721-staked = { path = "./contracts/voting/dao-voting-snip721-staked", version = "2.4.0",default-features = false }
+dao-voting-token-staked = { path = "./contracts/voting/dao-voting-token-staked", version = "2.4.0",default-features = false }
 
 # v1 dependencies. used for state migrations.
-cw-core-v1 = { package = "cw-core", version = "0.1.0" }
-cw-proposal-single-v1 = { package = "cw-proposal-single", version = "0.1.0" }
-cw-utils-v1 = { package = "cw-utils", version = "0.13" }
-cw20-stake-external-rewards-v1 = { package = "stake-cw20-external-rewards", version = "0.2.6" }
-cw20-stake-reward-distributor-v1 = { package = "stake-cw20-reward-distributor", version = "0.1.0" }
-cw20-stake-v1 = { package = "cw20-stake", version = "0.2.6" }
-cw20-staked-balance-voting-v1 = { package = "cw20-staked-balance-voting", version = "0.1.0" }
-cw4-voting-v1 = { package = "cw4-voting", version = "0.1.0" }
-stake-cw20-v03 = { package = "stake-cw20", version = "0.2.6" }
-voting-v1 = { package = "dao-voting", version = "0.1.0" }
+cw-core-v1 = { package = "cw-core", version = "0.1.0" ,default-features = false}
+cw-proposal-single-v1 = { package = "cw-proposal-single", version = "0.1.0",default-features = false }
+cw-utils-v1 = { package = "cw-utils", version = "0.13",default-features = false }
+cw20-stake-external-rewards-v1 = { package = "stake-cw20-external-rewards", version = "0.2.6",default-features = false }
+cw20-stake-reward-distributor-v1 = { package = "stake-cw20-reward-distributor", version = "0.1.0",default-features = false }
+cw20-stake-v1 = { package = "cw20-stake", version = "0.2.6",default-features = false }
+cw20-staked-balance-voting-v1 = { package = "cw20-staked-balance-voting", version = "0.1.0",default-features = false }
+cw4-voting-v1 = { package = "cw4-voting", version = "0.1.0",default-features = false }
+stake-cw20-v03 = { package = "stake-cw20", version = "0.2.6",default-features = false }
+voting-v1 = { package = "dao-voting", version = "0.1.0" ,default-features = false}
 
 
 # cosmwasm-storage = { version = "1.1.11", package = "secret-cosmwasm-storage", default-features = false }
-secret-utils = { path = "./packages/utils/" }
+secret-utils = { path = "./packages/utils/",default-features = false }
 # cosmwasm-std = { version = "1.1.11", package = "secret-cosmwasm-std", default-features = false }
 secret-toolkit = { version = "0.10.0", default-features = false, features = [
   "utils",
@@ -151,22 +138,22 @@ secret-toolkit = { version = "0.10.0", default-features = false, features = [
   "snip20",
   "snip721",
 ] }
-secret-storage-plus = { path = "./packages/storage-plus/" }
-secret-cw-controllers = { path = "./packages/controllers/" }
-secret-cw2 = { path = "./packages/cw2/" }
-secret-multi-test = { path = "./packages/multi-test/" }
+secret-storage-plus = { path = "./packages/storage-plus/" ,default-features = false}
+secret-cw-controllers = { path = "./packages/controllers/",default-features = false }
+secret-cw2 = { path = "./packages/cw2/",default-features = false }
+secret-multi-test = { path = "./packages/multi-test/",default-features = false }
 
 cosmwasm-std = { package = "secret-cosmwasm-std", version = "1.1.11", features = [
   "stargate",
   "staking",
   "ibc3",
   "random",
-] }
-cosmwasm-storage = { package = "secret-cosmwasm-storage", version = "1.1.11" }
-schemars = "0.8.12"
+],default-features = false }
+cosmwasm-storage = { package = "secret-cosmwasm-storage", version = "1.1.11",default-features = false }
+schemars = {version = "0.8.12",default-features = false}
 serde = { version = "1.0.158", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.21" }
-cosmwasm-schema = { git = "https://github.com/scrtlabs/cosmwasm/", branch = "secret" }
-snip20-reference-impl = { path = "./contracts/external/snip20-reference-impl/" }
-snip721-reference-impl = { path = "./contracts/external/snip721-reference-impl/" }
+thiserror = { version = "1.0.21" ,default-features = false}
+cosmwasm-schema = { git = "https://github.com/scrtlabs/cosmwasm/", branch = "secret",default-features = false }
+snip20-reference-impl = { path = "./contracts/external/snip20-reference-impl/",default-features = false }
+snip721-reference-impl = { path = "./contracts/external/snip721-reference-impl/" ,default-features = false}
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }

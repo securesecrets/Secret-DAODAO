@@ -1,5 +1,5 @@
-use cw_denom::DenomError;
 use cosmwasm_std::StdError;
+use cw_denom::DenomError;
 use secret_utils::ParseReplyError;
 use thiserror::Error;
 

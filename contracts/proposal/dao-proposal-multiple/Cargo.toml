@@ -30,7 +30,6 @@ cosmwasm-schema = { workspace = true }
 secret-storage-plus = { workspace = true }
 secret-utils = { workspace = true }
 secret-cw2 = { workspace = true }
-cw20 = { workspace = true }
 cw3 = { workspace = true }
 thiserror = { workspace = true }
 dao-dao-macros = { workspace = true }
@@ -57,8 +56,6 @@ dao-voting-snip721-staked = { workspace = true }
 cw-denom = { workspace = true }
 # dao-testing = { workspace = true }
 snip20-stake = { workspace = true }
-cw20-base = { workspace = true }
-cw721-base = { workspace = true }
 cw4 = { workspace = true }
 cw4-group = { workspace = true }
 rand = { workspace = true }

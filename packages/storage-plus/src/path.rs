@@ -2,9 +2,9 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::marker::PhantomData;
 
-use crate::{Json, Serde};
 use crate::helpers::{may_deserialize, must_deserialize, nested_namespaces_with_key};
 use crate::keys::Key;
+use crate::{Json, Serde};
 use cosmwasm_std::{StdError, StdResult, Storage};
 use std::ops::Deref;
 
@@ -24,7 +24,7 @@ where
 impl<T, Ser> Deref for Path<T, Ser>
 where
     T: Serialize + DeserializeOwned,
-    Ser: Serde
+    Ser: Serde,
 {
     type Target = [u8];
 

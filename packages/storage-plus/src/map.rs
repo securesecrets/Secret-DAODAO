@@ -2,7 +2,6 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::marker::PhantomData;
 
-use crate::{Serde, Json};
 #[cfg(feature = "iterator")]
 use crate::bound::{Bound, PrefixBound};
 #[cfg(feature = "iterator")]
@@ -16,6 +15,7 @@ use crate::keys::{Key, PrimaryKey};
 use crate::path::Path;
 #[cfg(feature = "iterator")]
 use crate::prefix::{namespaced_prefix_range, Prefix};
+use crate::{Json, Serde};
 use cosmwasm_std::{from_slice, Addr, CustomQuery, QuerierWrapper, StdError, StdResult, Storage};
 
 #[derive(Debug, Clone)]
@@ -28,7 +28,8 @@ pub struct Map<'a, K, T, Ser = Json> {
 }
 
 impl<'a, K, T, Ser> Map<'a, K, T, Ser>
-    where Ser: Serde,
+where
+    Ser: Serde,
 {
     pub const fn new(namespace: &'a str) -> Self {
         Map {
@@ -282,9 +283,9 @@ mod test {
     #[cfg(feature = "iterator")]
     use crate::bound::Bounder;
 
-    use crate::{int_key::CwIntKey, Bincode2};
     #[cfg(feature = "iterator")]
     use crate::IntKeyOld;
+    use crate::{int_key::CwIntKey, Bincode2};
 
     #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
     struct Data {
@@ -308,9 +309,9 @@ mod test {
     const TRIPLE: Map<(&[u8], u8, &str), u64> = Map::new("triple");
     const B_TRIPLE: Map<(&[u8], u8, &str), u64, Bincode2> = Map::new("triple");
 
-    type Key<'a> = &'a[u8];
-    type AKey<'a> = (&'a[u8], &'a[u8]);
-    type TKey<'a> = (&'a[u8], u8, &'a str);
+    type Key<'a> = &'a [u8];
+    type AKey<'a> = (&'a [u8], &'a [u8]);
+    type TKey<'a> = (&'a [u8], u8, &'a str);
 
     #[template]
     #[rstest]
@@ -320,7 +321,8 @@ mod test {
         #[case] people: Map<Key, Data, impl Serde>,
         #[case] allowance: Map<AKey, u64, impl Serde>,
         #[case] triple: Map<TKey, u64, impl Serde>,
-    ) {}
+    ) {
+    }
 
     #[apply(serialization_3)]
     fn create_path(
@@ -360,7 +362,7 @@ mod test {
     }
 
     #[rstest]
-    fn save_and_load(#[values(PEOPLE, B_PEOPLE)] people: Map<Key, Data, impl Serde> ) {
+    fn save_and_load(#[values(PEOPLE, B_PEOPLE)] people: Map<Key, Data, impl Serde>) {
         let mut store = MockStorage::new();
 
         // save and load on one key
@@ -1161,7 +1163,9 @@ mod test {
     }
 
     #[rstest]
-    fn readme_works(#[values(PEOPLE, B_PEOPLE)] people: Map<Key, Data, impl Serde>) -> StdResult<()> {
+    fn readme_works(
+        #[values(PEOPLE, B_PEOPLE)] people: Map<Key, Data, impl Serde>,
+    ) -> StdResult<()> {
         let mut store = MockStorage::new();
         let data = Data {
             name: "John".to_string(),
@@ -1214,7 +1218,9 @@ mod test {
     }
 
     #[rstest]
-    fn readme_works_composite_keys(#[values(ALLOWANCE, B_ALLOWANCE)] allowance: Map<AKey, u64, impl Serde>) -> StdResult<()> {
+    fn readme_works_composite_keys(
+        #[values(ALLOWANCE, B_ALLOWANCE)] allowance: Map<AKey, u64, impl Serde>,
+    ) -> StdResult<()> {
         let mut store = MockStorage::new();
 
         // save and load on a composite key
@@ -1239,9 +1245,10 @@ mod test {
     }
 
     #[rstest]
-    fn readme_works_with_path(#[values(PEOPLE, B_PEOPLE)] people: Map<Key, Data, impl Serde>,
-    #[values(ALLOWANCE, B_ALLOWANCE)] allowance: Map<AKey, u64, impl Serde>
-) -> StdResult<()> {
+    fn readme_works_with_path(
+        #[values(PEOPLE, B_PEOPLE)] people: Map<Key, Data, impl Serde>,
+        #[values(ALLOWANCE, B_ALLOWANCE)] allowance: Map<AKey, u64, impl Serde>,
+    ) -> StdResult<()> {
         let mut store = MockStorage::new();
         let data = Data {
             name: "John".to_string(),

@@ -10,13 +10,13 @@ use cosmwasm_std::{Addr, Api, Binary, StdError, StdResult, Uint128};
 use secret_toolkit::permit::Permit;
 
 #[cfg_attr(test, derive(Eq, PartialEq))]
-#[derive(Serialize, Deserialize,Debug, Clone, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
 pub struct InitialBalance {
     pub address: String,
     pub amount: Uint128,
 }
 
-#[derive(Serialize, Deserialize,Debug,Clone, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
 pub struct InstantiateMsg {
     pub name: String,
     pub admin: Option<String>,

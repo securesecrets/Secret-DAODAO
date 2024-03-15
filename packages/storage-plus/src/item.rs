@@ -2,17 +2,19 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::marker::PhantomData;
 
-use cosmwasm_std::{
-    Addr, CustomQuery, QuerierWrapper, StdError, StdResult, Storage, WasmQuery,
-};
+use cosmwasm_std::{Addr, CustomQuery, QuerierWrapper, StdError, StdResult, Storage, WasmQuery};
 
-use crate::{helpers::{may_deserialize, must_deserialize}, Serde, Json};
+use crate::{
+    helpers::{may_deserialize, must_deserialize},
+    Json, Serde,
+};
 
 /// Item stores one typed item at the given key.
 /// This is an analog of Singleton.
 /// It functions the same way as Path does but doesn't use a Vec and thus has a const fn constructor.
 pub struct Item<'a, T, Ser = Json>
-    where Ser: Serde,
+where
+    Ser: Serde,
 {
     // this is full key - no need to length-prefix it, we only store one item
     storage_key: &'a [u8],
@@ -107,10 +109,7 @@ mod test {
     use crate::Bincode2;
 
     use super::*;
-    use cosmwasm_std::{
-        to_vec,
-        testing::MockStorage
-    };
+    use cosmwasm_std::{testing::MockStorage, to_vec};
     use rstest::*;
     use rstest_reuse::{self, *};
     use serde::{Deserialize, Serialize};
@@ -131,12 +130,10 @@ mod test {
     #[rstest]
     #[case(CONFIG)]
     #[case(B_CONFIG)]
-    fn serialization(#[case] config: Item<Config, impl Serde>) { }
+    fn serialization(#[case] config: Item<Config, impl Serde>) {}
 
     #[apply(serialization)]
-    fn save_and_load(
-        #[case] config: Item<Config, impl Serde>,
-    ) {
+    fn save_and_load(#[case] config: Item<Config, impl Serde>) {
         let mut store = MockStorage::new();
 
         assert!(config.load(&store).is_err());
@@ -152,9 +149,7 @@ mod test {
     }
 
     #[apply(serialization)]
-    fn remove_works(
-        #[case] config: Item<Config, impl Serde>,
-    ) {
+    fn remove_works(#[case] config: Item<Config, impl Serde>) {
         let mut store = MockStorage::new();
 
         // store data
@@ -210,9 +205,7 @@ mod test {
     }
 
     #[apply(serialization)]
-    fn update_success(
-        #[case] config: Item<Config, impl Serde>,
-    ) {
+    fn update_success(#[case] config: Item<Config, impl Serde>) {
         let mut store = MockStorage::new();
 
         let cfg = Config {
@@ -234,9 +227,7 @@ mod test {
     }
 
     #[apply(serialization)]
-    fn update_can_change_variable_from_outer_scope(
-        #[case] config: Item<Config, impl Serde>,
-    ) {
+    fn update_can_change_variable_from_outer_scope(#[case] config: Item<Config, impl Serde>) {
         let mut store = MockStorage::new();
         let cfg = Config {
             owner: "admin".to_string(),
@@ -256,9 +247,7 @@ mod test {
     }
 
     #[apply(serialization)]
-    fn update_does_not_change_data_on_error(
-        #[case] config: Item<Config, impl Serde>,
-    ) {
+    fn update_does_not_change_data_on_error(#[case] config: Item<Config, impl Serde>) {
         let mut store = MockStorage::new();
 
         let cfg = Config {
@@ -282,9 +271,7 @@ mod test {
     }
 
     #[apply(serialization)]
-    fn update_supports_custom_errors(
-        #[case] config: Item<Config, impl Serde>
-    ) {
+    fn update_supports_custom_errors(#[case] config: Item<Config, impl Serde>) {
         #[derive(Debug)]
         enum MyError {
             Std(StdError),
@@ -326,9 +313,7 @@ mod test {
     }
 
     #[apply(serialization)]
-    fn readme_works(
-        #[case] config: Item<Config, impl Serde>
-    ) -> StdResult<()> {
+    fn readme_works(#[case] config: Item<Config, impl Serde>) -> StdResult<()> {
         let mut store = MockStorage::new();
 
         // may_load returns Option<T>, so None if data is missing

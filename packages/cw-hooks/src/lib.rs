@@ -3,10 +3,10 @@
 use cosmwasm_schema::cw_serde;
 use thiserror::Error;
 
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 use cosmwasm_std::{Addr, CustomQuery, Deps, StdError, StdResult, Storage, SubMsg};
+use schemars::JsonSchema;
 use secret_storage_plus::Item;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
@@ -28,19 +28,22 @@ pub enum HookError {
 
 #[cw_serde]
 pub struct HookItem {
-    pub addr : Addr,
+    pub addr: Addr,
     pub code_hash: String,
 }
 // store all hook addresses in one item. We cannot have many of them before the contract becomes unusable anyway.
 pub struct Hooks<'a>(Item<'a, Vec<HookItem>>);
-
 
 impl<'a> Hooks<'a> {
     pub const fn new(storage_key: &'a str) -> Self {
         Hooks(Item::new(storage_key))
     }
 
-    pub fn add_hook(&self, storage: &mut dyn Storage, hook_item: HookItem) -> Result<(), HookError> {
+    pub fn add_hook(
+        &self,
+        storage: &mut dyn Storage,
+        hook_item: HookItem,
+    ) -> Result<(), HookError> {
         let mut hooks = self.0.may_load(storage)?.unwrap_or_default();
         if !hooks.iter().any(|h| h == &hook_item) {
             hooks.push(hook_item);
@@ -50,7 +53,11 @@ impl<'a> Hooks<'a> {
         Ok(self.0.save(storage, &hooks)?)
     }
 
-    pub fn remove_hook(&self, storage: &mut dyn Storage, hook_item: HookItem) -> Result<(), HookError> {
+    pub fn remove_hook(
+        &self,
+        storage: &mut dyn Storage,
+        hook_item: HookItem,
+    ) -> Result<(), HookError> {
         let mut hooks = self.0.load(storage)?;
         if let Some(p) = hooks.iter().position(|h| h == &hook_item) {
             hooks.remove(p);
@@ -144,8 +151,24 @@ mod tests {
             .unwrap();
         assert_eq!(msgs, vec![]);
 
-        hooks.add_hook(storage, HookItem { addr: addr!("ekez"), code_hash: "def".to_string() }).unwrap();
-        hooks.add_hook(storage, HookItem { addr: addr!("meow"), code_hash: "abc".to_string() }).unwrap();
+        hooks
+            .add_hook(
+                storage,
+                HookItem {
+                    addr: addr!("ekez"),
+                    code_hash: "def".to_string(),
+                },
+            )
+            .unwrap();
+        hooks
+            .add_hook(
+                storage,
+                HookItem {
+                    addr: addr!("meow"),
+                    code_hash: "abc".to_string(),
+                },
+            )
+            .unwrap();
 
         assert_eq!(hooks.hook_count(storage).unwrap(), 2);
 
@@ -200,10 +223,24 @@ mod tests {
 
         // Query hooks returns all hooks added
         let HooksResponse { hooks: the_hooks } = hooks.query_hooks(deps.as_ref()).unwrap();
-        assert_eq!(the_hooks, vec![HookItem { addr: addr!("meow"), code_hash: "abc".to_string() }]);
+        assert_eq!(
+            the_hooks,
+            vec![HookItem {
+                addr: addr!("meow"),
+                code_hash: "abc".to_string()
+            }]
+        );
 
         // Remove last hook
-        hooks.remove_hook(&mut deps.storage, HookItem { addr: addr!("meow"), code_hash: "abc".to_string() }).unwrap();
+        hooks
+            .remove_hook(
+                &mut deps.storage,
+                HookItem {
+                    addr: addr!("meow"),
+                    code_hash: "abc".to_string(),
+                },
+            )
+            .unwrap();
 
         // Query hooks returns empty vector if no hooks added
         let HooksResponse { hooks: the_hooks } = hooks.query_hooks(deps.as_ref()).unwrap();

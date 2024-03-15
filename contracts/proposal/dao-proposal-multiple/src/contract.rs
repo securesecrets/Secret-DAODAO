@@ -410,10 +410,9 @@ pub fn execute_vote(
         return Err(ContractError::NotRegistered {});
     }
 
-
     let ballot = BALLOTS.get(deps.storage, &(proposal_id, info.sender.clone()));
     match ballot {
-              Some(current_ballot) => {
+        Some(current_ballot) => {
             if prop.allow_revoting {
                 if current_ballot.vote == vote {
                     // Don't allow casting the same vote more than
@@ -422,37 +421,35 @@ pub fn execute_vote(
                     return Err(ContractError::AlreadyCast {});
                 }
                 prop.votes
-                        .remove_vote(current_ballot.vote, current_ballot.power)?;
+                    .remove_vote(current_ballot.vote, current_ballot.power)?;
                 BALLOTS.insert(
-                        deps.storage,
-                        &(proposal_id, info.sender.clone()),
-                        &Ballot {
-                            power: vote_power,
-                            vote,
-                            // Roll over the previous rationale. If
-                            // you're changing your vote, you've also
-                            // likely changed your thinking.
-                            rationale: rationale.clone(),
-                        },
-                    )?;
+                    deps.storage,
+                    &(proposal_id, info.sender.clone()),
+                    &Ballot {
+                        power: vote_power,
+                        vote,
+                        // Roll over the previous rationale. If
+                        // you're changing your vote, you've also
+                        // likely changed your thinking.
+                        rationale: rationale.clone(),
+                    },
+                )?;
             } else {
                 return Err(ContractError::AlreadyVoted {});
             }
         }
         None => {
-
-        BALLOTS.insert(
-            deps.storage,
-            &(proposal_id, info.sender.clone()),
-            &Ballot {
-                power: vote_power,
-                vote,
-                rationale: rationale.clone(),
-            },
-        )?;
-        
+            BALLOTS.insert(
+                deps.storage,
+                &(proposal_id, info.sender.clone()),
+                &Ballot {
+                    power: vote_power,
+                    vote,
+                    rationale: rationale.clone(),
+                },
+            )?;
+        }
     }
-}
 
     let old_status = prop.status;
 
@@ -620,8 +617,8 @@ pub fn execute_close(
     proposal_id: u64,
 ) -> Result<Response<Empty>, ContractError> {
     let mut prop = PROPOSALS
-    .get(deps.storage, &proposal_id)
-    .ok_or(ContractError::NoSuchProposal { id: proposal_id })?;
+        .get(deps.storage, &proposal_id)
+        .ok_or(ContractError::NoSuchProposal { id: proposal_id })?;
 
     prop.update_status(&env.block)?;
     if prop.status != Status::Rejected {
@@ -741,7 +738,6 @@ pub fn execute_update_rationale(
     proposal_id: u64,
     rationale: Option<String>,
 ) -> Result<Response, ContractError> {
-
     let ballot = BALLOTS.get(deps.storage, &(proposal_id, info.sender.clone()));
     if ballot.clone().is_some() {
         ballot.clone().unwrap().rationale = rationale.clone();

@@ -70,7 +70,6 @@ pub struct UncheckedDepositInfo {
     pub refund_policy: DepositRefundPolicy,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum DepositRefundPolicy {
@@ -157,7 +156,8 @@ impl UncheckedDepositInfo {
                         // returned a valid token. Conversion of the unchecked
                         // denom into a checked one will do a `TokenInfo {}`
                         // query.
-                        UncheckedDenom::Cw20(token.addr.into_string(),token.code_hash).into_checked(deps)
+                        UncheckedDenom::Cw20(token.addr.into_string(), token.code_hash)
+                            .into_checked(deps)
                     }
                 }
             }
@@ -205,7 +205,7 @@ impl CheckedDepositInfo {
     ) -> StdResult<Vec<CosmosMsg>> {
         let take_deposit_msg: Vec<CosmosMsg> = if let Self {
             amount,
-            denom: CheckedDenom::Cw20(address,token_code_hash),
+            denom: CheckedDenom::Cw20(address, token_code_hash),
             ..
         } = self
         {
@@ -224,7 +224,7 @@ impl CheckedDepositInfo {
                         memo: None,
                         padding: None,
                     })?,
-                    code_hash:token_code_hash.clone(),
+                    code_hash: token_code_hash.clone(),
                 }
                 .into()]
             }
@@ -236,17 +236,12 @@ impl CheckedDepositInfo {
         Ok(take_deposit_msg)
     }
 
-    pub fn get_return_deposit_message(
-        &self,
-        depositor: &Addr,
-    ) -> StdResult<Vec<CosmosMsg>> {
+    pub fn get_return_deposit_message(&self, depositor: &Addr) -> StdResult<Vec<CosmosMsg>> {
         // Should get caught in `into_checked()`, but to be pedantic.
         if self.amount.is_zero() {
             return Ok(vec![]);
         }
-        let message = self
-            .denom
-            .get_transfer_to_message(depositor, self.amount)?;
+        let message = self.denom.get_transfer_to_message(depositor, self.amount)?;
         Ok(vec![message])
     }
 }

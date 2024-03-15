@@ -11,5 +11,5 @@ version = { workspace = true }
 cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
 secret-utils = { workspace = true }
-secret-storage-plus = { workspace = true }
+secret-toolkit = { workspace = true }
 thiserror = { workspace = true }
