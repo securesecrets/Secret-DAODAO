@@ -153,7 +153,7 @@ where
         // will create.
         let next_id = deps.querier.query_wasm_smart(
             proposal_module_info.code_hash.clone(),
-            &proposal_module_info.addr.clone().to_string(),
+            proposal_module_info.addr.clone().to_string(),
             &dao_interface::proposal::Query::NextProposalId {},
         )?;
         self.deposits.insert(
@@ -253,7 +253,7 @@ where
                         Ok(Response::default()
                             .add_message(withdraw_message)
                             .add_attribute("method", "withdraw")
-                            .add_attribute("receiver", &dao.addr.to_string())
+                            .add_attribute("receiver", dao.addr.to_string())
                             .add_attribute("denom", denom.to_string()))
                     }
                 }

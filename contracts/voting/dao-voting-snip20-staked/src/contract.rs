@@ -235,11 +235,8 @@ pub fn assert_valid_absolute_count_threshold(
         &secret_toolkit::snip20::QueryMsg::TokenInfo {},
     )?;
     let mut token_total_supply = Uint128::zero();
-    match token_info {
-        QueryAnswer::TokenInfo { total_supply, .. } => {
-            token_total_supply = total_supply.unwrap();
-        }
-        _ => (),
+    if let QueryAnswer::TokenInfo { total_supply, .. } = token_info {
+        token_total_supply = total_supply.unwrap();
     }
 
     if count > token_total_supply {
@@ -421,11 +418,8 @@ pub fn query_is_active(deps: Deps) -> StdResult<Binary> {
                 )?;
 
                 let mut total_potential_power = Uint128::zero();
-                match token_info {
-                    QueryAnswer::TokenInfo { total_supply, .. } => {
-                        total_potential_power = total_supply.unwrap();
-                    }
-                    _ => (),
+                if let QueryAnswer::TokenInfo { total_supply, .. } = token_info {
+                    total_potential_power = total_supply.unwrap();
                 }
 
                 let total_power = total_potential_power.full_mul(PRECISION_FACTOR);

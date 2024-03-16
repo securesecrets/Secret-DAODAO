@@ -836,15 +836,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw-stake-tracker"
-version = "2.4.0"
-dependencies = [
- "cosmwasm-schema 1.1.11",
- "cw-wormhole",
- "secret-cosmwasm-std",
-]
-
-[[package]]
 name = "cw-storage-plus"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -891,16 +882,6 @@ dependencies = [
  "semver",
  "serde",
  "thiserror",
-]
-
-[[package]]
-name = "cw-wormhole"
-version = "2.4.0"
-dependencies = [
- "cosmwasm-schema 1.1.11",
- "secret-cosmwasm-std",
- "secret-toolkit",
- "serde",
 ]
 
 [[package]]
@@ -1821,8 +1802,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe9006bed769170c11f845cf00c7c1e9092aeb3f268e007c3e760ac68008070f"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "wasi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2566,7 +2549,7 @@ dependencies = [
 name = "secret-cw2"
 version = "1.0.1"
 dependencies = [
- "cosmwasm-schema 1.5.0",
+ "cosmwasm-schema 1.1.11",
  "schemars",
  "secret-cosmwasm-std",
  "secret-storage-plus",
@@ -2916,6 +2899,7 @@ version = "1.0.0"
 dependencies = [
  "base64 0.21.5",
  "cosmwasm-schema 1.1.11",
+ "getrandom",
  "rand",
  "schemars",
  "secret-cosmwasm-std",

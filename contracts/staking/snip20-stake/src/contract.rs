@@ -54,11 +54,8 @@ pub fn instantiate(
         &token_address,
         &secret_toolkit::snip20::QueryMsg::TokenInfo {},
     )?;
-    match token_info {
-        QueryAnswer::TokenInfo { total_supply, .. } => {
-            let _supply = total_supply;
-        }
-        _ => (),
+    if let QueryAnswer::TokenInfo { total_supply, .. } = token_info {
+        let _supply = total_supply;
     }
 
     validate_duration(msg.unstaking_duration)?;

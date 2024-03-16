@@ -80,7 +80,7 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(&info.sender.to_string()))?;
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_ref()))?;
     // Cw721Roles::default().instantiate(deps.branch(), env.clone(), info, msg)?;
 
     // init snip721
@@ -97,7 +97,7 @@ pub fn instantiate(
         init_msg.to_cosmos_msg(
             Some(info.sender.clone().to_string()),
             msg.label.clone(),
-            msg.code_id.clone(),
+            msg.code_id,
             msg.code_hash.clone(),
             None,
         )?,
@@ -126,7 +126,7 @@ pub fn execute(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     match msg {
-        ExecuteMsg::Snip721Execute(snip721_exec_msg) => match snip721_exec_msg {
+        ExecuteMsg::Snip721Execute(snip721_exec_msg) => match *snip721_exec_msg {
             Snip721ExecuteMsg::MintNft {
                 token_id,
                 owner,
@@ -147,7 +147,7 @@ pub fn execute(
                 private_metadata.clone(),
                 serial_number.clone(),
                 royalty_info.clone(),
-                transferable.clone(),
+                transferable,
                 memo.clone(),
                 padding.clone(),
             ),
@@ -232,6 +232,7 @@ pub fn execute(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn execute_mint(
     deps: DepsMut,
     env: &Env,
@@ -350,11 +351,8 @@ pub fn execute_burn(
         },
     )?;
     let mut owner_addr = Addr::unchecked("");
-    match owner_res {
-        Snip721QueryAnswer::OwnerOf { owner, .. } => {
-            owner_addr = owner;
-        }
-        _ => (),
+    if let Snip721QueryAnswer::OwnerOf { owner, .. } = owner_res {
+        owner_addr = owner;
     }
 
     // Get the weight of the token
@@ -366,11 +364,8 @@ pub fn execute_burn(
         },
     )?;
     let mut extension_res = None;
-    match nft_info_res {
-        Snip721QueryAnswer::NftInfo { extension, .. } => {
-            extension_res = extension;
-        }
-        _ => (),
+    if let Snip721QueryAnswer::NftInfo { extension, .. } = nft_info_res {
+        extension_res = extension;
     }
 
     let mut total = Uint64::from(TotalStore::load(deps.storage));
@@ -484,6 +479,7 @@ pub fn execute_transfer(
         .add_message(exec_msg))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn execute_send(
     deps: DepsMut,
     _env: Env,
@@ -595,15 +591,13 @@ pub fn execute_update_token_role(
         .map_err(|_| ContractError::NftDoesNotExist {})?;
     let mut extension_res = None;
     let mut token_uri_res = Some(String::new());
-    match token_res {
-        Snip721QueryAnswer::NftInfo {
-            extension,
-            token_uri,
-        } => {
-            extension_res = extension;
-            token_uri_res = token_uri;
-        }
-        _ => (),
+    if let Snip721QueryAnswer::NftInfo {
+        extension,
+        token_uri,
+    } = token_res
+    {
+        extension_res = extension;
+        token_uri_res = token_uri;
     }
 
     // Update role with new value
@@ -670,11 +664,8 @@ pub fn execute_update_token_uri(
         .map_err(|_| ContractError::NftDoesNotExist {})?;
 
     let mut extension_res = None;
-    match token_res {
-        Snip721QueryAnswer::NftInfo { extension, .. } => {
-            extension_res = extension;
-        }
-        _ => (),
+    if let Snip721QueryAnswer::NftInfo { extension, .. } = token_res {
+        extension_res = extension;
     }
 
     // Update role with new value
@@ -742,17 +733,14 @@ pub fn execute_update_token_weight(
 
     let mut extension_res = None;
     let mut token_uri_res = Some(String::new());
-    match token_res {
-        Snip721QueryAnswer::NftInfo {
-            extension,
-            token_uri,
-        } => {
-            extension_res = extension;
-            token_uri_res = token_uri;
-        }
-        _ => (),
+    if let Snip721QueryAnswer::NftInfo {
+        extension,
+        token_uri,
+    } = token_res
+    {
+        extension_res = extension;
+        token_uri_res = token_uri;
     }
-
     // Lookup the owner of the NFT
     let owner_res: Snip721QueryAnswer = deps.querier.query_wasm_smart(
         snip721_info.code_hash.clone(),
@@ -765,11 +753,8 @@ pub fn execute_update_token_weight(
     )?;
 
     let mut owner_addr = Addr::unchecked("");
-    match owner_res {
-        Snip721QueryAnswer::OwnerOf { owner, .. } => {
-            owner_addr = owner;
-        }
-        _ => (),
+    if let Snip721QueryAnswer::OwnerOf { owner, .. } = owner_res {
+        owner_addr = owner;
     }
 
     let mut total = Uint64::from(TotalStore::load(deps.storage));
@@ -1100,7 +1085,7 @@ pub fn query_list_members(
 
     let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
 
-    let binding = MEMBERS_PRIMARY;
+    let binding = &MEMBERS_PRIMARY;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
         let (address, weight) = item?;

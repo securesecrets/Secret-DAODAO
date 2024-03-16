@@ -218,12 +218,10 @@ fn get_distribution_msg(deps: Deps, env: &Env) -> Result<CosmosMsg, ContractErro
         },
     )?;
     let mut balance = Uint128::zero();
-    match balance_info {
-        QueryAnswer::Balance { amount } => {
-            balance = amount;
-        }
-        _ => (),
+    if let QueryAnswer::Balance { amount } = balance_info {
+        balance = amount;
     }
+
     let amount = min(balance, pending_rewards);
 
     if amount == Uint128::zero() {
@@ -275,11 +273,8 @@ pub fn execute_withdraw(
     )?;
 
     let mut balance = Uint128::zero();
-    match balance_info {
-        QueryAnswer::Balance { amount } => {
-            balance = amount;
-        }
-        _ => (),
+    if let QueryAnswer::Balance { amount } = balance_info {
+        balance = amount;
     }
 
     let msg = to_binary(&secret_toolkit::snip20::HandleMsg::Transfer {
@@ -340,11 +335,8 @@ fn query_info(deps: Deps, env: Env) -> StdResult<InfoResponse> {
     )?;
 
     let mut balance = Uint128::zero();
-    match balance_info {
-        QueryAnswer::Balance { amount } => {
-            balance = amount;
-        }
-        _ => (),
+    if let QueryAnswer::Balance { amount } = balance_info {
+        balance = amount;
     }
 
     Ok(InfoResponse {
@@ -364,11 +356,8 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     let data: snip20_reference_impl::msg::ExecuteAnswer =
                         from_binary(&res.data.unwrap())?;
                     let mut viewing_key = String::new();
-                    match data {
-                        ExecuteAnswer::CreateViewingKey { key } => {
-                            viewing_key = key;
-                        }
-                        _ => {}
+                    if let ExecuteAnswer::CreateViewingKey { key } = data {
+                        viewing_key = key;
                     }
                     TOKEN_VIEWING_KEY.save(deps.storage, &viewing_key)?;
                     Ok(Response::new().add_attribute("action", "create_token_viewing_key"))

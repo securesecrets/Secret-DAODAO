@@ -25,10 +25,10 @@ pub const DAO: Item<AnyContractInfo> = Item::new("dao");
 pub const DENOM: Item<String> = Item::new("denom");
 
 /// Keeps track of staked balances by address over time
-pub const STAKED_BALANCES_PRIMARY: Keymap<Addr, Uint128> = Keymap::new(b"staked_balances_primary");
-pub const STAKED_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128> =
+pub static STAKED_BALANCES_PRIMARY: Keymap<Addr, Uint128> = Keymap::new(b"staked_balances_primary");
+pub static STAKED_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128> =
     Keymap::new(b"staked_balances_snapshot");
-pub const USER_STAKED_AT_HEIGHT: Keymap<Addr, Vec<u64>> = Keymap::new(b"user_Staked_at_height");
+pub static USER_STAKED_AT_HEIGHT: Keymap<Addr, Vec<u64>> = Keymap::new(b"user_Staked_at_height");
 
 pub struct StakedBalancesStore {}
 impl StakedBalancesStore {
@@ -85,11 +85,11 @@ impl StakedBalancesStore {
             };
             // return Ok(Some(Uint128::new(x.len() as u128)));
             if id.unwrap() == (x.len() - 1) {
-                return Ok(STAKED_BALANCES_PRIMARY.get(store, &key));
+                Ok(STAKED_BALANCES_PRIMARY.get(store, &key))
             } else {
-                let snapshot_value = STAKED_BALANCES_SNAPSHOT
-                    .get(store, &(x[id.unwrap() + 1 as usize], key.clone()));
-                return Ok(snapshot_value);
+                let snapshot_value =
+                    STAKED_BALANCES_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize], key.clone()));
+                Ok(snapshot_value)
             }
         }
     }
@@ -97,7 +97,7 @@ impl StakedBalancesStore {
 
 /// Keeps track of staked total over time
 pub const STAKED_TOTAL_PRIMARY: Item<Uint128> = Item::new("staked_balances_primary");
-pub const STAKED_TOTAL_SNAPSHOT: Keymap<u64, Uint128> = Keymap::new(b"staked_balances_snapshot");
+pub static STAKED_TOTAL_SNAPSHOT: Keymap<u64, Uint128> = Keymap::new(b"staked_balances_snapshot");
 pub const STAKED_TOTAL_AT_HEIGHTS: Item<Vec<u64>> = Item::new("user_Staked_at_height");
 
 pub struct TotalStakedStore {}
@@ -138,11 +138,10 @@ impl TotalStakedStore {
             };
             // return Ok(Some(Uint128::new(x.len() as u128)));
             if id.unwrap() == (x.len() - 1) {
-                return Ok(Some(STAKED_TOTAL_PRIMARY.load(store).unwrap_or_default()));
+                Ok(Some(STAKED_TOTAL_PRIMARY.load(store).unwrap_or_default()))
             } else {
-                let snapshot_value =
-                    STAKED_TOTAL_SNAPSHOT.get(store, &(x[id.unwrap() + 1 as usize]));
-                return Ok(snapshot_value);
+                let snapshot_value = STAKED_TOTAL_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize]));
+                Ok(snapshot_value)
             }
         }
     }

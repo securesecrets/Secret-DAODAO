@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use cosmwasm_std::{Addr, CustomQuery, QuerierWrapper, StdError, StdResult, Storage, WasmQuery};
+use cosmwasm_std::{ StdError, StdResult, Storage};
 
 use crate::{
     helpers::{may_deserialize, must_deserialize},

@@ -27,14 +27,14 @@ pub const INITIAL_NFTS: Item<Vec<Binary>> = Item::new("initial_nfts");
 /// The set of NFTs currently staked by each address. The existence of
 /// an `(address, token_id)` pair implies that `address` has staked
 /// `token_id`.
-pub const STAKED_NFTS_PER_OWNER: Keymap<(Addr, String), Empty> = Keymap::new(b"snpw");
+pub static STAKED_NFTS_PER_OWNER: Keymap<(Addr, String), Empty> = Keymap::new(b"snpw");
 
 /// The number of NFTs staked by an address as a function of block
 /// height.
-pub const NFT_BALANCES_PRIMARY: Keymap<Addr, Uint128> = Keymap::new(b"nft_balances_primary");
-pub const NFT_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128> =
+pub static NFT_BALANCES_PRIMARY: Keymap<Addr, Uint128> = Keymap::new(b"nft_balances_primary");
+pub static NFT_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128> =
     Keymap::new(b"nft_balances_snapshot");
-pub const USER_STAKED_NFT_AT_HEIGHT: Keymap<Addr, Vec<u64>> =
+pub static USER_STAKED_NFT_AT_HEIGHT: Keymap<Addr, Vec<u64>> =
     Keymap::new(b"user_Staked_Nft_at_height");
 
 pub struct NftBalancesStore {}
@@ -85,11 +85,11 @@ impl NftBalancesStore {
             };
             // return Ok(Some(Uint128::new(x.len() as u128)));
             if id.unwrap() == (x.len() - 1) {
-                return Ok(NFT_BALANCES_PRIMARY.get(store, &key));
+                Ok(NFT_BALANCES_PRIMARY.get(store, &key))
             } else {
                 let snapshot_value =
-                    NFT_BALANCES_SNAPSHOT.get(store, &(x[id.unwrap() + 1 as usize], key.clone()));
-                return Ok(snapshot_value);
+                    NFT_BALANCES_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize], key.clone()));
+                Ok(snapshot_value)
             }
         }
     }
@@ -98,7 +98,7 @@ impl NftBalancesStore {
 /// The number of NFTs staked with this contract as a function of
 /// block height.
 pub const TOTAL_STAKED_NFTS_PRIMARY: Item<Uint128> = Item::new("tsnP");
-pub const TOTAL_STAKED_NFTS_SNAPSHOT: Keymap<u64, Uint128> = Keymap::new(b"tsns");
+pub static TOTAL_STAKED_NFTS_SNAPSHOT: Keymap<u64, Uint128> = Keymap::new(b"tsns");
 pub const TOTAL_STAKED_NFTS_AT_HEIGHTS: Item<Vec<u64>> = Item::new("tsnah");
 
 pub struct StakedNftsTotalStore {}
@@ -139,11 +139,11 @@ impl StakedNftsTotalStore {
             };
             // return Ok(Some(Uint128::new(x.len() as u128)));
             if id.unwrap() == (x.len() - 1) {
-                return Ok(Some(TOTAL_STAKED_NFTS_PRIMARY.load(store)?));
+                Ok(Some(TOTAL_STAKED_NFTS_PRIMARY.load(store)?))
             } else {
                 let snapshot_value =
-                    TOTAL_STAKED_NFTS_SNAPSHOT.get(store, &(x[id.unwrap() + 1 as usize]));
-                return Ok(snapshot_value);
+                    TOTAL_STAKED_NFTS_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize]));
+                Ok(snapshot_value)
             }
         }
     }
@@ -151,7 +151,7 @@ impl StakedNftsTotalStore {
 
 /// The maximum number of claims that may be outstanding.
 pub const MAX_CLAIMS: u64 = 70;
-pub const NFT_CLAIMS: NftClaims = NftClaims::new(b"nft_claims");
+pub static NFT_CLAIMS: NftClaims = NftClaims::new(b"nft_claims");
 
 // Hooks to contracts that will receive staking and unstaking
 // messages.

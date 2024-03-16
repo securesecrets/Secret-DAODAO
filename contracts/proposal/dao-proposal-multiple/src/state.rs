@@ -76,4 +76,4 @@ pub const VOTE_HOOKS: Hooks = Hooks::new("vote_hooks");
 /// proposal module (if any).
 pub const CREATION_POLICY: Item<ProposalCreationPolicy> = Item::new("creation_policy");
 pub const DAO: Item<AnyContractInfo> = Item::new("dao");
-pub const REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");
+pub static REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");

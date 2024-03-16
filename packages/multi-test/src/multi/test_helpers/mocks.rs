@@ -1,7 +1,7 @@
 use cosmwasm_std::{Empty, GovMsg, IbcMsg, IbcQuery};
 
 use crate::{
-    BankKeeper, DistributionKeeper, FailingModule, Router, Staking, StakingKeeper, WasmKeeper,
+    BankKeeper, DistributionKeeper, FailingModule, Router, StakingKeeper, WasmKeeper,
 };
 
 pub type BasicRouter<ExecC = Empty, QueryC = Empty> = Router<

@@ -349,7 +349,7 @@ pub fn query_list_members(
 
     let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
 
-    let binding = MEMBERS_PRIMARY;
+    let binding = &MEMBERS_PRIMARY;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
         let (address, weight) = item?;

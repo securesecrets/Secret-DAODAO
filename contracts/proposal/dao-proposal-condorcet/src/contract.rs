@@ -188,7 +188,6 @@ fn execute_vote(
         let vote = Vote::new(vote, tally.clone().unwrap().candidates())?;
         VOTE.insert(deps.storage, &(proposal_id, info.sender.clone()), &vote)?;
 
-        let tally = tally;
         tally.clone().unwrap().add_vote(vote, sender_power);
         TALLY.insert(deps.storage, &proposal_id, &tally.clone().unwrap())?;
 

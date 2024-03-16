@@ -1,4 +1,4 @@
-use cosmwasm_schema::cw_serde;
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Addr;
 use dao_snip721_extensions::roles::{ExecuteExt, QueryExt};
 use schemars::JsonSchema;
@@ -34,13 +34,16 @@ pub struct InstantiateResponse {
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub enum ExecuteMsg {
-    Snip721Execute(Snip721ExecuteMsg),
+    Snip721Execute(Box<Snip721ExecuteMsg>),
     ExtensionExecute(ExecuteExt),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, QueryResponses)]
 pub enum QueryMsg {
+    #[returns(())]
     Snip721Query(Snip721QueryMsg),
+    #[returns(())]
     ExtensionQuery(QueryExt),
+    #[returns(crate::state::Config)]
     GetNftContractInfo {},
 }

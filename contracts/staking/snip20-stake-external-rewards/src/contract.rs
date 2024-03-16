@@ -127,7 +127,7 @@ pub fn execute_receive(
 ) -> Result<Response<Empty>, ContractError> {
     let msg: ReceiveMsg = from_binary(&wrapper.msg.unwrap())?;
     let config = CONFIG.load(deps.storage)?;
-    let sender = deps.api.addr_validate(&wrapper.sender.as_ref())?;
+    let sender = deps.api.addr_validate(wrapper.sender.as_ref())?;
     if config.reward_token != Denom::Snip20(info.sender) {
         return Err(InvalidSnip20 {});
     };

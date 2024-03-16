@@ -9,10 +9,10 @@ use crate::{config::Config, proposal::Proposal, tally::Tally, vote::Vote};
 pub(crate) const DAO: Item<AnyContractInfo> = Item::new("dao");
 pub(crate) const CONFIG: Item<Config> = Item::new("config");
 
-pub(crate) const TALLY: Keymap<u32, Tally, Json> = Keymap::new(b"tallys");
-pub(crate) const PROPOSAL: Keymap<u32, Proposal, Json> = Keymap::new(b"proposals");
-pub(crate) const VOTE: Keymap<(u32, Addr), Vote, Json> = Keymap::new(b"votes");
-pub(crate) const REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");
+pub(crate) static TALLY: Keymap<u32, Tally, Json> = Keymap::new(b"tallys");
+pub(crate) static PROPOSAL: Keymap<u32, Proposal, Json> = Keymap::new(b"proposals");
+pub(crate) static VOTE: Keymap<(u32, Addr), Vote, Json> = Keymap::new(b"votes");
+pub(crate) static REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");
 
 pub(crate) fn next_proposal_id(storage: &dyn Storage) -> StdResult<u32> {
     PROPOSAL

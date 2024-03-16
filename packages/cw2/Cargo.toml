@@ -10,8 +10,8 @@ homepage = "https://cosmwasm.com"
 
 [dependencies]
 cosmwasm-std = {workspace=true}
-cosmwasm-schema = "1.1.5"
-utils = { package = "secret-utils", path = "../utils/" }
-cw-storage-plus = { package = "secret-storage-plus", path = "../storage-plus/" }
-schemars = "0.8.1"
-serde = { version = "1.0.1", default-features = false, features = ["derive"] }
+cosmwasm-schema = {workspace=true}
+secret-utils ={workspace=true}
+secret-storage-plus = { workspace = true}
+schemars = {workspace=true}
+serde = {workspace=true}

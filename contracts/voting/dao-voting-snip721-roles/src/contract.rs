@@ -210,7 +210,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                                 code_hash: config.nft_code_hash.clone(),
                                 funds: vec![],
                                 msg: to_binary(&snip721_roles::msg::ExecuteMsg::Snip721Execute(
-                                    snip721_roles::snip721::Snip721ExecuteMsg::MintNft {
+                                    Box::new(snip721_roles::snip721::Snip721ExecuteMsg::MintNft {
                                         token_id: Some(nft.token_id.clone()),
                                         owner: Some(nft.owner.clone()),
                                         public_metadata: Some(snip721_roles::snip721::Metadata {
@@ -238,7 +238,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                                         transferable: None,
                                         memo: None,
                                         padding: None,
-                                    },
+                                    }),
                                 ))?,
                             }))
                         })
@@ -251,12 +251,12 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     let update_minter_msg = WasmMsg::Execute {
                         contract_addr: nft_roles_contract_address.clone(),
                         code_hash: config.nft_code_hash.clone(),
-                        msg: to_binary(&snip721_roles::msg::ExecuteMsg::Snip721Execute(
+                        msg: to_binary(&snip721_roles::msg::ExecuteMsg::Snip721Execute(Box::new(
                             snip721_roles::snip721::Snip721ExecuteMsg::ChangeAdmin {
                                 address: dao.addr.to_string(),
                                 padding: None,
                             },
-                        ))?,
+                        )))?,
                         funds: vec![],
                     };
 

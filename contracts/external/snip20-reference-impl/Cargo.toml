@@ -40,6 +40,7 @@ secret-toolkit-crypto = { git = "https://github.com/scrtlabs/secret-toolkit", fe
   "rand",
   "hash",
 ], rev = "9b74bdac71c2fedcc12246f18cdfdd94b8991282" }
+getrandom = { version = "0.2", features = ["js"] }
 
 schemars = "0.8.12"
 serde = { version = "1.0.158", default-features = false, features = ["derive"] }

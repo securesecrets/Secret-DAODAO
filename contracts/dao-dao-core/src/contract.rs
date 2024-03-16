@@ -424,7 +424,7 @@ pub fn execute_update_proposal_modules(
 /// that will be added.
 fn do_update_addr_list(
     deps: DepsMut,
-    map: Keymap<Addr, Empty, Json>,
+    map: &Keymap<Addr, Empty, Json>,
     to_add: Vec<String>,
     to_remove: Vec<String>,
     verify: impl Fn(&Addr, Deps) -> StdResult<()>,
@@ -460,11 +460,11 @@ pub fn execute_update_snip20_list(
     if env.contract.address != sender {
         return Err(ContractError::Unauthorized {});
     }
-    do_update_addr_list(deps, SNIP20_LIST, to_add, to_remove, |addr, deps| {
+    do_update_addr_list(deps, &SNIP20_LIST, to_add, to_remove, |addr, deps| {
         // Perform a balance query here as this is the query performed
         // by the `Cw20Balances` query.
         let viewing_key = TOKEN_VIEWING_KEY
-            .get(deps.storage, &addr)
+            .get(deps.storage, addr)
             .unwrap_or_default();
         let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
         let _info: secret_toolkit::snip20::query::Balance = deps.querier.query_wasm_smart(
@@ -490,7 +490,7 @@ pub fn execute_update_snip721_list(
     if env.contract.address != sender {
         return Err(ContractError::Unauthorized {});
     }
-    do_update_addr_list(deps, SNIP721_LIST, to_add, to_remove, |addr, deps| {
+    do_update_addr_list(deps, &SNIP721_LIST, to_add, to_remove, |addr, deps| {
         let snip721_code_hash = SNIP721_CODE_HASH.load(deps.storage)?;
         let _info: secret_toolkit::snip721::query::ContractInfo = deps.querier.query_wasm_smart(
             snip721_code_hash,

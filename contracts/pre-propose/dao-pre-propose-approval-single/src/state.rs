@@ -37,9 +37,9 @@ pub struct Proposal {
 }
 
 pub const APPROVER: Item<Addr> = Item::new("approver");
-pub const PENDING_PROPOSALS: Keymap<u64, Proposal, Json> = Keymap::new(b"pending_proposals");
-pub const COMPLETED_PROPOSALS: Keymap<u64, Proposal, Json> = Keymap::new(b"completed_proposals");
-pub const CREATED_PROPOSAL_TO_COMPLETED_PROPOSAL: Keymap<u64, u64, Json> =
+pub static PENDING_PROPOSALS: Keymap<u64, Proposal, Json> = Keymap::new(b"pending_proposals");
+pub static COMPLETED_PROPOSALS: Keymap<u64, Proposal, Json> = Keymap::new(b"completed_proposals");
+pub static CREATED_PROPOSAL_TO_COMPLETED_PROPOSAL: Keymap<u64, u64, Json> =
     Keymap::new(b"created_to_completed_proposal");
 
 /// Used internally to track the current approval_id.

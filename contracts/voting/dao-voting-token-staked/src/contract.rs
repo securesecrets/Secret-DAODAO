@@ -632,7 +632,7 @@ pub fn query_list_stakers(
 
     let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
 
-    let binding = STAKED_BALANCES_PRIMARY;
+    let binding = &STAKED_BALANCES_PRIMARY;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
         let (address, balance) = item?;
@@ -777,12 +777,11 @@ fn query_bank_supply_of(
     denom: String,
 ) -> StdResult<bank::v1beta1::QuerySupplyOfResponse> {
     let msg = bank::v1beta1::QuerySupplyOfRequest { denom };
-    let resp = make_stargate_query(
+    make_stargate_query(
         deps,
         "/cosmos.bank.v1beta1.Query/SupplyOf".to_string(),
         Message::encode_to_vec(&msg),
-    );
-    resp
+    )
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

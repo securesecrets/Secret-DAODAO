@@ -209,6 +209,7 @@ impl PiecewiseLinear {
 
     /// general sanity checks on input values to ensure this is valid.
     /// these checks should be included by the other validate_* functions
+    #[allow(clippy::manual_try_fold)]
     pub fn validate(&self) -> Result<(), CurveError> {
         if self.steps.is_empty() {
             return Err(CurveError::MissingSteps);

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::ops::Deref;
 
 use crate::prefixed_storage::{prefixed, prefixed_read, PrefixedStorage, ReadonlyPrefixedStorage};
 use cosmwasm_std::{
@@ -267,9 +266,9 @@ impl<ExecC, QueryC> WasmKeeper<ExecC, QueryC> {
     }
 
     // fails RUNTIME if you try to write. please don't
-    pub fn get_storage<'a, F>(
+    pub fn get_storage<F>(
         &self,
-        storage: &'a dyn Storage,
+        storage: & dyn Storage,
         address: &Addr,
         borrow: F,
     ) -> AnyResult<()>
@@ -281,7 +280,7 @@ impl<ExecC, QueryC> WasmKeeper<ExecC, QueryC> {
         let namespace = self.contract_namespace(address);
         let storage = ReadonlyPrefixedStorage::multilevel(storage, &[NAMESPACE_WASM, &namespace]);
         borrow(&storage);
-        return Ok(());
+         Ok(())
     }
 
     fn verify_attributes(attributes: &[Attribute]) -> AnyResult<()> {
@@ -439,7 +438,7 @@ where
                 msg,
                 funds,
                 label,
-                admin,
+                admin:_,
             } => {
                 if label.is_empty() {
                     bail!("Label is required on all contracts");
@@ -862,7 +861,7 @@ where
 
         let deps = Deps {
             storage: storage.as_ref(),
-            api: api.deref(),
+            api,
             querier: QuerierWrapper::new(querier),
         };
         action(handler, deps, env)
@@ -898,7 +897,7 @@ where
 
             let deps = DepsMut {
                 storage: contract_storage.as_mut(),
-                api: api.deref(),
+                api,
                 querier: QuerierWrapper::new(&querier),
             };
             action(handler, deps, env)

@@ -164,7 +164,7 @@ pub fn execute_approve(
             // Snapshot the deposit for the proposal that we're about
             // to create.
             let proposal_id = deps.querier.query_wasm_smart(
-                &proposal_module.code_hash.clone(),
+                proposal_module.code_hash.clone(),
                 proposal_module.addr.clone().to_string(),
                 &dao_interface::proposal::Query::NextProposalId {},
             )?;
@@ -361,7 +361,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             }
             QueryExt::PendingProposals { start_after, limit } => {
                 let mut res: Vec<Proposal> = Vec::new();
-                let mut start = start_after.clone();
+                let mut start = start_after;
                 let binding = &PENDING_PROPOSALS;
                 let iter = binding.iter(deps.storage)?;
                 for item in iter {
@@ -386,7 +386,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 limit,
             } => {
                 let mut res: Vec<Proposal> = Vec::new();
-                let mut start = start_before.clone();
+                let mut start = start_before;
                 let binding = &PENDING_PROPOSALS;
                 let iter = binding.iter(deps.storage)?.rev(); // Iterate in reverse
                 for item in iter {
@@ -412,7 +412,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             }
             QueryExt::CompletedProposals { start_after, limit } => {
                 let mut res: Vec<Proposal> = Vec::new();
-                let mut start = start_after.clone();
+                let mut start = start_after;
                 let binding = &COMPLETED_PROPOSALS;
                 let iter = binding.iter(deps.storage)?;
                 for item in iter {
@@ -437,7 +437,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 limit,
             } => {
                 let mut res: Vec<Proposal> = Vec::new();
-                let mut start = start_before.clone();
+                let mut start = start_before;
                 let binding = &COMPLETED_PROPOSALS;
                 let iter = binding.iter(deps.storage)?.rev(); // Iterate in reverse
                 for item in iter {

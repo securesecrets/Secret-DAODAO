@@ -1,4 +1,3 @@
-
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, BlockInfo, CustomQuery, Deps, StdError, StdResult, Storage};
 use secret_toolkit::storage::Keymap;
@@ -79,13 +78,11 @@ impl<'a> NftClaims<'a> {
             }));
             old_claims
         };
-    
+
         // Insert the updated claims back into the storage
         self.0.insert(storage, addr, &new_claims)?;
-    
+
         Ok(())
-
-
     }
 
     /// This iterates over all mature claims for the address, and removes them, up to an optional cap.
@@ -117,9 +114,9 @@ impl<'a> NftClaims<'a> {
 
         // Retrieve the current value associated with the address key
         let mut nft_claims = self.0.get(storage, addr);
-    
+
         // Update the value if it exists, or initialize it to default otherwise
-        let  _ = match nft_claims.take() {
+        let _ = match nft_claims.take() {
             Some(claims) => {
                 let (send, waiting): (Vec<_>, _) = claims.into_iter().partition(|c| {
                     // if mature and we can pay fully, then include in _send
@@ -137,7 +134,7 @@ impl<'a> NftClaims<'a> {
             }
             None => vec![], // No claims found for the address
         };
-    
+
         // Return the tokens to be sent
         Ok(to_send)
     }

@@ -9,10 +9,9 @@ use schemars::JsonSchema;
 use secret_storage_plus::Item;
 
 use crate::{
-    app::{CosmosRouter, Router},
-    bank::{BankKeeper, BankSudo},
+    app::CosmosRouter,
+    bank::BankSudo,
     executor::AppResponse,
-    wasm::WasmKeeper,
     Module,
 };
 
@@ -82,24 +81,23 @@ impl Module for StakingKeeper {
                     .into(),
                 )?;
 
-                if VALIDATORS
+                if !VALIDATORS
                     .load(storage)
-                    .unwrap_or(vec![])
+                    .unwrap_or_default()
                     .into_iter()
-                    .find(|v| *v == validator)
-                    .is_none()
+                    .any(|v| *v == validator)
                 {
                     bail!("Validator {} not found", validator);
                 }
 
-                let mut delegations = DELEGATIONS.load(storage).unwrap_or(vec![]);
+                let mut delegations = DELEGATIONS.load(storage).unwrap_or_default();
 
                 if let Some(i) = delegations.iter().position(|d| {
                     d.delegator == sender
                         && d.validator.clone() == validator
                         && d.amount.denom == amount.clone().denom
                 }) {
-                    delegations[i].amount.amount += amount.amount.clone();
+                    delegations[i].amount.amount += amount.amount;
                 } else {
                     delegations.push(FullDelegation {
                         delegator: sender,
@@ -123,7 +121,7 @@ impl Module for StakingKeeper {
             StakingMsg::Undelegate { validator, amount } => {
                 println!("Undelegating {}", amount);
 
-                let mut delegations = DELEGATIONS.load(storage).unwrap_or(vec![]);
+                let mut delegations = DELEGATIONS.load(storage).unwrap_or_default();
                 if let Some(i) = delegations.iter().position(|d| {
                     d.delegator == sender
                         && d.validator.clone() == validator
@@ -144,7 +142,7 @@ impl Module for StakingKeeper {
                             .unwrap();
                     }
 
-                    let mut undelegations = UNDELEGATIONS.load(storage).unwrap_or(vec![]);
+                    let mut undelegations = UNDELEGATIONS.load(storage).unwrap_or_default();
                     undelegations.push((
                         Addr::unchecked(validator),
                         sender,
@@ -152,7 +150,7 @@ impl Module for StakingKeeper {
                     ));
                     UNDELEGATIONS.save(storage, &undelegations)?;
 
-                    delegations[i].amount.amount -= amount.amount.clone();
+                    delegations[i].amount.amount -= amount.amount;
                     delegations[i].accumulated_rewards = vec![];
 
                     if delegations[i].amount.amount.is_zero() {
@@ -178,6 +176,8 @@ impl Module for StakingKeeper {
         }
     }
 
+    #[allow(unreachable_code)]
+    #[allow(clippy::needless_range_loop)]
     fn sudo<ExecC, QueryC: CustomQuery>(
         &self,
         api: &dyn Api,
@@ -188,14 +188,14 @@ impl Module for StakingKeeper {
     ) -> AnyResult<AppResponse> {
         match msg {
             StakingSudo::Slash {
-                validator,
-                percentage,
+                validator:_,
+                percentage:_,
             } => {
                 bail!("slashing not implemented");
                 Ok(AppResponse::default())
             }
             StakingSudo::AddValidator { validator } => {
-                let mut validators = VALIDATORS.load(storage).unwrap_or(vec![]);
+                let mut validators = VALIDATORS.load(storage).unwrap_or_default();
                 validators.push(validator);
                 VALIDATORS.save(storage, &validators)?;
                 Ok(AppResponse::default())
@@ -205,7 +205,7 @@ impl Module for StakingKeeper {
                     return Ok(AppResponse::default());
                 }
 
-                let mut delegations = DELEGATIONS.load(storage).unwrap_or(vec![]);
+                let mut delegations = DELEGATIONS.load(storage).unwrap_or_default();
 
                 for i in 0..delegations.len() {
                     router
@@ -227,7 +227,7 @@ impl Module for StakingKeeper {
                         .into_iter()
                         .find(|ar| ar.denom == amount.denom.clone())
                     {
-                        coin.amount += amount.amount.clone();
+                        coin.amount += amount.amount;
                         break;
                     } else {
                         delegations[i].accumulated_rewards.push(amount.clone());
@@ -237,7 +237,7 @@ impl Module for StakingKeeper {
                 Ok(AppResponse::default())
             }
             StakingSudo::FastForwardUndelegate {} => {
-                for (validator, user, coins) in UNDELEGATIONS.load(storage).unwrap_or(vec![]) {
+                for (validator, user, coins) in UNDELEGATIONS.load(storage).unwrap_or_default() {
                     //router.bank.send(storage, validator, user, coins)?;
                     router.execute(
                         api,
@@ -259,7 +259,7 @@ impl Module for StakingKeeper {
 
     fn query(
         &self,
-        api: &dyn Api,
+        _api: &dyn Api,
         storage: &dyn Storage,
         _querier: &dyn Querier,
         _block: &BlockInfo,
@@ -273,9 +273,9 @@ impl Module for StakingKeeper {
             StakingQuery::AllDelegations { delegator } => {
                 let delegations: Vec<Delegation> = DELEGATIONS
                     .load(storage)
-                    .unwrap_or(vec![])
+                    .unwrap_or_default()
                     .into_iter()
-                    .filter(|d| d.delegator.to_string() == delegator)
+                    .filter(|d| d.delegator == delegator)
                     .map(|d| Delegation {
                         delegator: d.delegator,
                         validator: d.validator,
@@ -290,7 +290,7 @@ impl Module for StakingKeeper {
                 delegator,
                 validator,
             } => {
-                let delegations = DELEGATIONS.load(storage)?;
+                let _delegations = DELEGATIONS.load(storage)?;
                 //let d = delegations.into_iter().find(|d| d.delegator == delegator && d.validator == validator).unwrap();
                 /*
                 if let Some(d) = DELEGATIONS.load(storage)
@@ -308,7 +308,7 @@ impl Module for StakingKeeper {
                 Ok(to_binary(&DelegationResponse {
                     delegation: DELEGATIONS
                         .load(storage)
-                        .unwrap_or(vec![])
+                        .unwrap_or_default()
                         .into_iter()
                         .find(|d| d.delegator == delegator && d.validator == validator),
                 })?)
@@ -316,7 +316,7 @@ impl Module for StakingKeeper {
             StakingQuery::AllValidators {} => {
                 let validators = VALIDATORS
                     .load(storage)
-                    .unwrap_or(vec![])
+                    .unwrap_or_default()
                     .into_iter()
                     .map(|v| Validator {
                         address: v,
@@ -328,20 +328,16 @@ impl Module for StakingKeeper {
                 Ok(to_binary(&AllValidatorsResponse { validators })?)
             }
             StakingQuery::Validator { address } => Ok(to_binary(&ValidatorResponse {
-                validator: match VALIDATORS
-                    .load(storage)
-                    .unwrap_or(vec![])
-                    .into_iter()
-                    .find(|v| *v == address)
-                {
-                    Some(v) => Some(Validator {
-                        address: v,
-                        commission: Decimal::zero(),
-                        max_commission: Decimal::one(),
-                        max_change_rate: Decimal::one(),
-                    }),
-                    None => None,
-                },
+                validator: VALIDATORS
+                                  .load(storage)
+                                    .unwrap_or_default()
+                                    .into_iter()
+                                    .find(|v| *v == address).map(|v| Validator {
+                                       address: v,
+                                       commission: Decimal::zero(),
+                                         max_commission: Decimal::one(),
+                                       max_change_rate: Decimal::one(),
+                                    }),
             })?),
             q => bail!("Unsupported staking query: {:?}", q),
         }
@@ -440,8 +436,8 @@ impl Module for DistributionKeeper {
 
     fn sudo<ExecC, QueryC>(
         &self,
-        api: &dyn Api,
-        storage: &mut dyn Storage,
+        _api: &dyn Api,
+        _storage: &mut dyn Storage,
         _router: &dyn CosmosRouter<ExecC = ExecC, QueryC = QueryC>,
         _block: &BlockInfo,
         msg: Empty,
@@ -451,8 +447,8 @@ impl Module for DistributionKeeper {
 
     fn query(
         &self,
-        api: &dyn Api,
-        storage: &dyn Storage,
+        _api: &dyn Api,
+        _storage: &dyn Storage,
         _querier: &dyn Querier,
         _block: &BlockInfo,
         request: Empty,
@@ -465,12 +461,11 @@ impl Module for DistributionKeeper {
 mod test {
     use super::*;
     use crate::{
-        bank::{Bank, BankKeeper, BankSudo},
-        test_helpers::mocks::{mock_router, BasicRouter},
-        wasm::WasmKeeper,
+        bank::BankKeeper,
+        test_helpers::mocks::mock_router,
     };
     use cosmwasm_std::testing::{mock_env, MockApi, MockQuerier, MockStorage};
-    use cosmwasm_std::{coins, from_binary, from_slice, Coin, Empty, StdError, Uint128};
+    use cosmwasm_std::{from_binary, Coin, Empty, Uint128};
 
     #[test]
     fn staking() {
@@ -507,7 +502,7 @@ mod test {
             )
             .unwrap();
 
-        let mut expected_delegation = FullDelegation {
+        let  expected_delegation = FullDelegation {
             delegator: owner.clone(),
             validator: validator.to_string(),
             amount: funds.clone(),

@@ -32,9 +32,9 @@ pub const SNIP721_INFO: Item<Config> = Item::new("si");
 // );
 
 /// A historic list of members and total voting weights
-pub const MEMBERS_PRIMARY: Keymap<Addr, u64> = Keymap::new(b"staked_balances_primary");
-pub const MEMBERS_SNAPSHOT: Keymap<(u64, Addr), u64> = Keymap::new(b"staked_balances_snapshot");
-pub const MEMBERS_AT_HEIGHT: Keymap<Addr, Vec<u64>> = Keymap::new(b"user_Staked_at_height");
+pub static MEMBERS_PRIMARY: Keymap<Addr, u64> = Keymap::new(b"staked_balances_primary");
+pub static MEMBERS_SNAPSHOT: Keymap<(u64, Addr), u64> = Keymap::new(b"staked_balances_snapshot");
+pub static MEMBERS_AT_HEIGHT: Keymap<Addr, Vec<u64>> = Keymap::new(b"user_Staked_at_height");
 
 pub struct MembersStore {}
 impl MembersStore {
@@ -84,11 +84,11 @@ impl MembersStore {
             };
             // return Ok(Some(Uint128::new(x.len() as u128)));
             if id.unwrap() == (x.len() - 1) {
-                return Ok(MEMBERS_PRIMARY.get(store, &key));
+                Ok(MEMBERS_PRIMARY.get(store, &key))
             } else {
                 let snapshot_value =
-                    MEMBERS_SNAPSHOT.get(store, &(x[id.unwrap() + 1 as usize], key.clone()));
-                return Ok(snapshot_value);
+                    MEMBERS_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize], key.clone()));
+                Ok(snapshot_value)
             }
         }
     }
@@ -110,7 +110,7 @@ impl MembersStore {
 
 /// A historic snapshot of total weight over time
 pub const TOTAL_PRIMARY: Item<u64> = Item::new("staked_balances_primary");
-pub const TOTAL_SNAPSHOT: Keymap<u64, u64> = Keymap::new(b"staked_balances_snapshot");
+pub static TOTAL_SNAPSHOT: Keymap<u64, u64> = Keymap::new(b"staked_balances_snapshot");
 pub const TOTAL_AT_HEIGHTS: Item<Vec<u64>> = Item::new("user_Staked_at_height");
 
 pub struct TotalStore {}
@@ -152,10 +152,10 @@ impl TotalStore {
             };
             // return Ok(Some(Uint128::new(x.len() as u128)));
             if id.unwrap() == (x.len() - 1) {
-                return Ok(Some(TOTAL_PRIMARY.load(store).unwrap_or_default()));
+                Ok(Some(TOTAL_PRIMARY.load(store).unwrap_or_default()))
             } else {
-                let snapshot_value = TOTAL_SNAPSHOT.get(store, &(x[id.unwrap() + 1 as usize]));
-                return Ok(snapshot_value);
+                let snapshot_value = TOTAL_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize]));
+                Ok(snapshot_value)
             }
         }
     }

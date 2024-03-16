@@ -19,7 +19,7 @@ For more information on this specification, please check out the
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{CustomQuery, QuerierWrapper, QueryRequest, StdResult, Storage, WasmQuery};
-use cw_storage_plus::Item;
+use secret_storage_plus::Item;
 
 pub const CONTRACT: Item<ContractVersion> = Item::new("contract_info");
 

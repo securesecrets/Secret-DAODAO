@@ -28,7 +28,7 @@ pub const MAX_CLAIMS: u64 = 100;
 
 pub const CLAIMS: Claims = Claims::new("claims");
 
-pub const STAKED_TOTAL_AT_HEIGHT: Keymap<u64, Uint128> = Keymap::new(b"staked_total");
+pub static STAKED_TOTAL_AT_HEIGHT: Keymap<u64, Uint128> = Keymap::new(b"staked_total");
 
 pub struct StakedTotalStore {}
 impl StakedTotalStore {
@@ -46,18 +46,18 @@ impl StakedTotalStore {
         let total_staked_at_height = STAKED_TOTAL_AT_HEIGHT.get(store, &height);
         if total_staked_at_height.is_none() {
             let res = BALANCE.load(store)?;
-            return Ok(Some(res));
+            Ok(Some(res))
         } else {
             let snapshot_value = STAKED_TOTAL_AT_HEIGHT.get(store, &height);
-            return Ok(snapshot_value);
+            Ok(snapshot_value)
         }
     }
 }
 
-pub const STAKED_BALANCES_PRIMARY: Keymap<Addr, Uint128> = Keymap::new(b"staked_balances_primary");
-pub const STAKED_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128> =
+pub static STAKED_BALANCES_PRIMARY: Keymap<Addr, Uint128> = Keymap::new(b"staked_balances_primary");
+pub static STAKED_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128> =
     Keymap::new(b"staked_balances_snapshot");
-pub const USER_STAKED_AT_HEIGHT: Keymap<Addr, Vec<u64>> = Keymap::new(b"user_Staked_at_height");
+pub static USER_STAKED_AT_HEIGHT: Keymap<Addr, Vec<u64>> = Keymap::new(b"user_Staked_at_height");
 
 pub struct StakedBalancesStore {}
 impl StakedBalancesStore {
@@ -114,11 +114,11 @@ impl StakedBalancesStore {
             };
             // return Ok(Some(Uint128::new(x.len() as u128)));
             if id.unwrap() == (x.len() - 1) {
-                return Ok(STAKED_BALANCES_PRIMARY.get(store, &key));
+                Ok(STAKED_BALANCES_PRIMARY.get(store, &key))
             } else {
                 let snapshot_value =
                     STAKED_BALANCES_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize], key.clone()));
-                return Ok(snapshot_value);
+                Ok(snapshot_value)
             }
         }
     }

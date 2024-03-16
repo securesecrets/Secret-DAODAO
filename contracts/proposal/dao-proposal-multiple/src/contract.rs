@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -69,7 +71,7 @@ pub fn instantiate(
 
     let (initial_policy, pre_propose_messages) = msg
         .pre_propose_info
-        .into_initial_policy_and_messages(deps.storage, info.sender.clone(), REPLY_IDS)?;
+        .into_initial_policy_and_messages(deps.storage, info.sender.clone(), REPLY_IDS.borrow())?;
 
     // if veto is configured, validate its fields
     if let Some(veto_config) = &msg.veto {
@@ -721,8 +723,11 @@ pub fn execute_update_proposal_creation_policy(
         return Err(ContractError::Unauthorized {});
     }
 
-    let (initial_policy, messages) =
-        new_info.into_initial_policy_and_messages(deps.storage, dao_info.addr, REPLY_IDS)?;
+    let (initial_policy, messages) = new_info.into_initial_policy_and_messages(
+        deps.storage,
+        dao_info.addr,
+        REPLY_IDS.borrow(),
+    )?;
     CREATION_POLICY.save(deps.storage, &initial_policy)?;
 
     Ok(Response::default()
