@@ -25,7 +25,7 @@ pub const HOOKS: Hooks = Hooks::new("cw4-hooks");
 // );
 
 /// A historic list of members and total voting weights
-pub static  MEMBERS_PRIMARY: Keymap<Addr, u64> = Keymap::new(b"staked_balances_primary");
+pub static MEMBERS_PRIMARY: Keymap<Addr, u64> = Keymap::new(b"staked_balances_primary");
 pub static MEMBERS_SNAPSHOT: Keymap<(u64, Addr), u64> = Keymap::new(b"staked_balances_snapshot");
 pub static MEMBERS_AT_HEIGHT: Keymap<Addr, Vec<u64>> = Keymap::new(b"user_Staked_at_height");
 
@@ -77,11 +77,11 @@ impl MembersStore {
             };
             // return Ok(Some(Uint128::new(x.len() as u128)));
             if id.unwrap() == (x.len() - 1) {
-                 Ok(MEMBERS_PRIMARY.get(store, &key))
+                Ok(MEMBERS_PRIMARY.get(store, &key))
             } else {
                 let snapshot_value =
                     MEMBERS_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize], key.clone()));
-                 Ok(snapshot_value)
+                Ok(snapshot_value)
             }
         }
     }
@@ -104,7 +104,7 @@ impl MembersStore {
 /// A historic snapshot of total weight over time
 pub const TOTAL_PRIMARY: Item<u64> = Item::new("staked_balances_primary");
 pub static TOTAL_SNAPSHOT: Keymap<u64, u64> = Keymap::new(b"staked_balances_snapshot");
-pub const  TOTAL_AT_HEIGHTS: Item<Vec<u64>> = Item::new("user_Staked_at_height");
+pub const TOTAL_AT_HEIGHTS: Item<Vec<u64>> = Item::new("user_Staked_at_height");
 
 pub struct TotalStore {}
 impl TotalStore {
@@ -145,10 +145,10 @@ impl TotalStore {
             };
             // return Ok(Some(Uint128::new(x.len() as u128)));
             if id.unwrap() == (x.len() - 1) {
-                 Ok(Some(TOTAL_PRIMARY.load(store).unwrap_or_default()))
+                Ok(Some(TOTAL_PRIMARY.load(store).unwrap_or_default()))
             } else {
                 let snapshot_value = TOTAL_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize]));
-                 Ok(snapshot_value)
+                Ok(snapshot_value)
             }
         }
     }

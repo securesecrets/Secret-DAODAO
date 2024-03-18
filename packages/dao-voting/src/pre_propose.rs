@@ -44,7 +44,7 @@ impl PreProposeInfo {
         self,
         store: &mut dyn Storage,
         dao: Addr,
-        reply_id: & ReplyIds,
+        reply_id: &ReplyIds,
     ) -> StdResult<(ProposalCreationPolicy, Vec<SubMsg<Empty>>)> {
         Ok(match self {
             Self::AnyoneMayPropose {} => (ProposalCreationPolicy::Anyone {}, vec![]),

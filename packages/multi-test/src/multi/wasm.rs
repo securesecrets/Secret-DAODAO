@@ -266,12 +266,7 @@ impl<ExecC, QueryC> WasmKeeper<ExecC, QueryC> {
     }
 
     // fails RUNTIME if you try to write. please don't
-    pub fn get_storage<F>(
-        &self,
-        storage: & dyn Storage,
-        address: &Addr,
-        borrow: F,
-    ) -> AnyResult<()>
+    pub fn get_storage<F>(&self, storage: &dyn Storage, address: &Addr, borrow: F) -> AnyResult<()>
     where
         F: FnOnce(&dyn Storage),
     {
@@ -280,7 +275,7 @@ impl<ExecC, QueryC> WasmKeeper<ExecC, QueryC> {
         let namespace = self.contract_namespace(address);
         let storage = ReadonlyPrefixedStorage::multilevel(storage, &[NAMESPACE_WASM, &namespace]);
         borrow(&storage);
-         Ok(())
+        Ok(())
     }
 
     fn verify_attributes(attributes: &[Attribute]) -> AnyResult<()> {
@@ -438,7 +433,7 @@ where
                 msg,
                 funds,
                 label,
-                admin:_,
+                admin: _,
             } => {
                 if label.is_empty() {
                     bail!("Label is required on all contracts");

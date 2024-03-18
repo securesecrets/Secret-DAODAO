@@ -8,12 +8,7 @@ use cosmwasm_std::{
 use schemars::JsonSchema;
 use secret_storage_plus::Item;
 
-use crate::{
-    app::CosmosRouter,
-    bank::BankSudo,
-    executor::AppResponse,
-    Module,
-};
+use crate::{app::CosmosRouter, bank::BankSudo, executor::AppResponse, Module};
 
 const VALIDATORS: Item<Vec<String>> = Item::new("validators");
 const DELEGATIONS: Item<Vec<FullDelegation>> = Item::new("delegations");
@@ -188,8 +183,8 @@ impl Module for StakingKeeper {
     ) -> AnyResult<AppResponse> {
         match msg {
             StakingSudo::Slash {
-                validator:_,
-                percentage:_,
+                validator: _,
+                percentage: _,
             } => {
                 bail!("slashing not implemented");
                 Ok(AppResponse::default())
@@ -329,15 +324,16 @@ impl Module for StakingKeeper {
             }
             StakingQuery::Validator { address } => Ok(to_binary(&ValidatorResponse {
                 validator: VALIDATORS
-                                  .load(storage)
-                                    .unwrap_or_default()
-                                    .into_iter()
-                                    .find(|v| *v == address).map(|v| Validator {
-                                       address: v,
-                                       commission: Decimal::zero(),
-                                         max_commission: Decimal::one(),
-                                       max_change_rate: Decimal::one(),
-                                    }),
+                    .load(storage)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .find(|v| *v == address)
+                    .map(|v| Validator {
+                        address: v,
+                        commission: Decimal::zero(),
+                        max_commission: Decimal::one(),
+                        max_change_rate: Decimal::one(),
+                    }),
             })?),
             q => bail!("Unsupported staking query: {:?}", q),
         }
@@ -460,10 +456,7 @@ impl Module for DistributionKeeper {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        bank::BankKeeper,
-        test_helpers::mocks::mock_router,
-    };
+    use crate::{bank::BankKeeper, test_helpers::mocks::mock_router};
     use cosmwasm_std::testing::{mock_env, MockApi, MockQuerier, MockStorage};
     use cosmwasm_std::{from_binary, Coin, Empty, Uint128};
 
@@ -502,7 +495,7 @@ mod test {
             )
             .unwrap();
 
-        let  expected_delegation = FullDelegation {
+        let expected_delegation = FullDelegation {
             delegator: owner.clone(),
             validator: validator.to_string(),
             amount: funds.clone(),
