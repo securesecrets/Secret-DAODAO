@@ -2999,7 +2999,7 @@ pub fn query_verify_approval(
     let mut oper_for: Vec<CanonicalAddr> = Vec::new();
     for id in token_ids.into_iter() {
         // cargo fmt creates the and_then block, but clippy doesn't like it
-        #[allow(clippy::blocks_in_if_conditions)]
+        #[allow(clippy::blocks_in_conditions)]
         if get_token_if_permitted(
             deps,
             block,

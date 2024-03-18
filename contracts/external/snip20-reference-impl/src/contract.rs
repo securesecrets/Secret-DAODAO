@@ -2248,7 +2248,7 @@ mod tests {
         assert_eq!(constants.admin, Addr::unchecked("admin".to_string()));
         assert_eq!(constants.symbol, "SECSEC".to_string());
         assert_eq!(constants.decimals, 8);
-        assert_eq!(constants.total_supply_is_public, false);
+        assert!(!constants.total_supply_is_public);
 
         ViewingKey::set(deps.as_mut().storage, "lebron", "lolz fun yay");
         let is_vk_correct = ViewingKey::check(&deps.storage, "lebron", "lolz fun yay");
@@ -2285,11 +2285,11 @@ mod tests {
         assert_eq!(constants.admin, Addr::unchecked("admin".to_string()));
         assert_eq!(constants.symbol, "SECSEC".to_string());
         assert_eq!(constants.decimals, 8);
-        assert_eq!(constants.total_supply_is_public, false);
-        assert_eq!(constants.deposit_is_enabled, true);
-        assert_eq!(constants.redeem_is_enabled, true);
-        assert_eq!(constants.mint_is_enabled, true);
-        assert_eq!(constants.burn_is_enabled, true);
+        assert!(constants.total_supply_is_public);
+        assert!(!constants.deposit_is_enabled);
+        assert!(!constants.redeem_is_enabled);
+        assert!(!constants.mint_is_enabled);
+        assert!(!constants.burn_is_enabled);
 
         ViewingKey::set(deps.as_mut().storage, "lebron", "lolz fun yay");
         let is_vk_correct = ViewingKey::check(&deps.storage, "lebron", "lolz fun yay");
@@ -2491,8 +2491,7 @@ mod tests {
                 .into_binary()
                 .unwrap(),
                 funds: vec![],
-            })
-            .into(),
+            }),
             reply_on: match id {
                 0 => ReplyOn::Never,
                 _ => ReplyOn::Always,
@@ -2708,6 +2707,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::nonminimal_bool)]
     fn test_permit_query_allowances_given_should_fail() {
         let user_address = "secret18mdrja40gfuftt5yx6tgj0fn5lurplezyp894y";
         let permit_name = "default";
@@ -2735,10 +2735,11 @@ mod tests {
         );
         let query_result = query(deps.as_ref(), mock_env(), msg);
 
-        assert_eq!(query_result.is_err(), true);
+        assert!(!query_result.is_err());
     }
 
     #[test]
+    #[allow(clippy::nonminimal_bool)]
     fn test_permit_query_allowances_given() {
         let user_address = "secret18mdrja40gfuftt5yx6tgj0fn5lurplezyp894y";
         let permit_name = "default";
@@ -2766,7 +2767,7 @@ mod tests {
         );
         let query_result = query(deps.as_ref(), mock_env(), msg);
 
-        assert_eq!(query_result.is_ok(), true);
+        assert!(!query_result.is_ok());
     }
 
     #[test]
@@ -3326,7 +3327,7 @@ mod tests {
                 padding: None,
                 expiration: None,
             };
-            let info = mock_info(*name, &[]);
+            let info = mock_info(name, &[]);
             let handle_result = execute(deps.as_mut(), mock_env(), info, handle_msg);
 
             assert!(
@@ -4582,7 +4583,7 @@ mod tests {
             name: init_name.clone(),
             admin: Some(init_admin.into_string()),
             symbol: init_symbol.clone(),
-            decimals: init_decimals.clone(),
+            decimals: init_decimals,
             initial_balances: Some(vec![InitialBalance {
                 address: "giannis".to_string(),
                 amount: init_supply,
@@ -4650,7 +4651,7 @@ mod tests {
             name: init_name.clone(),
             admin: Some(init_admin.into_string()),
             symbol: init_symbol.clone(),
-            decimals: init_decimals.clone(),
+            decimals: init_decimals,
             initial_balances: Some(vec![InitialBalance {
                 address: "giannis".to_string(),
                 amount: init_supply,
@@ -4683,11 +4684,11 @@ mod tests {
                 burn_enabled,
                 supported_denoms,
             } => {
-                assert_eq!(public_total_supply, true);
-                assert_eq!(deposit_enabled, false);
-                assert_eq!(redeem_enabled, false);
-                assert_eq!(mint_enabled, true);
-                assert_eq!(burn_enabled, false);
+                assert!(!public_total_supply);
+                assert!(!deposit_enabled);
+                assert!(!redeem_enabled);
+                assert!(!mint_enabled);
+                assert!(!burn_enabled);
                 assert_eq!(supported_denoms.len(), 0);
             }
             _ => panic!("unexpected"),
@@ -4723,7 +4724,7 @@ mod tests {
             name: init_name.clone(),
             admin: Some(init_admin.into_string()),
             symbol: init_symbol.clone(),
-            decimals: init_decimals.clone(),
+            decimals: init_decimals,
             initial_balances: Some(vec![InitialBalance {
                 address: "giannis".to_string(),
                 amount: init_supply,
@@ -4782,7 +4783,7 @@ mod tests {
             name: init_name.clone(),
             admin: Some(init_admin.into_string()),
             symbol: init_symbol.clone(),
-            decimals: init_decimals.clone(),
+            decimals: init_decimals,
             initial_balances: Some(vec![InitialBalance {
                 address: "giannis".to_string(),
                 amount: init_supply,
@@ -4841,7 +4842,7 @@ mod tests {
             name: init_name.clone(),
             admin: Some(init_admin.into_string()),
             symbol: init_symbol.clone(),
-            decimals: init_decimals.clone(),
+            decimals: init_decimals,
             initial_balances: Some(vec![InitialBalance {
                 address: "giannis".to_string(),
                 amount: init_supply,
@@ -4888,7 +4889,7 @@ mod tests {
             name: init_name.clone(),
             admin: Some(init_admin.into_string()),
             symbol: init_symbol.clone(),
-            decimals: init_decimals.clone(),
+            decimals: init_decimals,
             initial_balances: Some(vec![InitialBalance {
                 address: "giannis".to_string(),
                 amount: init_supply,
@@ -5046,7 +5047,6 @@ mod tests {
         let vk = "key".to_string();
 
         let initial_balances: Vec<InitialBalance> = (0..num_owners)
-            .into_iter()
             .map(|i| InitialBalance {
                 address: format!("owner{}", i),
                 amount: Uint128::new(5000),
