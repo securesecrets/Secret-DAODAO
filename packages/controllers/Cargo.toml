@@ -14,8 +14,8 @@ homepage = "https://cosmwasm.com"
 cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
 secret-toolkit = { workspace = true }
-cw-utils = { package = "secret-utils", path = "../utils/" }
-cw-storage-plus = { package = "secret-storage-plus", path = "../storage-plus/" }
-schemars = "0.8.1"
-serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.21" }
+secret-utils = { workspace = true }
+secret-storage-plus = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

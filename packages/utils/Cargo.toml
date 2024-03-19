@@ -24,10 +24,10 @@ iterator = ["secret-storage-plus/iterator"]
 
 [dependencies]
 cosmwasm-std = {workspace=true}
-schemars = "0.8.1"
-serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.21" }
+schemars = {workspace=true}
+serde = {workspace=true}
+thiserror = {workspace=true}
 
 [dev-dependencies]
-secret-storage-plus = { path = "../storage-plus/", version = "0.13.4" }
-prost = "0.9"
+secret-storage-plus = {workspace=true}
+prost = {workspace=true}

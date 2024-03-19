@@ -7,7 +7,7 @@ use cosmwasm_std::{
     attr, Addr, CustomQuery, Deps, DepsMut, MessageInfo, Response, StdError, StdResult, Storage,
     SubMsg,
 };
-use cw_storage_plus::Item;
+use secret_storage_plus::Item;
 
 use crate::admin::{Admin, AdminError};
 

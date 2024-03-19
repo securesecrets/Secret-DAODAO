@@ -1,7 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, BlockInfo, CustomQuery, Deps, StdResult, Storage, Uint128};
-use cw_storage_plus::Map;
-use cw_utils::Expiration;
+use secret_storage_plus::Map;
+use secret_utils::Expiration;
 
 // TODO: pull into utils?
 #[cw_serde]
