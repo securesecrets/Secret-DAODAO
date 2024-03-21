@@ -6,6 +6,7 @@ use dao_voting::threshold::ActiveThreshold;
 use secret_storage_plus::Item;
 use secret_toolkit::storage::Keymap;
 use secret_utils::Duration;
+use shade_protocol::Contract;
 use snip721_controllers::NftClaims;
 
 use crate::error::ContractError;
@@ -15,6 +16,7 @@ pub struct Config {
     pub nft_address: Addr,
     pub nft_code_hash: String,
     pub unstaking_duration: Option<Duration>,
+    pub query_auth: Contract,
 }
 
 pub const ACTIVE_THRESHOLD: Item<ActiveThreshold> = Item::new("active_threshold");

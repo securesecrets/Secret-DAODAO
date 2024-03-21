@@ -3,8 +3,9 @@ use cosmwasm_std::entry_point;
 
 use cosmos_sdk_proto::cosmos::bank;
 use cosmwasm_std::{
-    coins, to_binary, to_vec, BankMsg, Binary, ContractResult, CosmosMsg, Deps, DepsMut, Empty,
-    Env, MessageInfo, QueryRequest, Response, StdError, StdResult, SystemResult, Uint128, Uint256,
+    coins, to_binary, to_vec, Addr, BankMsg, Binary, ContractResult, CosmosMsg, Deps, DepsMut,
+    Empty, Env, MessageInfo, QueryRequest, Response, StdError, StdResult, SystemResult, Uint128,
+    Uint256,
 };
 use cw_hooks::HookItem;
 // use cw_tokenfactory_issuer::msg::{
@@ -29,16 +30,16 @@ use dao_voting::{
 use prost::Message;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_cw_controllers::ClaimsResponse;
-use secret_toolkit::{
-    permit::{Permit, RevokedPermits, TokenPermissions},
-    viewing_key::{ViewingKey, ViewingKeyStore},
-};
-// use secret_toolkit::utils::InitCallback;
 use secret_utils::{must_pay, Duration};
+use shade_protocol::{
+    basic_staking::{Auth, AuthPermit},
+    query_auth::helpers::{authenticate_permit, authenticate_vk, PermitAuthentication},
+    Contract,
+};
 
 use crate::msg::{
-    CreateViewingKey, ExecuteMsg, GetHooksResponse, InstantiateMsg, ListStakersResponse,
-    MigrateMsg, QueryMsg, QueryWithPermit, StakerBalanceResponse, TokenInfo, ViewingKeyError,
+    ExecuteMsg, GetHooksResponse, InstantiateMsg, ListStakersResponse, MigrateMsg, QueryMsg,
+    StakerBalanceResponse, TokenInfo,
 };
 use crate::state::{
     Config, StakedBalancesStore, TotalStakedStore, ACTIVE_THRESHOLD, CLAIMS, CONFIG, DAO, DENOM,
@@ -75,6 +76,7 @@ pub fn instantiate(
 
     let config = Config {
         unstaking_duration: msg.unstaking_duration,
+        query_auth: msg.query_auth.into_valid(deps.api)?,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -195,9 +197,6 @@ pub fn execute(
         ExecuteMsg::RemoveHook { addr, code_hash } => {
             execute_remove_hook(deps, env, info, addr, code_hash)
         }
-        ExecuteMsg::CreateViewingKey { entropy, .. } => try_create_key(deps, env, info, entropy),
-        ExecuteMsg::SetViewingKey { key, .. } => try_set_key(deps, info, key),
-        ExecuteMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, info, permit_name),
     }
 }
 
@@ -447,47 +446,6 @@ pub fn execute_remove_hook(
         .add_attribute("hook", addr))
 }
 
-pub fn try_set_key(
-    deps: DepsMut,
-    info: MessageInfo,
-    key: String,
-) -> Result<Response, ContractError> {
-    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
-    Ok(Response::default())
-}
-
-pub fn try_create_key(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    entropy: String,
-) -> Result<Response, ContractError> {
-    let key = ViewingKey::create(
-        deps.storage,
-        &info,
-        &env,
-        info.sender.as_str(),
-        entropy.as_ref(),
-    );
-
-    Ok(Response::new().set_data(to_binary(&CreateViewingKey { key })?))
-}
-
-fn revoke_permit(
-    deps: DepsMut,
-    info: MessageInfo,
-    permit_name: String,
-) -> Result<Response, ContractError> {
-    RevokedPermits::revoke_permit(
-        deps.storage,
-        PREFIX_REVOKED_PERMITS,
-        info.sender.as_str(),
-        &permit_name,
-    );
-
-    Ok(Response::default())
-}
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -507,87 +465,26 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ActiveThreshold {} => query_active_threshold(deps),
         QueryMsg::GetHooks {} => to_binary(&query_hooks(deps)?),
         QueryMsg::TokenContract {} => to_binary(&TOKEN_ISSUER_CONTRACT.may_load(deps.storage)?),
-        QueryMsg::WithPermit { permit, query } => permit_queries(deps, env, permit, query),
-        _ => viewing_keys_queries(deps, env, msg),
-    }
-}
-
-fn permit_queries(
-    deps: Deps,
-    env: Env,
-    permit: Permit,
-    query: QueryWithPermit,
-) -> Result<Binary, StdError> {
-    // Validate permit content
-
-    let _account = secret_toolkit::permit::validate(
-        deps,
-        PREFIX_REVOKED_PERMITS,
-        &permit,
-        env.contract.address.clone().into_string(),
-        None,
-    )?;
-
-    // Permit validated! We can now execute the query.
-    match query {
-        QueryWithPermit::Claims { address } => {
-            if !permit.check_permission(&TokenPermissions::Balance) {
-                return Err(StdError::generic_err(format!(
-                    "No permission to query nft Claims, got permissions {:?}",
-                    permit.params.permissions
-                )));
-            }
-
-            to_binary(&query_claims(deps, address)?)
+        QueryMsg::Claims { auth } => {
+            let query_auth = CONFIG.load(deps.storage)?.query_auth;
+            let user = authenticate(deps, auth, query_auth)?;
+            to_binary(&query_claims(deps, user)?)
         }
-        QueryWithPermit::VotingPowerAtHeight { address, height } => {
-            if !permit.check_permission(&TokenPermissions::Balance) {
-                return Err(StdError::generic_err(format!(
-                    "No permission to query voting power at height, got permissions {:?}",
-                    permit.params.permissions
-                )));
-            }
-
-            to_binary(&query_voting_power_at_height(
-                deps,
-                env,
-                address,
-                Some(height),
-            )?)
+        QueryMsg::VotingPowerAtHeight { auth, height } => {
+            let query_auth = CONFIG.load(deps.storage)?.query_auth;
+            let user = authenticate(deps, auth, query_auth)?;
+            to_binary(&query_voting_power_at_height(deps, env, user, height)?)
         }
     }
-}
-
-pub fn viewing_keys_queries(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    let (addresses, key) = msg.get_validation_params(deps.api)?;
-
-    for address in addresses {
-        let result = ViewingKey::check(deps.storage, address.as_str(), key.as_str());
-        if result.is_ok() {
-            return match msg {
-                // Base
-                QueryMsg::Claims { address, .. } => to_binary(&query_claims(deps, address)?),
-                QueryMsg::VotingPowerAtHeight {
-                    address, height, ..
-                } => to_binary(&query_voting_power_at_height(deps, env, address, height)?),
-                _ => panic!("This query type does not require authentication"),
-            };
-        }
-    }
-
-    to_binary(&ViewingKeyError {
-        msg: "Wrong viewing key for this address or viewing key not set".to_string(),
-    })
 }
 
 pub fn query_voting_power_at_height(
     deps: Deps,
     env: Env,
-    address: String,
+    address: Addr,
     height: Option<u64>,
 ) -> StdResult<VotingPowerAtHeightResponse> {
     let height = height.unwrap_or(env.block.height);
-    let address = deps.api.addr_validate(&address)?;
     let power = StakedBalancesStore::may_load_at_height(deps.storage, address, height)?;
     Ok(VotingPowerAtHeightResponse {
         power: power.unwrap(),
@@ -618,8 +515,8 @@ pub fn query_dao(deps: Deps) -> StdResult<Binary> {
     to_binary(&dao)
 }
 
-pub fn query_claims(deps: Deps, address: String) -> StdResult<ClaimsResponse> {
-    CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)
+pub fn query_claims(deps: Deps, address: Addr) -> StdResult<ClaimsResponse> {
+    CLAIMS.query_claims(deps, &address)
 }
 
 pub fn query_list_stakers(
@@ -732,6 +629,26 @@ pub fn query_hooks(deps: Deps) -> StdResult<GetHooksResponse> {
     Ok(GetHooksResponse {
         hooks: HOOKS.query_hooks(deps)?.hooks,
     })
+}
+
+pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<Addr> {
+    match auth {
+        Auth::ViewingKey { key, address } => {
+            let address = deps.api.addr_validate(&address)?;
+            if !authenticate_vk(address.clone(), key, &deps.querier, &query_auth)? {
+                return Err(StdError::generic_err("Invalid Viewing Key"));
+            }
+            Ok(address)
+        }
+        Auth::Permit(permit) => {
+            let res: PermitAuthentication<AuthPermit> =
+                authenticate_permit(permit, &deps.querier, query_auth)?;
+            if res.revoked {
+                return Err(StdError::generic_err("Permit Revoked"));
+            }
+            Ok(res.sender)
+        }
+    }
 }
 
 pub fn make_stargate_query(

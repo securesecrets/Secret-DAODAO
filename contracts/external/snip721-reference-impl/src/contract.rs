@@ -2985,6 +2985,7 @@ pub fn query_transactions(
 /// * `token_ids` - a list of token ids to check if the address has transfer approval
 /// * `viewer` - optional address and key making an authenticated query request
 /// * `from_permit` - address derived from an Owner permit, if applicable
+#[allow(unknown_lints)]
 pub fn query_verify_approval(
     deps: Deps,
     block: &BlockInfo,

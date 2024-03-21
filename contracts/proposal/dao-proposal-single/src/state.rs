@@ -10,6 +10,7 @@ use secret_storage_plus::Item;
 use secret_toolkit::{serialization::Json, storage::Keymap};
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
+use shade_protocol::Contract;
 
 use crate::proposal::SingleChoiceProposal;
 
@@ -64,6 +65,8 @@ pub struct Config {
     /// Optional veto configuration. If set to `None`, veto option
     /// is disabled. Otherwise contains the configuration for veto flow.
     pub veto: Option<VetoConfig>,
+
+    pub query_auth: Contract,
 }
 
 /// The current top level config for the module.  The "config" key was

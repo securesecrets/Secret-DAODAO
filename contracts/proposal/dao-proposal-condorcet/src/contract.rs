@@ -9,6 +9,7 @@ use dao_interface::state::AnyContractInfo;
 use dao_voting::voting::{get_total_power, get_voting_power};
 use secret_cw2::set_contract_version;
 use secret_cw_controllers::ReplyEvent;
+use shade_protocol::basic_staking::Auth;
 
 use crate::config::UncheckedConfig;
 use crate::error::ContractError;
@@ -120,11 +121,14 @@ fn execute_propose(
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
+    let auth = Auth::ViewingKey {
+        key,
+        address: info.sender.clone().to_string(),
+    };
     let sender_voting_power = get_voting_power(
         deps.as_ref(),
         dao.code_hash.clone(),
-        info.sender.clone(),
-        key,
+        auth,
         &dao.addr.clone(),
         None,
     )?;
@@ -170,11 +174,14 @@ fn execute_vote(
     key: String,
 ) -> Result<Response, ContractError> {
     let tally = TALLY.get(deps.storage, &proposal_id);
+    let auth = Auth::ViewingKey {
+        key,
+        address: info.sender.clone().to_string(),
+    };
     let sender_power = get_voting_power(
         deps.as_ref(),
         DAO.load(deps.storage)?.code_hash.clone(),
-        info.sender.clone(),
-        key,
+        auth,
         &DAO.load(deps.storage)?.addr,
         Some(tally.clone().unwrap().start_height),
     )?;
@@ -208,11 +215,14 @@ fn execute_execute(
 ) -> Result<Response, ContractError> {
     let tally = TALLY.get(deps.storage, &proposal_id);
     let dao = DAO.load(deps.storage)?;
+    let auth = Auth::ViewingKey {
+        key,
+        address: info.sender.clone().to_string(),
+    };
     let sender_power = get_voting_power(
         deps.as_ref(),
         dao.code_hash.clone(),
-        info.sender.clone(),
-        key,
+        auth,
         &dao.addr.clone(),
         Some(tally.clone().unwrap().start_height),
     )?;

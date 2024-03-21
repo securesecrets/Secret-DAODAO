@@ -10,6 +10,7 @@ use dao_pre_propose_base::{
 use dao_voting::deposit::DepositRefundPolicy;
 use dao_voting::proposal::SingleChoiceProposeMsg as ProposeMsg;
 use secret_cw2::set_contract_version;
+use shade_protocol::basic_staking::Auth;
 
 use crate::msg::{
     ApproverProposeMessage, ExecuteExt, ExecuteMsg, InstantiateExt, InstantiateMsg, ProposeMessage,
@@ -77,7 +78,12 @@ pub fn execute_propose(
     let pre_propose_base = PrePropose::default();
     let config = pre_propose_base.config.load(deps.storage)?;
 
-    pre_propose_base.check_can_submit(deps.as_ref(), info.sender.clone(), key.clone())?;
+    let auth = Auth::ViewingKey {
+        key: key.clone(),
+        address: info.sender.clone().to_string(),
+    };
+
+    pre_propose_base.check_can_submit(deps.as_ref(), auth)?;
 
     // Take deposit, if configured.
     let deposit_messages = if let Some(ref deposit_info) = config.deposit_info {

@@ -3,6 +3,7 @@ use dao_interface::voting;
 use schemars::JsonSchema;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
+use shade_protocol::basic_staking::Auth;
 
 use crate::threshold::PercentageThreshold;
 
@@ -196,19 +197,14 @@ impl std::fmt::Display for Vote {
 pub fn get_voting_power(
     deps: Deps,
     code_hash: String,
-    address: Addr,
-    key: String,
+    auth: Auth,
     dao: &Addr,
     height: Option<u64>,
 ) -> StdResult<Uint128> {
     let response: voting::VotingPowerAtHeightResponse = deps.querier.query_wasm_smart(
         code_hash,
         dao,
-        &voting::Query::VotingPowerAtHeight {
-            address: address.into_string(),
-            height,
-            key,
-        },
+        &voting::Query::VotingPowerAtHeight { height, auth },
     )?;
     Ok(response.power)
 }

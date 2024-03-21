@@ -34,6 +34,7 @@ dao-interface = { workspace = true }
 dao-voting = { workspace = true }
 cw-ownable={workspace=true}
 secret-cw-controllers={ workspace=true }
+shade-protocol = { workspace = true }
 
 
 [dev-dependencies]

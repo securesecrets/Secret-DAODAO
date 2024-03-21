@@ -6,6 +6,7 @@ use schemars::JsonSchema;
 use secret_toolkit::utils::HandleCallback;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
+use shade_protocol::basic_staking::Auth;
 
 /// Information about an item to be stored in the items list.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -274,11 +275,7 @@ pub enum QueryMsg {
     DaoURI {},
     /// Returns the voting power for an address at a given height.
     #[returns(crate::voting::VotingPowerAtHeightResponse)]
-    VotingPowerAtHeight {
-        address: String,
-        key: String,
-        height: Option<u64>,
-    },
+    VotingPowerAtHeight { auth: Auth, height: Option<u64> },
     /// Returns the total voting power at a given block height.
     #[returns(crate::voting::TotalPowerAtHeightResponse)]
     TotalPowerAtHeight { height: Option<u64> },

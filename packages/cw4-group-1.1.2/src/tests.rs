@@ -2,6 +2,7 @@ use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{from_slice, Addr, Api, DepsMut, OwnedDeps, Querier, Storage, SubMsg};
 use cw4::{member_key, Member, MemberChangedHookMsg, MemberDiff, TOTAL_KEY};
 use secret_cw_controllers::{AdminError, HookError, HookItem};
+use shade_protocol::utils::asset::RawContract;
 
 use crate::contract::{
     execute, instantiate, query_list_members, query_member, query_total_weight, update_members,
@@ -28,6 +29,10 @@ fn set_up(deps: DepsMut) {
                 weight: 6,
             },
         ],
+        query_auth: RawContract {
+            address: "query_Auth".to_string(),
+            code_hash: "klacnq".to_string(),
+        },
     };
     let info = mock_info("creator", &[]);
     instantiate(deps, mock_env(), info, msg).unwrap();
@@ -51,13 +56,16 @@ fn try_member_queries() {
     let mut deps = mock_dependencies();
     set_up(deps.as_mut());
 
-    let member1 = query_member(deps.as_ref(), USER1.into(), None).unwrap();
+    let member1 =
+        query_member(deps.as_ref(), deps.api.addr_validate(USER1).unwrap(), None).unwrap();
     assert_eq!(member1.weight, Some(11));
 
-    let member2 = query_member(deps.as_ref(), USER2.into(), None).unwrap();
+    let member2 =
+        query_member(deps.as_ref(), deps.api.addr_validate(USER2).unwrap(), None).unwrap();
     assert_eq!(member2.weight, Some(6));
 
-    let member3 = query_member(deps.as_ref(), USER3.into(), None).unwrap();
+    let member3 =
+        query_member(deps.as_ref(), deps.api.addr_validate(USER3).unwrap(), None).unwrap();
     assert_eq!(member3.weight, None);
 
     let members = query_list_members(deps.as_ref(), None, None).unwrap();
@@ -85,6 +93,10 @@ fn duplicate_members_instantiation() {
                 weight: 6,
             },
         ],
+        query_auth: RawContract {
+            address: "query_Auth".to_string(),
+            code_hash: "klacnq".to_string(),
+        },
     };
     let info = mock_info("creator", &[]);
     let err = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap_err();
@@ -138,13 +150,28 @@ fn assert_users<S: Storage, A: Api, Q: Querier>(
     user3_weight: Option<u64>,
     height: Option<u64>,
 ) {
-    let member1 = query_member(deps.as_ref(), USER1.into(), height).unwrap();
+    let member1 = query_member(
+        deps.as_ref(),
+        deps.api.addr_validate(USER1).unwrap(),
+        height,
+    )
+    .unwrap();
     assert_eq!(member1.weight, user1_weight);
 
-    let member2 = query_member(deps.as_ref(), USER2.into(), height).unwrap();
+    let member2 = query_member(
+        deps.as_ref(),
+        deps.api.addr_validate(USER2).unwrap(),
+        height,
+    )
+    .unwrap();
     assert_eq!(member2.weight, user2_weight);
 
-    let member3 = query_member(deps.as_ref(), USER3.into(), height).unwrap();
+    let member3 = query_member(
+        deps.as_ref(),
+        deps.api.addr_validate(USER3).unwrap(),
+        height,
+    )
+    .unwrap();
     assert_eq!(member3.weight, user3_weight);
 
     // this is only valid if we are not doing a historical query

@@ -24,7 +24,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmwasm-std = { workspace = true, features = ["ibc3"] }
+cosmwasm-std = { workspace = true }
 cosmwasm-storage = { workspace = true }
 cosmwasm-schema = { workspace = true }
 secret-storage-plus = { workspace = true }
@@ -44,6 +44,7 @@ secret-toolkit = { workspace = true }
 serde ={ workspace=true }
 schemars ={ workspace = true }
 secret-cw-controllers ={ workspace = true }
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }

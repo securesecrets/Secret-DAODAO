@@ -132,8 +132,7 @@ pub fn voting_module_query(metadata: TokenStream, input: TokenStream) -> TokenSt
             /// Returns the voting power for an address at a given height.
             #[returns(#vp)]
             VotingPowerAtHeight {
-                address: ::std::string::String,
-                key: ::std::string::String,
+                auth: shade_protocol::basic_staking::Auth,
                 height: ::std::option::Option<::std::primitive::u64>
             },
             /// Returns the total voting power at a given block heigh.

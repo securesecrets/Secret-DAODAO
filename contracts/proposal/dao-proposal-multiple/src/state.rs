@@ -13,6 +13,7 @@ use secret_storage_plus::Item;
 use secret_toolkit::{serialization::Json, storage::Keymap};
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
+use shade_protocol::Contract;
 
 /// The proposal module's configuration.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -49,6 +50,7 @@ pub struct Config {
     /// Optional veto configuration. If set to `None`, veto option
     /// is disabled. Otherwise contains the configuration for veto flow.
     pub veto: Option<VetoConfig>,
+    pub query_auth: Contract,
 }
 
 // Each ballot stores a chosen vote and corresponding voting power and rationale.

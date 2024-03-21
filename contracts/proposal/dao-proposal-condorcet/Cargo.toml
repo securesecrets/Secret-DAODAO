@@ -30,6 +30,7 @@ serde ={ workspace = true }
 schemars ={ workspace = true }
 secret-toolkit ={ workspace = true }
 secret-cw-controllers ={ workspace = true }
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 cosmwasm-schema = { workspace = true }

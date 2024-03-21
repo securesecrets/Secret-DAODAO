@@ -28,6 +28,7 @@ thiserror = { workspace = true }
 dao-interface = { workspace = true }
 secret-toolkit ={   workspace = true }
 cw-hooks ={ workspace = true }   
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 cw-denom = { workspace = true }

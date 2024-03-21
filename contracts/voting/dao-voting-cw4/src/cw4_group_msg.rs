@@ -1,11 +1,9 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cw4::Member;
 use schemars::JsonSchema;
-use secret_toolkit::{
-    permit::Permit,
-    utils::{HandleCallback, InitCallback},
-};
+use secret_toolkit::utils::{HandleCallback, InitCallback};
 use serde::{Deserialize, Serialize};
+use shade_protocol::basic_staking::Auth;
 
 #[cw_serde]
 pub struct Cw4GroupInstantiateMsg {
@@ -57,27 +55,8 @@ pub enum Cw4GroupQueryMsg {
         limit: Option<u32>,
     },
     #[returns(cw4::MemberResponse)]
-    Member {
-        addr: String,
-        key: String,
-        at_height: Option<u64>,
-    },
+    Member { auth: Auth, at_height: Option<u64> },
     /// Shows all registered hooks.
     #[returns(secret_cw_controllers::HooksResponse)]
     Hooks {},
-    #[returns(())]
-    WithPermit {
-        permit: Permit,
-        query: QueryWithPermit,
-    },
-}
-
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryWithPermit {
-    #[returns(cw4::MemberResponse)]
-    Member {
-        address: String,
-        at_height: Option<u64>,
-    },
 }

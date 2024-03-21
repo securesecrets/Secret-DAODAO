@@ -16,4 +16,5 @@ dao-pre-propose-base = { workspace = true }
 dao-voting = { workspace = true }
 serde ={ workspace=true }
 schemars ={ workspace = true }
+shade-protocol ={ workspace = true }
 

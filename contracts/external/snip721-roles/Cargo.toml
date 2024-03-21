@@ -33,6 +33,7 @@ thiserror       = { workspace = true }
 secret-toolkit ={ workspace = true}
 snip721-reference-impl ={ workspace = true }
 schemars ={ workspace=true }
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test   = { workspace = true }

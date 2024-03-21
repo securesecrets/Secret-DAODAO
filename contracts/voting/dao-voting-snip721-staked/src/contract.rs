@@ -17,18 +17,17 @@ use dao_voting::threshold::{
 };
 use schemars::JsonSchema;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
-use secret_toolkit::permit::RevokedPermits;
-use secret_toolkit::permit::{Permit, TokenPermissions};
 use secret_toolkit::utils::{HandleCallback, InitCallback};
-use secret_toolkit::viewing_key::ViewingKey;
-use secret_toolkit::viewing_key::ViewingKeyStore;
 use secret_utils::parse_reply_event_for_contract_address;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
+use shade_protocol::basic_staking::{Auth, AuthPermit};
+use shade_protocol::query_auth::helpers::{
+    authenticate_permit, authenticate_vk, PermitAuthentication,
+};
+use shade_protocol::Contract;
 
 use crate::error::ContractError;
-use crate::msg::QueryWithPermit;
-use crate::msg::{CreateViewingKey, ViewingKeyError};
 use crate::msg::{
     ExecuteMsg, InstantiateMsg, MigrateMsg, NftContract, QueryMsg, Snip721ReceiveMsg,
 };
@@ -145,6 +144,7 @@ pub fn instantiate(
                 nft_address: deps.api.addr_validate(&address)?,
                 unstaking_duration: msg.unstaking_duration,
                 nft_code_hash: code_hash.clone(),
+                query_auth: msg.query_auth.into_valid(deps.api)?,
             };
             CONFIG.save(deps.storage, &config)?;
 
@@ -176,6 +176,7 @@ pub fn instantiate(
                 nft_address: Addr::unchecked(""),
                 unstaking_duration: msg.unstaking_duration,
                 nft_code_hash: code_hash.clone(),
+                query_auth: msg.query_auth.into_valid(deps.api)?,
             };
             CONFIG.save(deps.storage, &config)?;
 
@@ -211,6 +212,7 @@ pub fn instantiate(
                     nft_address: Addr::unchecked(""),
                     unstaking_duration: msg.unstaking_duration,
                     nft_code_hash: code_hash.clone(),
+                    query_auth: msg.query_auth.into_valid(deps.api)?,
                 };
                 CONFIG.save(deps.storage, &config)?;
 
@@ -253,9 +255,6 @@ pub fn execute(
         ExecuteMsg::UpdateActiveThreshold { new_threshold } => {
             execute_update_active_threshold(deps, env, info, new_threshold)
         }
-        ExecuteMsg::CreateViewingKey { entropy, .. } => try_create_key(deps, env, info, entropy),
-        ExecuteMsg::SetViewingKey { key, .. } => try_set_key(deps, info, key),
-        ExecuteMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, info, permit_name),
     }
 }
 
@@ -559,47 +558,6 @@ pub fn execute_update_active_threshold(
     Ok(Response::new().add_attribute("action", "update_active_threshold"))
 }
 
-pub fn try_set_key(
-    deps: DepsMut,
-    info: MessageInfo,
-    key: String,
-) -> Result<Response, ContractError> {
-    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
-    Ok(Response::default())
-}
-
-pub fn try_create_key(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    entropy: String,
-) -> Result<Response, ContractError> {
-    let key = ViewingKey::create(
-        deps.storage,
-        &info,
-        &env,
-        info.sender.as_str(),
-        entropy.as_ref(),
-    );
-
-    Ok(Response::new().set_data(to_binary(&CreateViewingKey { key })?))
-}
-
-fn revoke_permit(
-    deps: DepsMut,
-    info: MessageInfo,
-    permit_name: String,
-) -> Result<Response, ContractError> {
-    RevokedPermits::revoke_permit(
-        deps.storage,
-        PREFIX_REVOKED_PERMITS,
-        info.sender.as_str(),
-        &permit_name,
-    );
-
-    Ok(Response::default())
-}
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -610,83 +568,22 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::IsActive {} => query_is_active(deps, env),
         QueryMsg::Hooks {} => query_hooks(deps),
         QueryMsg::TotalPowerAtHeight { height } => query_total_power_at_height(deps, env, height),
-        QueryMsg::WithPermit { permit, query } => permit_queries(deps, env, permit, query),
-        _ => viewing_keys_queries(deps, env, msg),
-    }
-}
-
-fn permit_queries(
-    deps: Deps,
-    env: Env,
-    permit: Permit,
-    query: QueryWithPermit,
-) -> Result<Binary, StdError> {
-    // Validate permit content
-
-    let _account = secret_toolkit::permit::validate(
-        deps,
-        PREFIX_REVOKED_PERMITS,
-        &permit,
-        env.contract.address.clone().into_string(),
-        None,
-    )?;
-
-    // Permit validated! We can now execute the query.
-    match query {
-        QueryWithPermit::NftClaims { address, .. } => {
-            if !permit.check_permission(&TokenPermissions::Balance) {
-                return Err(StdError::generic_err(format!(
-                    "No permission to query nft Claims, got permissions {:?}",
-                    permit.params.permissions
-                )));
-            }
-
-            query_nft_claims(deps, address)
+        QueryMsg::VotingPowerAtHeight { auth, height } => {
+            let query_auth = CONFIG.load(deps.storage)?.query_auth;
+            let user = authenticate(deps, auth, query_auth)?;
+            query_voting_power_at_height(deps, env, user, height)
         }
-        QueryWithPermit::StakedNfts { address, .. } => {
-            if !permit.check_permission(&TokenPermissions::Balance) {
-                return Err(StdError::generic_err(format!(
-                    "No permission to query stake nfts, got permissions {:?}",
-                    permit.params.permissions
-                )));
-            }
-
-            query_staked_nfts(deps, address)
+        QueryMsg::NftClaims { auth } => {
+            let query_auth = CONFIG.load(deps.storage)?.query_auth;
+            let user = authenticate(deps, auth, query_auth)?;
+            query_nft_claims(deps, user)
         }
-        QueryWithPermit::VotingPowerAtHeight { address, height } => {
-            if !permit.check_permission(&TokenPermissions::History) {
-                return Err(StdError::generic_err(format!(
-                    "No permission to query voting power at height, got permissions {:?}",
-                    permit.params.permissions
-                )));
-            }
-
-            query_voting_power_at_height(deps, env, address, Some(height))
+        QueryMsg::StakedNfts { auth } => {
+            let query_auth = CONFIG.load(deps.storage)?.query_auth;
+            let user = authenticate(deps, auth, query_auth)?;
+            query_staked_nfts(deps, user)
         }
     }
-}
-
-pub fn viewing_keys_queries(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    let (addresses, key) = msg.get_validation_params(deps.api)?;
-
-    for address in addresses {
-        let result = ViewingKey::check(deps.storage, address.as_str(), key.as_str());
-        if result.is_ok() {
-            return match msg {
-                // Base
-                QueryMsg::NftClaims { address, .. } => query_nft_claims(deps, address),
-                QueryMsg::StakedNfts { address, .. } => query_staked_nfts(deps, address),
-                QueryMsg::VotingPowerAtHeight {
-                    address, height, ..
-                } => query_voting_power_at_height(deps, env, address, height),
-                _ => panic!("This query type does not require authentication"),
-            };
-        }
-    }
-
-    to_binary(&ViewingKeyError {
-        msg: "Wrong viewing key for this address or viewing key not set".to_string(),
-    })
 }
 
 pub fn query_active_threshold(deps: Deps) -> StdResult<Binary> {
@@ -766,10 +663,9 @@ pub fn query_is_active(deps: Deps, env: Env) -> StdResult<Binary> {
 pub fn query_voting_power_at_height(
     deps: Deps,
     env: Env,
-    address: String,
+    address: Addr,
     height: Option<u64>,
 ) -> StdResult<Binary> {
-    let address = deps.api.addr_validate(&address)?;
     let height = height.unwrap_or(env.block.height);
     let power = NftBalancesStore::may_load_at_height(deps.storage, address, height)?;
     to_binary(&dao_interface::voting::VotingPowerAtHeightResponse {
@@ -797,8 +693,8 @@ pub fn query_dao(deps: Deps) -> StdResult<Binary> {
     to_binary(&dao)
 }
 
-pub fn query_nft_claims(deps: Deps, address: String) -> StdResult<Binary> {
-    to_binary(&NFT_CLAIMS.query_claims(deps, &deps.api.addr_validate(&address)?)?)
+pub fn query_nft_claims(deps: Deps, address: Addr) -> StdResult<Binary> {
+    to_binary(&NFT_CLAIMS.query_claims(deps, &address)?)
 }
 
 pub fn query_hooks(deps: Deps) -> StdResult<Binary> {
@@ -810,7 +706,7 @@ pub fn query_info(deps: Deps) -> StdResult<Binary> {
     to_binary(&dao_interface::voting::InfoResponse { info })
 }
 
-pub fn query_staked_nfts(deps: Deps, address: String) -> StdResult<Binary> {
+pub fn query_staked_nfts(deps: Deps, address: Addr) -> StdResult<Binary> {
     // let prefix = deps.api.addr_validate(&address)?;
     // let res = STAKED_NFTS_PER_OWNER.prefix(&prefix);
 
@@ -826,10 +722,29 @@ pub fn query_staked_nfts(deps: Deps, address: String) -> StdResult<Binary> {
     //     None => range.collect(),
     // };
 
-    let key = deps.api.addr_validate(&address)?;
-    let res = NftBalancesStore::load(deps.storage, key);
+    let res = NftBalancesStore::load(deps.storage, address);
 
     to_binary(&res)
+}
+
+pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<Addr> {
+    match auth {
+        Auth::ViewingKey { key, address } => {
+            let address = deps.api.addr_validate(&address)?;
+            if !authenticate_vk(address.clone(), key, &deps.querier, &query_auth)? {
+                return Err(StdError::generic_err("Invalid Viewing Key"));
+            }
+            Ok(address)
+        }
+        Auth::Permit(permit) => {
+            let res: PermitAuthentication<AuthPermit> =
+                authenticate_permit(permit, &deps.querier, query_auth)?;
+            if res.revoked {
+                return Err(StdError::generic_err("Permit Revoked"));
+            }
+            Ok(res.sender)
+        }
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

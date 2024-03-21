@@ -24,6 +24,7 @@ use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_cw_controllers::ReplyEvent;
 use secret_toolkit::{serialization::Json, storage::Keymap, utils::HandleCallback};
 use secret_utils::{parse_reply_event_for_contract_address, Duration};
+use shade_protocol::basic_staking::Auth;
 use snip20_reference_impl::msg::ExecuteAnswer;
 
 use crate::state::{
@@ -656,11 +657,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ProposalModuleCount {} => query_proposal_module_count(deps),
         QueryMsg::TotalPowerAtHeight { height } => query_total_power_at_height(deps, height),
         QueryMsg::VotingModule {} => query_voting_module(deps),
-        QueryMsg::VotingPowerAtHeight {
-            address,
-            height,
-            key,
-        } => query_voting_power_at_height(deps, address, key, height),
+        QueryMsg::VotingPowerAtHeight { auth, height } => {
+            query_voting_power_at_height(deps, auth, height)
+        }
         QueryMsg::ActiveProposalModules { start_after, limit } => {
             query_active_proposal_modules(deps, start_after, limit)
         }
@@ -822,19 +821,14 @@ pub fn query_dump_state(deps: Deps, env: Env) -> StdResult<Binary> {
 
 pub fn query_voting_power_at_height(
     deps: Deps,
-    address: String,
-    key: String,
+    auth: Auth,
     height: Option<u64>,
 ) -> StdResult<Binary> {
     let voting_module = VOTING_MODULE.load(deps.storage)?;
     let voting_power: voting::VotingPowerAtHeightResponse = deps.querier.query_wasm_smart(
         voting_module.code_hash,
         voting_module.addr,
-        &voting::Query::VotingPowerAtHeight {
-            height,
-            address,
-            key,
-        },
+        &voting::Query::VotingPowerAtHeight { height, auth },
     )?;
     to_binary(&voting_power)
 }

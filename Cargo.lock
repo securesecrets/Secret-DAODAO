@@ -63,6 +63,12 @@ checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
 name = "bech32"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
+
+[[package]]
+name = "bech32"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
@@ -147,10 +153,51 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chrono"
+version = "0.4.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
+dependencies = [
+ "libc",
+ "num-integer",
+ "num-traits",
+ "time 0.1.45",
+ "winapi",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
+
+[[package]]
+name = "const_format"
+version = "0.2.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3a214c7af3d04997541b18d432afaff4c455e79e2029079647e72fc2bd27673"
+dependencies = [
+ "const_format_proc_macros",
+]
+
+[[package]]
+name = "const_format_proc_macros"
+version = "0.2.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7f6ff08fd20f4f299298a28e2dfa8a8ba1036e6cd2460ac1de7b425d76f2500"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-xid",
+]
+
+[[package]]
+name = "contract-derive"
+version = "0.1.0"
+source = "git+https://github.com/securesecrets/shade?rev=lend-v1#5e04fe0713f455da3c253e0841edbcc3efaf1516"
+dependencies = [
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "cosmos-sdk-proto"
@@ -301,7 +348,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04d6864742e3a7662d024b51a94ea81c9af21db6faea2f9a6d2232bb97c6e53e"
 dependencies = [
  "base64 0.21.5",
- "bech32",
+ "bech32 0.9.1",
  "bnum",
  "cosmwasm-crypto 1.5.0",
  "cosmwasm-derive 1.5.0",
@@ -716,6 +763,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "thiserror",
 ]
 
@@ -749,6 +797,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "snip20-reference-impl",
  "snip721-reference-impl",
  "thiserror",
@@ -765,6 +814,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "secret-cosmwasm-std",
+ "shade-protocol",
  "syn 1.0.109",
 ]
 
@@ -780,6 +830,7 @@ dependencies = [
  "schemars",
  "secret-cosmwasm-std",
  "serde",
+ "shade-protocol",
 ]
 
 [[package]]
@@ -794,6 +845,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
 ]
 
 [[package]]
@@ -819,6 +871,7 @@ dependencies = [
  "secret-storage-plus",
  "secret-toolkit",
  "secret-utils 0.13.4",
+ "shade-protocol",
  "thiserror",
 ]
 
@@ -863,6 +916,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "thiserror",
 ]
 
@@ -927,6 +981,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "thiserror",
 ]
 
@@ -962,6 +1017,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "snip20-stake",
  "thiserror",
 ]
@@ -998,6 +1054,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "snip20-reference-impl",
  "snip20-stake",
  "thiserror",
@@ -1013,6 +1070,7 @@ dependencies = [
  "secret-cosmwasm-std",
  "secret-cw-controllers",
  "secret-toolkit",
+ "shade-protocol",
 ]
 
 [[package]]
@@ -1042,6 +1100,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "thiserror",
 ]
 
@@ -1063,6 +1122,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "thiserror",
 ]
 
@@ -1085,6 +1145,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "snip20-reference-impl",
  "snip20-stake",
  "thiserror",
@@ -1110,6 +1171,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "snip721-controllers",
  "snip721-reference-impl",
  "snip721-roles",
@@ -1137,6 +1199,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "snip721-controllers",
  "snip721-reference-impl",
  "thiserror",
@@ -1169,6 +1232,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "thiserror",
 ]
 
@@ -1386,7 +1450,7 @@ dependencies = [
  "cfg-if",
  "js-sys",
  "libc",
- "wasi",
+ "wasi 0.11.0+wasi-snapshot-preview1",
  "wasm-bindgen",
 ]
 
@@ -1420,6 +1484,12 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 dependencies = [
  "ahash",
 ]
+
+[[package]]
+name = "heck"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "hex"
@@ -1525,6 +1595,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "num-integer"
+version = "0.1.46"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -1664,6 +1743,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "query-authentication"
+version = "0.1.0"
+source = "git+https://github.com/securesecrets/query-authentication?branch=cosmwasm_v1_upgrade#024c13c08c8e4d25d890de2418fb1ae2c45425e9"
+dependencies = [
+ "bech32 0.8.1",
+ "cosmwasm-schema 1.5.0",
+ "remain",
+ "ripemd160",
+ "schemars",
+ "secp256k1",
+ "secret-cosmwasm-std",
+ "serde",
+ "sha2 0.9.9",
+ "thiserror",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1679,8 +1775,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
- "rand_chacha",
+ "rand_chacha 0.3.1",
  "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand_chacha"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4c8ed856279c9737206bf725bf36935d8666ead7aa69b52be55af369d193402"
+dependencies = [
+ "ppv-lite86",
+ "rand_core 0.5.1",
 ]
 
 [[package]]
@@ -1748,6 +1854,23 @@ checksum = "bd124222d17ad93a644ed9d011a40f4fb64aa54275c08cc216524a9ea82fb09f"
 dependencies = [
  "digest 0.10.7",
 ]
+
+[[package]]
+name = "ripemd160"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eca4ecc81b7f313189bf73ce724400a07da2a6dac19588b03c8bd76a2dcc251"
+dependencies = [
+ "block-buffer 0.9.0",
+ "digest 0.9.0",
+ "opaque-debug",
+]
+
+[[package]]
+name = "rustversion"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ffc183a10b4478d04cbbbfc96d0873219d962dd5accaff2ffbd4ceb7df837f4"
 
 [[package]]
 name = "ryu"
@@ -1945,7 +2068,7 @@ version = "0.8.0"
 source = "git+https://github.com/scrtlabs/secret-toolkit?rev=9b74bdac71c2fedcc12246f18cdfdd94b8991282#9b74bdac71c2fedcc12246f18cdfdd94b8991282"
 dependencies = [
  "cosmwasm-std 1.1.9",
- "rand_chacha",
+ "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "sha2 0.10.8",
 ]
@@ -1956,7 +2079,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "003d7d5772c67f2240b7f298f96eb73a8a501916fe18c1d730ebfd591bf7e519"
 dependencies = [
- "rand_chacha",
+ "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "secp256k1",
  "secret-cosmwasm-std",
@@ -1969,7 +2092,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4330571400b5959450fa37040609e6804a147d83f606783506bc2275f1527712"
 dependencies = [
- "bech32",
+ "bech32 0.9.1",
  "remain",
  "ripemd",
  "schemars",
@@ -2177,6 +2300,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "shade-protocol"
+version = "0.1.0"
+source = "git+https://github.com/securesecrets/shade?rev=lend-v1#5e04fe0713f455da3c253e0841edbcc3efaf1516"
+dependencies = [
+ "base64 0.12.3",
+ "chrono",
+ "const_format",
+ "contract-derive",
+ "cosmwasm-schema 1.5.0",
+ "query-authentication",
+ "rand_chacha 0.2.2",
+ "rand_core 0.5.1",
+ "remain",
+ "schemars",
+ "secret-cosmwasm-std",
+ "secret-cosmwasm-storage",
+ "secret-storage-plus",
+ "serde",
+ "sha2 0.9.9",
+ "strum",
+ "strum_macros",
+ "subtle",
+ "thiserror",
+]
+
+[[package]]
 name = "signature"
 version = "1.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2260,6 +2409,7 @@ dependencies = [
  "secret-utils 0.13.4",
  "serde",
  "sha2 0.9.9",
+ "shade-protocol",
  "snafu",
  "snip20-reference-impl",
  "subtle",
@@ -2285,6 +2435,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "snip20-stake",
  "stake-cw20-external-rewards",
  "thiserror",
@@ -2356,6 +2507,7 @@ dependencies = [
  "secret-toolkit",
  "secret-utils 0.13.4",
  "serde",
+ "shade-protocol",
  "snip721-reference-impl",
  "thiserror",
 ]
@@ -2426,6 +2578,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "strum"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
+
+[[package]]
+name = "strum_macros"
+version = "0.24.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e385be0d24f186b4ce2f9982191e7101bb737312ad61c1f2f984f34bcf85d59"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "subtle"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2477,7 +2648,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "subtle-encoding",
- "time",
+ "time 0.3.11",
 ]
 
 [[package]]
@@ -2498,6 +2669,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.46",
+]
+
+[[package]]
+name = "time"
+version = "0.1.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b797afad3f312d1c66a56d11d0316f916356d11bd158fbc6ca6389ff6bf805a"
+dependencies = [
+ "libc",
+ "wasi 0.10.0+wasi-snapshot-preview1",
+ "winapi",
 ]
 
 [[package]]
@@ -2542,10 +2724,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
 
 [[package]]
+name = "unicode-xid"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
+
+[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "wasi"
+version = "0.10.0+wasi-snapshot-preview1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
 
 [[package]]
 name = "wasi"
@@ -2606,6 +2800,28 @@ name = "wasm-bindgen-shared"
 version = "0.2.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ab9b36309365056cd639da3134bf87fa8f3d86008abf99e612384a6eecd459f"
+
+[[package]]
+name = "winapi"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c839a674fcd7a98952e593242ea400abe93992746761e38641405d28b00f419"
+dependencies = [
+ "winapi-i686-pc-windows-gnu",
+ "winapi-x86_64-pc-windows-gnu",
+]
+
+[[package]]
+name = "winapi-i686-pc-windows-gnu"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
+
+[[package]]
+name = "winapi-x86_64-pc-windows-gnu"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "wynd-utils"

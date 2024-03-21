@@ -35,6 +35,7 @@ schemars ={ workspace = true }
 secret-toolkit ={ workspace = true }
 serde ={ workspace = true }
 snip721-roles = { workspace = true }
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

@@ -8,10 +8,10 @@ repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
-cosmwasm-std ={ workspace = true ,default-features = false}
+cosmwasm-std ={ workspace = true}
 # cosmwasm-storage = { workspace = true }
-secret-storage-plus = { workspace = true, default-features = false}
-secret-toolkit = { workspace = true, default-features = false}
+secret-storage-plus = { workspace = true}
+secret-toolkit = { workspace = true}
 serde = { workspace = true }
 
 [dev-dependencies]

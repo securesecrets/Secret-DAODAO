@@ -1,10 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Api, StdResult};
 use cw4::Member;
-use schemars::JsonSchema;
 use secret_cw_controllers::HookItem;
-use secret_toolkit::permit::Permit;
-use serde::{Deserialize, Serialize};
+use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -12,6 +9,7 @@ pub struct InstantiateMsg {
     /// Omit it to make the group immutable.
     pub admin: Option<String>,
     pub members: Vec<Member>,
+    pub query_auth: RawContract,
 }
 
 #[cw_serde]
@@ -36,18 +34,6 @@ pub enum ExecuteMsg {
     AddHook { hook: HookItem },
     /// Remove a hook. Must be called by Admin
     RemoveHook { hook: HookItem },
-    CreateViewingKey {
-        entropy: String,
-        padding: Option<String>,
-    },
-    SetViewingKey {
-        key: String,
-        padding: Option<String>,
-    }, // Permit
-    RevokePermit {
-        permit_name: String,
-        padding: Option<String>,
-    },
 }
 
 #[cw_serde]
@@ -63,49 +49,8 @@ pub enum QueryMsg {
         limit: Option<u32>,
     },
     #[returns(cw4::MemberResponse)]
-    Member {
-        addr: String,
-        key: String,
-        at_height: Option<u64>,
-    },
+    Member { auth: Auth, at_height: Option<u64> },
     /// Shows all registered hooks.
     #[returns(secret_cw_controllers::HooksResponse)]
     Hooks {},
-    #[returns(())]
-    WithPermit {
-        permit: Permit,
-        query: QueryWithPermit,
-    },
-}
-
-impl QueryMsg {
-    pub fn get_validation_params(&self, api: &dyn Api) -> StdResult<(Vec<Addr>, String)> {
-        match self {
-            Self::Member { addr, key, .. } => {
-                let address = api.addr_validate(addr.as_str())?;
-                Ok((vec![address], key.clone()))
-            }
-            _ => panic!("This query type does not require authentication"),
-        }
-    }
-}
-
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryWithPermit {
-    #[returns(cw4::MemberResponse)]
-    Member {
-        address: String,
-        at_height: Option<u64>,
-    },
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-pub struct ViewingKeyError {
-    pub msg: String,
-}
-
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
-pub struct CreateViewingKeyResponse {
-    pub key: String,
 }

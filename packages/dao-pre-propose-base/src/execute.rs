@@ -1,6 +1,6 @@
 use cosmwasm_schema::schemars::JsonSchema;
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
 };
 
 use cw_hooks::HookItem;
@@ -14,6 +14,7 @@ use dao_voting::{
     status::Status,
 };
 use serde::Serialize;
+use shade_protocol::basic_staking::Auth;
 
 use crate::{
     error::PreProposeError,
@@ -136,7 +137,11 @@ where
         key: String,
         msg: ProposalMessage,
     ) -> Result<Response, PreProposeError> {
-        self.check_can_submit(deps.as_ref(), info.sender.clone(), key)?;
+        let auth = Auth::ViewingKey {
+            key,
+            address: info.sender.clone().to_string(),
+        };
+        self.check_can_submit(deps.as_ref(), auth)?;
 
         let config = self.config.load(deps.storage)?;
 
@@ -372,12 +377,7 @@ where
         }
     }
 
-    pub fn check_can_submit(
-        &self,
-        deps: Deps,
-        who: Addr,
-        key: String,
-    ) -> Result<(), PreProposeError> {
+    pub fn check_can_submit(&self, deps: Deps, auth: Auth) -> Result<(), PreProposeError> {
         let config = self.config.load(deps.storage)?;
 
         if !config.open_proposal_submission {
@@ -385,11 +385,7 @@ where
             let voting_power: VotingPowerAtHeightResponse = deps.querier.query_wasm_smart(
                 dao.code_hash.clone(),
                 dao.addr.clone().into_string(),
-                &CwCoreQuery::VotingPowerAtHeight {
-                    address: who.into_string(),
-                    key,
-                    height: None,
-                },
+                &CwCoreQuery::VotingPowerAtHeight { auth, height: None },
             )?;
             if voting_power.power.is_zero() {
                 return Err(PreProposeError::NotMember {});

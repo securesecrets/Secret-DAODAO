@@ -7,12 +7,14 @@ use secret_cw_controllers::Claims;
 use secret_storage_plus::Item;
 use secret_toolkit::storage::Keymap;
 use secret_utils::Duration;
+use shade_protocol::Contract;
 
 use crate::msg::TokenInfo;
 
 #[cw_serde]
 pub struct Config {
     pub unstaking_duration: Option<Duration>,
+    pub query_auth: Contract,
 }
 
 /// The configuration of this voting contract

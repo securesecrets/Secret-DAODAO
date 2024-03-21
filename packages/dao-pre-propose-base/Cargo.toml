@@ -30,6 +30,7 @@ dao-voting = { workspace = true }
 serde = { workspace = true }
 schemars = { workspace = true }
 thiserror = { workspace = true }
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

@@ -3,9 +3,11 @@ use cosmwasm_std::Uint128;
 use schemars::JsonSchema;
 use secret_cw2::ContractVersion;
 use serde::{Deserialize, Serialize};
+use shade_protocol::basic_staking::Auth;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 #[derive(QueryResponses)]
 pub enum Query {
     /// Returns the token contract address, if set.
@@ -17,8 +19,7 @@ pub enum Query {
     /// Returns the voting power for an address at a given height.
     #[returns(VotingPowerAtHeightResponse)]
     VotingPowerAtHeight {
-        address: ::std::string::String,
-        key: ::std::string::String,
+        auth: Auth,
         height: ::std::option::Option<::std::primitive::u64>,
     },
     /// Returns the total voting power at a given block heigh.

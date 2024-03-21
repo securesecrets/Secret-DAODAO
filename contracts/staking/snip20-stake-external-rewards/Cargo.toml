@@ -33,6 +33,7 @@ schemars={ workspace=true }
 
 cw20-stake-external-rewards-v1 = { workspace = true }
 cw20-013 = { package = "cw20", version = "0.13" }
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

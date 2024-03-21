@@ -13,20 +13,21 @@ use cw4::{
 };
 use schemars::JsonSchema;
 use secret_cw_controllers::HookItem;
-use secret_toolkit::permit::{Permit, RevokedPermits, TokenPermissions};
 use secret_toolkit::utils::InitCallback;
-use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use serde::{Deserialize, Serialize};
 // use cw721_base::Cw721Contract;
 // use snip721_reference_impl::msg::InstantiateMsg as Cw721BaseInstantiateMsg;
 
-use dao_snip721_extensions::roles::{
-    CreateViewingKey, ExecuteExt, QueryExt, QueryWithPermit, ViewingKeyError,
+use dao_snip721_extensions::roles::{ExecuteExt, QueryExt};
+use shade_protocol::basic_staking::{Auth, AuthPermit};
+use shade_protocol::query_auth::helpers::{
+    authenticate_permit, authenticate_vk, PermitAuthentication,
 };
+use shade_protocol::Contract;
 use std::cmp::Ordering;
 // use snip721_reference_impl::msg::{ExecuteMsg as Snip721ExecuteMsg};
 
-use crate::state::{Config, MembersStore, TotalStore, MEMBERS_PRIMARY, SNIP721_INFO};
+use crate::state::{Config, MembersStore, TotalStore, MEMBERS_PRIMARY, QUERY_AUTH, SNIP721_INFO};
 use crate::{error::RolesContractError as ContractError, state::HOOKS};
 
 // Version info for migration
@@ -106,6 +107,8 @@ pub fn instantiate(
 
     // Initialize total weight to zero
     TotalStore::save(deps.storage, env.block.height, 0)?;
+
+    QUERY_AUTH.save(deps.storage, &msg.query_auth.into_valid(deps.api)?)?;
 
     secret_cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
@@ -223,11 +226,6 @@ pub fn execute(
             ExecuteExt::UpdateTokenRole { token_id, role } => {
                 execute_update_token_role(deps, env, info, token_id, role)
             }
-            ExecuteExt::CreateViewingKey { entropy, .. } => {
-                try_create_key(deps, env, info, entropy)
-            }
-            ExecuteExt::SetViewingKey { key, .. } => try_set_key(deps, info, key),
-            ExecuteExt::RevokePermit { permit_name, .. } => revoke_permit(deps, info, permit_name),
         },
     }
 }
@@ -908,49 +906,8 @@ pub fn execute_update_token_weight(
         .add_message(exec_msg))
 }
 
-pub fn try_set_key(
-    deps: DepsMut,
-    info: MessageInfo,
-    key: String,
-) -> Result<Response, ContractError> {
-    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
-    Ok(Response::default())
-}
-
-pub fn try_create_key(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    entropy: String,
-) -> Result<Response, ContractError> {
-    let key = ViewingKey::create(
-        deps.storage,
-        &info,
-        &env,
-        info.sender.as_str(),
-        entropy.as_ref(),
-    );
-
-    Ok(Response::new().set_data(to_binary(&CreateViewingKey { key })?))
-}
-
-fn revoke_permit(
-    deps: DepsMut,
-    info: MessageInfo,
-    permit_name: String,
-) -> Result<Response, ContractError> {
-    RevokedPermits::revoke_permit(
-        deps.storage,
-        PREFIX_REVOKED_PERMITS,
-        info.sender.as_str(),
-        &permit_name,
-    );
-
-    Ok(Response::default())
-}
-
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::ExtensionQuery(extension_query) => match extension_query {
             QueryExt::Hooks {} => to_binary(&HOOKS.query_hooks(deps)?),
@@ -958,8 +915,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 to_binary(&query_list_members(deps, start_after, limit)?)
             }
             QueryExt::TotalWeight { at_height } => to_binary(&query_total_weight(deps, at_height)?),
-            QueryExt::WithPermit { permit, query } => permit_queries(deps, env, permit, query),
-            _ => viewing_keys_queries(deps, env, extension_query),
+            QueryExt::Member { auth, at_height } => {
+                let query_auth = QUERY_AUTH.load(deps.storage)?;
+                let user = authenticate(deps, auth, query_auth)?;
+                to_binary(&query_member(deps, user, at_height)?)
+            }
         },
         QueryMsg::GetNftContractInfo {} => to_binary(&get_info(deps)?),
         _ => {
@@ -972,58 +932,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             Ok(to_binary(&res)?)
         }
     }
-}
-
-fn permit_queries(
-    deps: Deps,
-    env: Env,
-    permit: Permit,
-    query: QueryWithPermit,
-) -> Result<Binary, StdError> {
-    // Validate permit content
-
-    let _account = secret_toolkit::permit::validate(
-        deps,
-        PREFIX_REVOKED_PERMITS,
-        &permit,
-        env.contract.address.clone().into_string(),
-        None,
-    )?;
-
-    // Permit validated! We can now execute the query.
-    match query {
-        QueryWithPermit::Member { addr, at_height } => {
-            if !permit.check_permission(&TokenPermissions::Balance) {
-                return Err(StdError::generic_err(format!(
-                    "No permission to query memeber, got permissions {:?}",
-                    permit.params.permissions
-                )));
-            }
-
-            to_binary(&query_member(deps, addr, at_height)?)
-        }
-    }
-}
-
-pub fn viewing_keys_queries(deps: Deps, _env: Env, msg: QueryExt) -> StdResult<Binary> {
-    let (addresses, key) = msg.get_validation_params(deps.api)?;
-
-    for address in addresses {
-        let result = ViewingKey::check(deps.storage, address.as_str(), key.as_str());
-        if result.is_ok() {
-            return match msg {
-                // Base
-                QueryExt::Member {
-                    addr, at_height, ..
-                } => to_binary(&query_member(deps, addr, at_height)?),
-                _ => panic!("This query type does not require authentication"),
-            };
-        }
-    }
-
-    to_binary(&ViewingKeyError {
-        msg: "Wrong viewing key for this address or viewing key not set".to_string(),
-    })
 }
 
 pub fn query_total_weight(deps: Deps, height: Option<u64>) -> StdResult<TotalWeightResponse> {
@@ -1046,8 +954,7 @@ pub fn get_info(deps: Deps) -> StdResult<Config> {
     })
 }
 
-pub fn query_member(deps: Deps, addr: String, height: Option<u64>) -> StdResult<MemberResponse> {
-    let addr = deps.api.addr_validate(&addr)?;
+pub fn query_member(deps: Deps, addr: Addr, height: Option<u64>) -> StdResult<MemberResponse> {
     if height.is_some() {
         let weight = MembersStore::may_load_at_height(deps.storage, addr.clone(), height.unwrap())?;
 
@@ -1111,6 +1018,26 @@ pub fn query_list_members(
     };
 
     Ok(response)
+}
+
+pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<Addr> {
+    match auth {
+        Auth::ViewingKey { key, address } => {
+            let address = deps.api.addr_validate(&address)?;
+            if !authenticate_vk(address.clone(), key, &deps.querier, &query_auth)? {
+                return Err(StdError::generic_err("Invalid Viewing Key"));
+            }
+            Ok(address)
+        }
+        Auth::Permit(permit) => {
+            let res: PermitAuthentication<AuthPermit> =
+                authenticate_permit(permit, &deps.querier, query_auth)?;
+            if res.revoked {
+                return Err(StdError::generic_err("Permit Revoked"));
+            }
+            Ok(res.sender)
+        }
+    }
 }
 
 #[entry_point]

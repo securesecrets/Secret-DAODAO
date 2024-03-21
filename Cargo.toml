@@ -3,17 +3,15 @@ exclude = ["ci/configs/", "wasmvm/libwasmvm"]
 members = [
   "./contracts/dao-dao-core",
   "./contracts/external/cw-admin-factory",
-    "./contracts/external/snip20-reference-impl",
+  "./contracts/external/snip20-reference-impl",
   "./contracts/external/snip721-reference-impl",
-    "./contracts/external/snip721-roles/",
+  "./contracts/external/snip721-roles/",
   "./contracts/proposal/*",
   "./contracts/pre-propose/*",
   "./contracts/staking/*",
   "./contracts/voting/*",
-  "./packages/*",
-
-  # "ci/*",
-]
+  "./packages/*"
+  ]
 resolver = "2"
 
 [workspace.package]
@@ -140,3 +138,9 @@ cosmwasm-schema = { git = "https://github.com/scrtlabs/cosmwasm/", branch = "sec
 snip20-reference-impl = { path = "./contracts/external/snip20-reference-impl/",default-features = false }
 snip721-reference-impl = { path = "./contracts/external/snip721-reference-impl/" ,default-features = false}
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
+shade-protocol = { git = "https://github.com/securesecrets/shade", rev = "lend-v1",features = [
+  "query_auth_impl",
+  "admin","basic_staking"
+] }
+shade-multi-test = { git = "https://github.com/securesecrets/shade", rev = "lend-v1",features = [ "query_auth", "admin"  ] }
+

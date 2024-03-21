@@ -1,6 +1,6 @@
 use crate::state::{Config, Denom, RewardConfig};
 use cosmwasm_schema::QueryResponses;
-use cosmwasm_std::{Addr, Api, Binary, StdResult, Uint128};
+use cosmwasm_std::{Addr, Binary, Uint128};
 use dao_hooks::stake::StakeChangedHookMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -11,6 +11,7 @@ pub use secret_cw_controllers::ClaimsResponse;
 pub use cw_ownable::Ownership;
 
 use cw_ownable::cw_ownable_execute;
+use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct InstantiateMsg {
@@ -20,6 +21,7 @@ pub struct InstantiateMsg {
     pub reward_token: Denom,
     pub reward_token_code_hash: Option<String>,
     pub reward_duration: u64,
+    pub query_auth: RawContract,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -38,18 +40,11 @@ pub struct Snip20ReceiveMsg {
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     StakeChangeHook(StakeChangedHookMsg),
-    Claim {
-        key: String,
-    },
+    Claim { auth: Auth },
     Receive(Snip20ReceiveMsg),
-    Fund {},
-    UpdateRewardDuration {
-        new_duration: u64,
-    },
-    SetViewingKey {
-        key: String,
-        padding: Option<String>,
-    },
+    Fund { auth: Auth },
+    UpdateRewardDuration { new_duration: u64 },
+    SetViewingKey { key: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -73,21 +68,9 @@ pub enum QueryMsg {
     #[returns(InfoResponse)]
     Info {},
     #[returns(PendingRewardsResponse)]
-    GetPendingRewards { address: String, key: String },
+    GetPendingRewards { auth: Box<Auth> },
     #[returns(::cw_ownable::Ownership<::cosmwasm_std::Addr>)]
     Ownership {},
-}
-
-impl QueryMsg {
-    pub fn get_validation_params(&self, api: &dyn Api) -> StdResult<(Vec<Addr>, String)> {
-        match self {
-            Self::GetPendingRewards { key, address, .. } => {
-                let address = api.addr_validate(address.as_str())?;
-                Ok((vec![address], key.clone()))
-            }
-            _ => panic!("This query type does not require authentication"),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]

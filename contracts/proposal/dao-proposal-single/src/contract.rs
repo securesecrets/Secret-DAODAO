@@ -23,12 +23,14 @@ use dao_voting::veto::{VetoConfig, VetoError};
 use dao_voting::voting::{get_total_power, get_voting_power, validate_voting_period, Vote, Votes};
 use secret_cw2::set_contract_version;
 use secret_cw_controllers::ReplyEvent;
-use secret_toolkit::permit::{Permit, RevokedPermits};
 use secret_toolkit::utils::HandleCallback;
-use secret_toolkit::viewing_key::{ViewingKey, ViewingKeyStore};
 use secret_utils::{parse_reply_event_for_contract_address, Duration};
-
-use crate::msg::{CreateViewingKey, QueryWithPermit, ViewingKeyError};
+use shade_protocol::basic_staking::{Auth, AuthPermit};
+use shade_protocol::query_auth::helpers::{
+    authenticate_permit, authenticate_vk, PermitAuthentication,
+};
+use shade_protocol::utils::asset::RawContract;
+use shade_protocol::Contract;
 // use crate::msg::MigrateMsg;
 use crate::proposal::{next_proposal_id, SingleChoiceProposal};
 use crate::state::{Ballot, Config, CREATION_POLICY, DAO, REPLY_IDS};
@@ -88,6 +90,7 @@ pub fn instantiate(
         allow_revoting: msg.allow_revoting,
         close_proposal_on_execution_failure: msg.close_proposal_on_execution_failure,
         veto: msg.veto,
+        query_auth: msg.query_auth.into_valid(deps.api)?,
     };
 
     // Initialize proposal count to zero so that queries return zero
@@ -140,6 +143,7 @@ pub fn execute(
             code_hash,
             close_proposal_on_execution_failure,
             veto,
+            query_auth,
         } => execute_update_config(
             deps,
             info,
@@ -152,6 +156,7 @@ pub fn execute(
             code_hash,
             close_proposal_on_execution_failure,
             veto,
+            query_auth,
         ),
         ExecuteMsg::UpdatePreProposeInfo { info: new_info } => {
             execute_update_proposal_creation_policy(deps, info, new_info)
@@ -169,9 +174,6 @@ pub fn execute(
             execute_remove_vote_hook(deps, env, info, address, code_hash)
         }
         ExecuteMsg::Veto { proposal_id } => execute_veto(deps, env, info, proposal_id),
-        ExecuteMsg::CreateViewingKey { entropy, .. } => try_create_key(deps, env, info, entropy),
-        ExecuteMsg::SetViewingKey { key, .. } => try_set_key(deps, info, key),
-        ExecuteMsg::RevokePermit { permit_name, .. } => revoke_permit(deps, info, permit_name),
     }
 }
 
@@ -380,6 +382,10 @@ pub fn execute_execute(
         .ok_or(ContractError::NoSuchProposal { id: proposal_id })?;
 
     let config = CONFIG.load(deps.storage)?;
+    let auth = Auth::ViewingKey {
+        key,
+        address: info.sender.clone().to_string(),
+    };
 
     // determine if this sender can execute
     let mut sender_can_execute = true;
@@ -387,8 +393,7 @@ pub fn execute_execute(
         let power = get_voting_power(
             deps.as_ref(),
             dao_info.code_hash.clone(),
-            info.sender.clone(),
-            key,
+            auth,
             &dao_info.addr.clone(),
             Some(prop.start_height),
         )?;
@@ -519,11 +524,14 @@ pub fn execute_vote(
         return Err(ContractError::Expired { id: proposal_id });
     }
 
+    let auth = Auth::ViewingKey {
+        key,
+        address: info.sender.clone().to_string(),
+    };
     let vote_power = get_voting_power(
         deps.as_ref(),
         dao_info.code_hash.clone(),
-        info.sender.clone(),
-        key,
+        auth,
         &dao_info.addr,
         Some(prop.start_height),
     )?;
@@ -692,6 +700,7 @@ pub fn execute_update_config(
     code_hash: String,
     close_proposal_on_execution_failure: bool,
     veto: Option<VetoConfig>,
+    query_auth: RawContract,
 ) -> Result<Response, ContractError> {
     let mut dao_info = DAO.load(deps.storage)?;
 
@@ -720,6 +729,7 @@ pub fn execute_update_config(
             allow_revoting,
             close_proposal_on_execution_failure,
             veto,
+            query_auth: query_auth.into_valid(deps.api)?,
         },
     )?;
     dao_info.addr = dao;
@@ -882,47 +892,6 @@ pub fn execute_remove_vote_hook(
         .add_attribute("address", address))
 }
 
-pub fn try_set_key(
-    deps: DepsMut,
-    info: MessageInfo,
-    key: String,
-) -> Result<Response, ContractError> {
-    ViewingKey::set(deps.storage, info.sender.as_str(), key.as_str());
-    Ok(Response::default())
-}
-
-pub fn try_create_key(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    entropy: String,
-) -> Result<Response, ContractError> {
-    let key = ViewingKey::create(
-        deps.storage,
-        &info,
-        &env,
-        info.sender.as_str(),
-        entropy.as_ref(),
-    );
-
-    Ok(Response::new().set_data(to_binary(&CreateViewingKey { key })?))
-}
-
-fn revoke_permit(
-    deps: DepsMut,
-    info: MessageInfo,
-    permit_name: String,
-) -> Result<Response, ContractError> {
-    RevokedPermits::revoke_permit(
-        deps.storage,
-        PREFIX_REVOKED_PERMITS,
-        info.sender.as_str(),
-        &permit_name,
-    );
-
-    Ok(Response::default())
-}
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -947,61 +916,32 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ProposalCreationPolicy {} => query_creation_policy(deps),
         QueryMsg::ProposalHooks {} => to_binary(&PROPOSAL_HOOKS.query_hooks(deps)?),
         QueryMsg::VoteHooks {} => to_binary(&VOTE_HOOKS.query_hooks(deps)?),
-        QueryMsg::WithPermit { permit, query } => permit_queries(deps, env, permit, query),
-        _ => viewing_keys_queries(deps, env, msg),
-    }
-}
-
-fn permit_queries(
-    deps: Deps,
-    env: Env,
-    permit: Permit,
-    query: QueryWithPermit,
-) -> Result<Binary, StdError> {
-    // Validate permit content
-
-    let _account = secret_toolkit::permit::validate(
-        deps,
-        PREFIX_REVOKED_PERMITS,
-        &permit,
-        env.contract.address.clone().into_string(),
-        None,
-    )?;
-
-    // Permit validated! We can now execute the query.
-    match query {
-        QueryWithPermit::GetVote { proposal_id, voter } => {
-            if !permit.check_permission(&secret_toolkit::permit::TokenPermissions::Balance) {
-                return Err(StdError::generic_err(format!(
-                    "No permission to query get vote, got permissions {:?}",
-                    permit.params.permissions
-                )));
-            }
-
+        QueryMsg::GetVote { proposal_id, auth } => {
+            let query_auth = CONFIG.load(deps.storage)?.query_auth;
+            let voter = authenticate(deps, auth, query_auth)?;
             to_binary(&query_vote(deps, proposal_id, voter)?)
         }
     }
 }
 
-pub fn viewing_keys_queries(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    let (addresses, key) = msg.get_validation_params(deps.api)?;
-
-    for address in addresses {
-        let result = ViewingKey::check(deps.storage, address.as_str(), key.as_str());
-        if result.is_ok() {
-            return match msg {
-                // Base
-                QueryMsg::GetVote {
-                    voter, proposal_id, ..
-                } => to_binary(&query_vote(deps, proposal_id, voter)?),
-                _ => panic!("This query type does not require authentication"),
-            };
+pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<Addr> {
+    match auth {
+        Auth::ViewingKey { key, address } => {
+            let address = deps.api.addr_validate(&address)?;
+            if !authenticate_vk(address.clone(), key, &deps.querier, &query_auth)? {
+                return Err(StdError::generic_err("Invalid Viewing Key"));
+            }
+            Ok(address)
+        }
+        Auth::Permit(permit) => {
+            let res: PermitAuthentication<AuthPermit> =
+                authenticate_permit(permit, &deps.querier, query_auth)?;
+            if res.revoked {
+                return Err(StdError::generic_err("Permit Revoked"));
+            }
+            Ok(res.sender)
         }
     }
-
-    to_binary(&ViewingKeyError {
-        msg: "Wrong viewing key for this address or viewing key not set".to_string(),
-    })
 }
 
 pub fn query_config(deps: Deps) -> StdResult<Binary> {
@@ -1116,8 +1056,7 @@ pub fn query_next_proposal_id(deps: Deps) -> StdResult<Binary> {
     to_binary(&next_proposal_id(deps.storage)?)
 }
 
-pub fn query_vote(deps: Deps, proposal_id: u64, voter: String) -> StdResult<Binary> {
-    let voter = deps.api.addr_validate(&voter)?;
+pub fn query_vote(deps: Deps, proposal_id: u64, voter: Addr) -> StdResult<Binary> {
     let ballot = BALLOTS.get(deps.storage, &(proposal_id, voter.clone()));
     let vote = VoteInfo {
         voter,

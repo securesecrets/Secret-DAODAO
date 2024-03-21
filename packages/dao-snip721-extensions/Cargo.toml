@@ -14,3 +14,4 @@ secret-cw-controllers = { workspace = true }
 cw4 = { workspace = true }
 dao-interface = { workspace = true }
 secret-toolkit ={ workspace = true }
+shade-protocol ={ workspace = true }

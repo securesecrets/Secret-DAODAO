@@ -31,6 +31,7 @@ secret-toolkit ={ workspace = true }
 serde = { workspace = true }
 schemars ={ workspace = true }
 secret-cw-controllers ={ workspace = true }
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

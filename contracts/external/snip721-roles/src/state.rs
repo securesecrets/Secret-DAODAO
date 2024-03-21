@@ -4,6 +4,7 @@ use secret_cw_controllers::Hooks;
 use secret_storage_plus::Item;
 use secret_toolkit::storage::Keymap;
 use serde::{Deserialize, Serialize};
+use shade_protocol::Contract;
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Default)]
 pub struct Config {
@@ -14,6 +15,7 @@ pub struct Config {
 // Hooks to contracts that will receive staking and unstaking messages.
 pub const HOOKS: Hooks = Hooks::new("hooks");
 pub const SNIP721_INFO: Item<Config> = Item::new("si");
+pub const QUERY_AUTH: Item<Contract> = Item::new("qa");
 
 // /// A historic snapshot of total weight over time
 // pub const TOTAL: SnapshotItem<u64> = SnapshotItem::new(

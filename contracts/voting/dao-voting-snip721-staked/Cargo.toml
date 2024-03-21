@@ -41,6 +41,7 @@ secret-toolkit = {workspace=true}
 snip721-reference-impl = {workspace=true}
 schemars = {workspace=true}
 serde ={ workspace = true }
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }

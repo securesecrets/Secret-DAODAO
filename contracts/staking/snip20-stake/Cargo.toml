@@ -31,7 +31,7 @@ cw20-stake-v1 = { workspace = true, features = ["library"] }
 cw-utils-v1 = { workspace = true }
 
 secret-utils = { workspace = true }
-cosmwasm-std = { workspace = true, default-features = false }
+cosmwasm-std = { workspace = true }
 secret-toolkit = { workspace = true, default-features = false }
 secret-storage-plus = { workspace = true, default-features = false}
 secret-cw-controllers = { workspace = true }
@@ -45,6 +45,8 @@ hex = "0.4.2"
 sha2 = { version = "0.9.1", default-features = false }
 snafu = { version = "0.6.3" }
 bincode = { workspace = true }
+
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

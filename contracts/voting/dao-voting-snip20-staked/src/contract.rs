@@ -18,6 +18,7 @@ use dao_voting::threshold::ActiveThresholdResponse;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 use secret_utils::parse_reply_event_for_contract_address;
+use shade_protocol::basic_staking::Auth;
 use snip20_reference_impl::msg::QueryAnswer;
 use std::convert::TryInto;
 
@@ -305,11 +306,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Dao {} => query_dao(deps),
         QueryMsg::IsActive {} => query_is_active(deps),
         QueryMsg::ActiveThreshold {} => query_active_threshold(deps),
-        QueryMsg::VotingPowerAtHeight {
-            address,
-            key,
-            height,
-        } => query_voting_power_at_height(deps, address, key, height),
+        QueryMsg::VotingPowerAtHeight { auth, height } => {
+            query_voting_power_at_height(deps, auth, height)
+        }
     }
 }
 
@@ -325,20 +324,14 @@ pub fn query_staking_contract(deps: Deps) -> StdResult<Binary> {
 
 pub fn query_voting_power_at_height(
     deps: Deps,
-    address: String,
-    key: String,
+    auth: Auth,
     height: Option<u64>,
 ) -> StdResult<Binary> {
     let staking_contract = STAKING_CONTRACT.load(deps.storage)?;
-    let address = deps.api.addr_validate(&address)?;
     let res: snip20_stake::msg::StakedBalanceAtHeightResponse = deps.querier.query_wasm_smart(
         staking_contract.code_hash,
         staking_contract.addr,
-        &snip20_stake::msg::QueryMsg::StakedBalanceAtHeight {
-            address: address.to_string(),
-            height,
-            key,
-        },
+        &snip20_stake::msg::QueryMsg::StakedBalanceAtHeight { auth, height },
     )?;
     to_binary(&dao_interface::voting::VotingPowerAtHeightResponse {
         power: res.balance,

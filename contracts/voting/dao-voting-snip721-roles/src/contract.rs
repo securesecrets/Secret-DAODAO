@@ -10,6 +10,7 @@ use dao_interface::state::AnyContractInfo;
 use dao_snip721_extensions::roles::QueryExt;
 use secret_cw2::set_contract_version;
 use secret_utils::parse_reply_event_for_contract_address;
+use shade_protocol::basic_staking::Auth;
 
 use crate::msg::{ExecuteMsg, InstantiateMsg, NftContract, QueryMsg};
 use crate::state::{Config, CONFIG, DAO, INITIAL_NFTS};
@@ -80,7 +81,7 @@ pub fn instantiate(
                 config,
             };
             // Create instantiate submessage for NFT roles contract
-            let msg = SubMsg::reply_on_success(
+            let submsg = SubMsg::reply_on_success(
                 init_msg.to_cosmos_msg(
                     Some(info.sender.to_string()),
                     label.clone(),
@@ -96,7 +97,7 @@ pub fn instantiate(
             };
             CONFIG.save(deps.storage, &config)?;
 
-            Ok(Response::default().add_submessage(msg))
+            Ok(Response::default().add_submessage(submsg))
         }
     }
 }
@@ -116,11 +117,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => query_config(deps),
         QueryMsg::Dao {} => query_dao(deps),
-        QueryMsg::VotingPowerAtHeight {
-            address,
-            height,
-            key,
-        } => query_voting_power_at_height(deps, env, address, key, height),
+        QueryMsg::VotingPowerAtHeight { auth, height } => {
+            query_voting_power_at_height(deps, env, auth, height)
+        }
         QueryMsg::TotalPowerAtHeight { height } => query_total_power_at_height(deps, env, height),
         QueryMsg::Info {} => query_info(deps),
     }
@@ -129,19 +128,14 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn query_voting_power_at_height(
     deps: Deps,
     env: Env,
-    address: String,
-    key: String,
+    auth: Auth,
     at_height: Option<u64>,
 ) -> StdResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
     let member: MemberResponse = deps.querier.query_wasm_smart(
         config.nft_code_hash,
         config.nft_address,
-        &snip721_roles::msg::QueryMsg::ExtensionQuery(QueryExt::Member {
-            addr: address,
-            key,
-            at_height,
-        }),
+        &snip721_roles::msg::QueryMsg::ExtensionQuery(QueryExt::Member { auth, at_height }),
     )?;
 
     to_binary(&dao_interface::voting::VotingPowerAtHeightResponse {

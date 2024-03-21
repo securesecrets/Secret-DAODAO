@@ -6,14 +6,14 @@ use secret_storage_plus::Item;
 use secret_toolkit::storage::Keymap;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
+use shade_protocol::Contract;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct Config {
     pub token_address: Addr,
     pub token_code_hash: String,
     pub unstaking_duration: Option<Duration>,
-    // the address of this contract, used to validate query permits
-    pub contract_address: Addr,
+    pub query_auth: Contract,
 }
 
 pub const RESPONSE_BLOCK_SIZE: usize = 256;

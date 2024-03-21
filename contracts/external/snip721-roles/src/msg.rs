@@ -3,6 +3,7 @@ use cosmwasm_std::Addr;
 use dao_snip721_extensions::roles::{ExecuteExt, QueryExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use shade_protocol::utils::asset::RawContract;
 
 use crate::snip721::{self, Snip721ExecuteMsg, Snip721QueryMsg};
 
@@ -24,6 +25,8 @@ pub struct InstantiateMsg {
 
     /// optional privacy configuration for the contract
     pub config: Option<snip721::InstantiateConfig>,
+
+    pub query_auth: RawContract,
 }
 
 #[cw_serde]

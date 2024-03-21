@@ -63,6 +63,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {}
 
+#[allow(clippy::large_enum_variant)]
 #[voting_module_query]
 #[cw_serde]
 #[derive(QueryResponses)]

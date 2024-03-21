@@ -9,6 +9,7 @@ use cw4::{MemberListResponse, MemberResponse, TotalWeightResponse};
 use dao_interface::state::AnyContractInfo;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
+use shade_protocol::basic_staking::Auth;
 
 use crate::cw4_group_msg;
 use crate::error::ContractError;
@@ -141,30 +142,25 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Info {} => query_info(deps),
         QueryMsg::GroupContract {} => to_binary(&GROUP_CONTRACT.load(deps.storage)?),
         QueryMsg::Dao {} => to_binary(&DAO.load(deps.storage)?),
-        QueryMsg::VotingPowerAtHeight {
-            address,
-            key,
-            height,
-        } => query_voting_power_at_height(deps, env, address, key, height),
+        QueryMsg::VotingPowerAtHeight { height, auth } => {
+            query_voting_power_at_height(deps, env, auth, height)
+        }
     }
 }
 
 pub fn query_voting_power_at_height(
     deps: Deps,
     env: Env,
-    address: String,
-    key: String,
+    auth: Auth,
     height: Option<u64>,
 ) -> StdResult<Binary> {
-    let addr = deps.api.addr_validate(&address)?.to_string();
     let group_contract = GROUP_CONTRACT.load(deps.storage)?;
     let res: MemberResponse = deps.querier.query_wasm_smart(
         group_contract.code_hash,
         group_contract.addr,
         &cw4_group_msg::Cw4GroupQueryMsg::Member {
-            addr,
+            auth,
             at_height: height,
-            key,
         },
     )?;
 

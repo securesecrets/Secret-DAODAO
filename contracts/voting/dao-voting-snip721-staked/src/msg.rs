@@ -1,11 +1,11 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Api, Binary, StdResult};
+use cosmwasm_std::{Addr, Binary};
 use dao_dao_macros::{active_query, voting_module_query};
 use dao_voting::threshold::ActiveThreshold;
 use schemars::JsonSchema;
-use secret_toolkit::permit::Permit;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
+use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
@@ -80,6 +80,8 @@ pub struct InstantiateMsg {
     pub active_threshold: Option<ActiveThreshold>,
 
     pub dao_code_hash: String,
+
+    pub query_auth: RawContract,
 }
 
 #[cw_serde]
@@ -108,21 +110,9 @@ pub enum ExecuteMsg {
     UpdateActiveThreshold {
         new_threshold: Option<ActiveThreshold>,
     },
-    CreateViewingKey {
-        entropy: String,
-        padding: Option<String>,
-    },
-    SetViewingKey {
-        key: String,
-        padding: Option<String>,
-    },
-    // Permit
-    RevokePermit {
-        permit_name: String,
-        padding: Option<String>,
-    },
 }
 
+#[allow(clippy::large_enum_variant)]
 #[active_query]
 #[voting_module_query]
 #[cw_serde]
@@ -131,39 +121,14 @@ pub enum QueryMsg {
     #[returns(crate::state::Config)]
     Config {},
     #[returns(::snip721_controllers::NftClaimsResponse)]
-    NftClaims { address: String, key: String },
+    NftClaims { auth: Auth },
     #[returns(::secret_cw_controllers::HooksResponse)]
     Hooks {},
     // List the staked NFTs for a given address.
     #[returns(Vec<String>)]
-    StakedNfts { address: String, key: String },
+    StakedNfts { auth: Auth },
     #[returns(dao_voting::threshold::ActiveThresholdResponse)]
     ActiveThreshold {},
-    #[returns(())]
-    WithPermit {
-        permit: Permit,
-        query: QueryWithPermit,
-    },
-}
-
-impl QueryMsg {
-    pub fn get_validation_params(&self, api: &dyn Api) -> StdResult<(Vec<Addr>, String)> {
-        match self {
-            Self::NftClaims { address, key } => {
-                let address = api.addr_validate(address.as_str())?;
-                Ok((vec![address], key.clone()))
-            }
-            Self::StakedNfts { address, key, .. } => {
-                let address = api.addr_validate(address.as_str())?;
-                Ok((vec![address], key.clone()))
-            }
-            Self::VotingPowerAtHeight { address, key, .. } => {
-                let address = api.addr_validate(address.as_str())?;
-                Ok((vec![address], key.clone()))
-            }
-            _ => panic!("This query type does not require authentication"),
-        }
-    }
 }
 
 #[cw_serde]
@@ -172,25 +137,4 @@ pub struct MigrateMsg {}
 #[cw_serde]
 pub struct IsActiveResponse {
     pub active: bool,
-}
-
-#[cw_serde]
-pub struct CreateViewingKey {
-    pub key: String,
-}
-
-#[cw_serde]
-pub struct ViewingKeyError {
-    pub msg: String,
-}
-
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryWithPermit {
-    #[returns(::snip721_controllers::NftClaimsResponse)]
-    NftClaims { address: String },
-    #[returns(Vec<String>)]
-    StakedNfts { address: String },
-    #[returns(dao_interface::voting::VotingPowerAtHeightResponse)]
-    VotingPowerAtHeight { address: String, height: u64 },
 }

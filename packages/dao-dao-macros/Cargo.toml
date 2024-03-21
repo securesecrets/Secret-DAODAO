@@ -15,6 +15,7 @@ cosmwasm-schema = { workspace = true }
 syn = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = { workspace = true }
+shade-protocol ={ workspace = true }
 
 [dev-dependencies]
 dao-interface = { workspace = true }
