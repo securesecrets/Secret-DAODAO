@@ -94,6 +94,7 @@ pub fn instantiate(
         config: msg.config,
         post_init_callback: None,
     };
+    
     let submsg = SubMsg::reply_always(
         init_msg.to_cosmos_msg(
             Some(info.sender.clone().to_string()),
@@ -119,6 +120,7 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
+#[allow(unused_assignments)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -225,6 +227,13 @@ pub fn execute(
             }
             ExecuteExt::UpdateTokenRole { token_id, role } => {
                 execute_update_token_role(deps, env, info, token_id, role)
+            }
+            ExecuteExt::UpdateQueryAuth { query_auth } => {
+                cw_ownable::assert_owner(deps.storage, &info.sender)?;
+                let mut queryauth = QUERY_AUTH.load(deps.storage)?;
+                queryauth = query_auth.into_valid(deps.api)?;
+                QUERY_AUTH.save(deps.storage, &queryauth)?;
+                Ok(Response::default().add_attribute("action", "update query_auth"))
             }
         },
     }

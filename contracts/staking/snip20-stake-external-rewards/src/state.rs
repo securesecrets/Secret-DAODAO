@@ -2,7 +2,6 @@ use cosmwasm_std::{Addr, Uint128, Uint256};
 use schemars::JsonSchema;
 use secret_storage_plus::{Item, Map};
 use serde::{Deserialize, Serialize};
-use shade_protocol::Contract;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub enum Denom {
@@ -16,7 +15,6 @@ pub struct Config {
     pub staking_contract_code_hash: String,
     pub reward_token: Denom,
     pub reward_token_code_hash: String,
-    pub query_auth: Contract,
 }
 
 // `"config"` key stores v1 configuration.

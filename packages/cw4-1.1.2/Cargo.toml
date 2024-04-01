@@ -21,7 +21,7 @@ license = "Apache-2.0"
 repository = "https://github.com/CosmWasm/cw-plus"
 
 [dependencies.cosmwasm-schema]
-workspoace = true
+workspace = true
 
 [dependencies.cosmwasm-std]
 workspace = true
@@ -30,9 +30,11 @@ workspace = true
 workspace = true
 
 [dependencies.schemars]
-version = "0.8.15"
+workspace = true
 
 [dependencies.serde]
-version = "1.0.188"
-features = ["derive"]
-default-features = false
+workspace = true
+
+
+[dependencies.shade-protocol]
+workspace = true

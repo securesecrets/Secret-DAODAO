@@ -20,7 +20,7 @@ use shade_protocol::Contract;
 use crate::error::ContractError;
 use crate::helpers::validate_unique_members;
 use crate::msg::{ExecuteMsg, InstantiateMsg, InstantiateMsgResponse, QueryMsg};
-use crate::state::{MembersStore, TotalStore, ADMIN, HOOKS, MEMBERS_PRIMARY, QUERY_AUTH};
+use crate::state::{MembersStore, TotalStore, ADMIN, HOOKS, MEMBERS_PRIMARY, OWNER, QUERY_AUTH};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw4-group";
@@ -34,11 +34,12 @@ pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     QUERY_AUTH.save(deps.storage, &msg.query_auth.into_valid(deps.api)?)?;
+    OWNER.save(deps.storage, &info.sender)?;
     create(deps, msg.admin, msg.members, env.block.height)?;
     Ok(
         Response::default().set_data(to_binary(&InstantiateMsgResponse {
@@ -78,6 +79,7 @@ pub fn create(
 
 // And declare a custom Error variant for the ones where you will want to make use of it
 #[cfg_attr(not(feature = "library"), entry_point)]
+#[allow(unused_assignments)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -108,6 +110,13 @@ pub fn execute(
             api.addr_validate(hook.addr.as_str())?,
             hook.code_hash,
         )?),
+        ExecuteMsg::UpdateQueryAuth { query_auth } => {
+            ADMIN.assert_admin(deps.as_ref(), &info.sender)?;
+            let mut queryauth  = QUERY_AUTH.load(deps.storage)?;
+            queryauth = query_auth.into_valid(deps.api)?;
+            QUERY_AUTH.save(deps.storage, &queryauth)?;
+            Ok(Response::default().add_attribute("action", "update query_auth"))
+        }
     }
 }
 
@@ -238,19 +247,7 @@ pub fn query_list_members(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<MemberListResponse> {
-    // let addr = maybe_addr(deps.api, start_after)?;
-    // let start = addr.as_ref().map(Bound::exclusive);
-
-    // let members = MEMBERS
-    //     .range(deps.storage, start, None, Order::Ascending)
-    //     .take(limit)
-    //     .map(|item| {
-    //         item.map(|(addr, weight)| Member {
-    //             addr: addr.into(),
-    //             weight,
-    //         })
-    //     })
-    //     .collect::<StdResult<_>>()?;
+    
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
 
     let mut res_members: Vec<Member> = Vec::new();

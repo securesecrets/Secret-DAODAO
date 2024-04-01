@@ -30,6 +30,7 @@ use shade_protocol::contract_interfaces::basic_staking::Auth;
 use shade_protocol::query_auth::helpers::{
     authenticate_permit, authenticate_vk, PermitAuthentication,
 };
+use shade_protocol::utils::asset::RawContract;
 use shade_protocol::Contract;
 use snip20_reference_impl::msg::QueryAnswer;
 
@@ -93,7 +94,10 @@ pub fn execute(
         ExecuteMsg::Receive(msg) => execute_receive(deps, env, info, msg),
         ExecuteMsg::Unstake { amount } => execute_unstake(deps, env, info, amount),
         ExecuteMsg::Claim {} => execute_claim(deps, env, info),
-        ExecuteMsg::UpdateConfig { duration } => execute_update_config(info, deps, duration),
+        ExecuteMsg::UpdateConfig {
+            duration,
+            query_auth,
+        } => execute_update_config(info, deps, duration, query_auth),
         ExecuteMsg::AddHook { addr, code_hash } => {
             execute_add_hook(deps, env, info, addr, code_hash)
         }
@@ -108,15 +112,16 @@ pub fn execute_update_config(
     info: MessageInfo,
     deps: DepsMut,
     duration: Option<Duration>,
+    query_auth: RawContract,
 ) -> Result<Response, ContractError> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     validate_duration(duration)?;
+    let mut config = CONFIG.load(deps.storage)?;
+    config.unstaking_duration = duration;
+    config.query_auth = query_auth.into_valid(deps.api)?;
 
-    CONFIG.update(deps.storage, |mut config| -> Result<Config, StdError> {
-        config.unstaking_duration = duration;
-        Ok(config)
-    })?;
+    CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new()
         .add_attribute("action", "update_config")
@@ -380,7 +385,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::TotalValue {} => to_binary(&query_total_value(deps, env)?),
         QueryMsg::GetHooks {} => to_binary(&query_hooks(deps)?),
-        QueryMsg::ListStakers {} => query_list_stakers(deps),
+        QueryMsg::ListStakers { start_after, limit } => {
+            query_list_stakers(deps, start_after, limit)
+        }
         QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
         QueryMsg::StakedBalanceAtHeight { auth, height } => {
             let query_auth = CONFIG.load(deps.storage)?.query_auth;
@@ -409,7 +416,7 @@ pub fn query_staked_balance_at_height(
     let height = height.unwrap_or(env.block.height);
     let balance = StakedBalancesStore::may_load_at_height(deps.storage, address, height)?;
     Ok(StakedBalanceAtHeightResponse {
-        balance: balance.unwrap(),
+        balance: balance.unwrap_or_default(),
         height,
     })
 }
@@ -466,27 +473,44 @@ pub fn query_hooks(deps: Deps) -> StdResult<GetHooksResponse> {
     })
 }
 
-pub fn query_list_stakers(deps: Deps) -> StdResult<Binary> {
-    // let start_at = start_after
-    //     .map(|addr| deps.api.addr_validate(&addr))
-    //     .transpose()?;
-    let stakers = cw_paginate_storage::paginate_map(
-        deps,
-        &STAKED_BALANCES_PRIMARY,
-        0,
-        STAKED_BALANCES_PRIMARY
-            .get_len(deps.storage)
-            .unwrap_or_default(),
-    )?;
-    let stakers = stakers
-        .into_iter()
-        .map(|(address, balance)| StakerBalanceResponse {
-            address: address.into_string(),
-            balance,
-        })
-        .collect();
+// settings for pagination
+const MAX_LIMIT: u32 = 30;
+const DEFAULT_LIMIT: u32 = 10;
+pub fn query_list_stakers(
+    deps: Deps,
+    start_after: Option<String>,
+    limit: Option<u32>,
+) -> StdResult<Binary> {
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
 
-    to_binary(&ListStakersResponse { stakers })
+    let mut stakers: Vec<StakerBalanceResponse> = Vec::new();
+
+    let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
+
+    let binding = &STAKED_BALANCES_PRIMARY;
+    let iter = binding.iter(deps.storage)?;
+    for item in iter {
+        let (address, stake) = item?;
+        if let Some(start_after) = &start {
+            if &address == start_after {
+                // If we found the start point, reset it to start iterating
+                start = None;
+            }
+        }
+        if start.is_none() {
+            stakers.push(StakerBalanceResponse {
+                address: address.to_string(),
+                balance: stake,
+            });
+            if stakers.len() >= limit {
+                break; // Break out of loop if limit reached
+            }
+        }
+    }
+
+    let response = to_binary(&ListStakersResponse { stakers })?;
+
+    Ok(response)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

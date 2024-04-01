@@ -143,4 +143,4 @@ shade-protocol = { git = "https://github.com/securesecrets/shade", rev = "lend-v
   "admin","basic_staking"
 ] }
 shade-multi-test = { git = "https://github.com/securesecrets/shade", rev = "lend-v1",features = [ "query_auth", "admin"  ] }
-
+query_auth ={ path = "./packages/query_auth/"}

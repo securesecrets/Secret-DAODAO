@@ -2,6 +2,7 @@ use schemars::JsonSchema;
 use secret_toolkit::utils::InitCallback;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
+use shade_protocol::utils::asset::RawContract;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct InstantiateMsg {
@@ -10,6 +11,7 @@ pub struct InstantiateMsg {
     pub token_address: String,
     pub token_code_hash: Option<String>,
     pub unstaking_duration: Option<Duration>,
+    pub query_auth: RawContract,
 }
 
 impl InitCallback for InstantiateMsg {

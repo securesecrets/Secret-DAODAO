@@ -23,7 +23,6 @@ keywords = [
 ]
 license = "Apache-2.0"
 repository = "https://github.com/steak-enjoyers/cw-plus-plus"
-resolver = "1"
 
 [lib]
 doctest = false

@@ -32,8 +32,8 @@ cw-utils-v1 = { workspace = true }
 
 secret-utils = { workspace = true }
 cosmwasm-std = { workspace = true }
-secret-toolkit = { workspace = true, default-features = false }
-secret-storage-plus = { workspace = true, default-features = false}
+secret-toolkit = { workspace = true}
+secret-storage-plus = { workspace = true}
 secret-cw-controllers = { workspace = true }
 secret-cw2 = { workspace = true }
 
@@ -47,6 +47,7 @@ snafu = { version = "0.6.3" }
 bincode = { workspace = true }
 
 shade-protocol ={ workspace = true }
+query_auth = { workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

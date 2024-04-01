@@ -1,279 +1,574 @@
-// use cosmwasm_std::{
-//     testing::{mock_dependencies, mock_env},
-//     to_json_binary, Addr, CosmosMsg, Decimal, Empty, Uint128, WasmMsg,
-// };
-// use cw2::ContractVersion;
-// use cw20::{BalanceResponse, Cw20Coin, MinterResponse, TokenInfoResponse};
-// use cw_multi_test::{next_block, App, Contract, ContractWrapper, Executor};
-// use dao_interface::voting::{InfoResponse, IsActiveResponse, VotingPowerAtHeightResponse};
-// use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
+use cosmwasm_std::{
+    testing::{mock_dependencies, mock_env},
+    to_binary, Addr, ContractInfo, CosmosMsg, Decimal, Empty, Uint128, WasmMsg,
+};
+use dao_interface::{
+    state::AnyContractInfo,
+    voting::{InfoResponse, IsActiveResponse, VotingPowerAtHeightResponse},
+};
+use dao_voting::threshold::{ActiveThreshold, ActiveThresholdResponse};
+use secret_cw2::ContractVersion;
+use secret_multi_test::{
+    next_block, App, Contract, ContractInstantiationInfo, ContractWrapper, Executor,
+};
+use secret_utils::Duration;
+use shade_protocol::utils::asset::RawContract;
+use snip20_reference_impl::msg::InitialBalance as Snip20InitialBalance;
 
-// use crate::{
-//     contract::{migrate, CONTRACT_NAME, CONTRACT_VERSION},
-//     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, StakingInfo},
-// };
+use crate::{
+    contract::{migrate, CONTRACT_NAME, CONTRACT_VERSION},
+    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, StakingInfo},
+    snip20_msg::InitialBalance,
+};
 
-// const DAO_ADDR: &str = "dao";
-// const CREATOR_ADDR: &str = "creator";
+const DAO_ADDR: &str = "dao";
+const CREATOR_ADDR: &str = "creator";
 
-// fn cw20_contract() -> Box<dyn Contract<Empty>> {
-//     let contract = ContractWrapper::new(
-//         cw20_base::contract::execute,
-//         cw20_base::contract::instantiate,
-//         cw20_base::contract::query,
-//     );
-//     Box::new(contract)
-// }
+fn snip20_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        snip20_reference_impl::contract::execute,
+        snip20_reference_impl::contract::instantiate,
+        snip20_reference_impl::contract::query,
+    );
+    Box::new(contract)
+}
 
-// fn staking_contract() -> Box<dyn Contract<Empty>> {
-//     let contract = ContractWrapper::new(
-//         cw20_stake::contract::execute,
-//         cw20_stake::contract::instantiate,
-//         cw20_stake::contract::query,
-//     );
-//     Box::new(contract)
-// }
+fn contract_query_auth() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        query_auth::contract::execute,
+        query_auth::contract::instantiate,
+        query_auth::contract::query,
+    );
+    Box::new(contract)
+}
 
-// fn staked_balance_voting_contract() -> Box<dyn Contract<Empty>> {
-//     let contract = ContractWrapper::new(
-//         crate::contract::execute,
-//         crate::contract::instantiate,
-//         crate::contract::query,
-//     )
-//     .with_reply(crate::contract::reply)
-//     .with_migrate(crate::contract::migrate);
-//     Box::new(contract)
-// }
+fn staking_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        snip20_stake::contract::execute,
+        snip20_stake::contract::instantiate,
+        snip20_stake::contract::query,
+    );
+    Box::new(contract)
+}
 
-// fn instantiate_voting(app: &mut App, voting_id: u64, msg: InstantiateMsg) -> Addr {
-//     app.instantiate_contract(
-//         voting_id,
-//         Addr::unchecked(DAO_ADDR),
-//         &msg,
-//         &[],
-//         "voting module",
-//         None,
-//     )
-//     .unwrap()
-// }
+fn staked_balance_voting_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        crate::contract::execute,
+        crate::contract::instantiate,
+        crate::contract::query,
+    )
+    .with_reply(crate::contract::reply)
+    .with_migrate(crate::contract::migrate);
+    Box::new(contract)
+}
 
-// fn stake_tokens(app: &mut App, staking_addr: Addr, cw20_addr: Addr, sender: &str, amount: u128) {
-//     let msg = cw20::Cw20ExecuteMsg::Send {
-//         contract: staking_addr.to_string(),
-//         amount: Uint128::new(amount),
-//         msg: to_json_binary(&cw20_stake::msg::ReceiveMsg::Stake {}).unwrap(),
-//     };
-//     app.execute_contract(Addr::unchecked(sender), cw20_addr, &msg, &[])
-//         .unwrap();
-// }
+fn instantiate_voting(
+    app: &mut App,
+    voting_instantiate_info: ContractInstantiationInfo,
+    msg: InstantiateMsg,
+) -> ContractInfo {
+    app.instantiate_contract(
+        voting_instantiate_info,
+        Addr::unchecked(DAO_ADDR),
+        &msg,
+        &[],
+        "voting module",
+        None,
+    )
+    .unwrap()
+}
 
-// #[test]
-// #[should_panic(expected = "Initial governance token balances must not be empty")]
-// fn test_instantiate_zero_supply() {
-//     let mut app = App::default();
-//     let cw20_id = app.store_code(cw20_contract());
-//     let voting_id = app.store_code(staked_balance_voting_contract());
-//     let staking_contract_id = app.store_code(staking_contract());
-//     instantiate_voting(
-//         &mut app,
-//         voting_id,
-//         InstantiateMsg {
-//             token_info: crate::msg::TokenInfo::New {
-//                 code_id: cw20_id,
-//                 label: "DAO DAO voting".to_string(),
-//                 name: "DAO DAO".to_string(),
-//                 symbol: "DAO".to_string(),
-//                 decimals: 6,
-//                 initial_balances: vec![Cw20Coin {
-//                     address: CREATOR_ADDR.to_string(),
-//                     amount: Uint128::zero(),
-//                 }],
-//                 marketing: None,
-//                 unstaking_duration: None,
-//                 staking_code_id: staking_contract_id,
-//                 initial_dao_balance: Some(Uint128::zero()),
-//             },
-//             active_threshold: None,
-//         },
-//     );
-// }
+fn instantiate_snip20(app: &mut App, initial_balances: Vec<Snip20InitialBalance>) -> ContractInfo {
+    let snip20_info = app.store_code(snip20_contract());
+    let msg = snip20_reference_impl::msg::InstantiateMsg {
+        name: String::from("Test"),
+        symbol: String::from("TEST"),
+        decimals: 6,
+        initial_balances: Some(initial_balances),
+        admin: None,
+        prng_seed: to_binary("seed").unwrap(),
+        config: None,
+        supported_denoms: None,
+    };
 
-// #[test]
-// #[should_panic(expected = "Initial governance token balances must not be empty")]
-// fn test_instantiate_no_balances() {
-//     let mut app = App::default();
-//     let cw20_id = app.store_code(cw20_contract());
-//     let voting_id = app.store_code(staked_balance_voting_contract());
-//     let staking_contract_id = app.store_code(staking_contract());
-//     instantiate_voting(
-//         &mut app,
-//         voting_id,
-//         InstantiateMsg {
-//             token_info: crate::msg::TokenInfo::New {
-//                 code_id: cw20_id,
-//                 label: "DAO DAO voting".to_string(),
-//                 name: "DAO DAO".to_string(),
-//                 symbol: "DAO".to_string(),
-//                 decimals: 6,
-//                 initial_balances: vec![],
-//                 marketing: None,
-//                 unstaking_duration: None,
-//                 staking_code_id: staking_contract_id,
-//                 initial_dao_balance: Some(Uint128::zero()),
-//             },
-//             active_threshold: None,
-//         },
-//     );
-// }
+    app.instantiate_contract(
+        snip20_info,
+        Addr::unchecked(CREATOR_ADDR),
+        &msg,
+        &[],
+        "snip20",
+        None,
+    )
+    .unwrap()
+}
 
-// #[test]
-// #[should_panic(expected = "Active threshold count must be greater than zero")]
-// fn test_instantiate_zero_active_threshold_count() {
-//     let mut app = App::default();
-//     let cw20_id = app.store_code(cw20_contract());
-//     let voting_id = app.store_code(staked_balance_voting_contract());
-//     let staking_contract_id = app.store_code(staking_contract());
-//     instantiate_voting(
-//         &mut app,
-//         voting_id,
-//         InstantiateMsg {
-//             token_info: crate::msg::TokenInfo::New {
-//                 code_id: cw20_id,
-//                 label: "DAO DAO voting".to_string(),
-//                 name: "DAO DAO".to_string(),
-//                 symbol: "DAO".to_string(),
-//                 decimals: 6,
-//                 initial_balances: vec![Cw20Coin {
-//                     address: CREATOR_ADDR.to_string(),
-//                     amount: Uint128::one(),
-//                 }],
-//                 marketing: None,
-//                 unstaking_duration: None,
-//                 staking_code_id: staking_contract_id,
-//                 initial_dao_balance: Some(Uint128::zero()),
-//             },
-//             active_threshold: Some(ActiveThreshold::AbsoluteCount {
-//                 count: Uint128::new(0),
-//             }),
-//         },
-//     );
-// }
+fn instantiate_staking(
+    app: &mut App,
+    snip20: Addr,
+    snip20_code_hash: String,
+    unstaking_duration: Option<Duration>,
+    query_auth: shade_protocol::Contract,
+) -> ContractInfo {
+    let staking_info = app.store_code(staking_contract());
+    let msg = snip20_stake::msg::InstantiateMsg {
+        owner: Some(CREATOR_ADDR.to_string()),
+        token_address: snip20.to_string(),
+        unstaking_duration,
+        token_code_hash: Some(snip20_code_hash),
+        query_auth: query_auth.into(),
+    };
+    app.instantiate_contract(
+        staking_info,
+        Addr::unchecked(CREATOR_ADDR),
+        &msg,
+        &[],
+        "staking",
+        Some("admin".to_string()),
+    )
+    .unwrap()
+}
 
-// #[test]
-// fn test_contract_info() {
-//     let mut app = App::default();
-//     let cw20_id = app.store_code(cw20_contract());
-//     let voting_id = app.store_code(staked_balance_voting_contract());
-//     let staking_contract_id = app.store_code(staking_contract());
+fn instantiate_query_auth(app: &mut App) -> ContractInfo {
+    let query_auth_info = app.store_code(contract_query_auth());
+    let msg = shade_protocol::contract_interfaces::query_auth::InstantiateMsg {
+        admin_auth: shade_protocol::Contract {
+            address: Addr::unchecked("admin_contract"),
+            code_hash: "code_hash".to_string(),
+        },
+        prng_seed: to_binary("seed").unwrap(),
+    };
 
-//     let voting_addr = instantiate_voting(
-//         &mut app,
-//         voting_id,
-//         InstantiateMsg {
-//             token_info: crate::msg::TokenInfo::New {
-//                 code_id: cw20_id,
-//                 label: "DAO DAO voting".to_string(),
-//                 name: "DAO DAO".to_string(),
-//                 symbol: "DAO".to_string(),
-//                 decimals: 6,
-//                 initial_balances: vec![Cw20Coin {
-//                     address: CREATOR_ADDR.to_string(),
-//                     amount: Uint128::from(2u64),
-//                 }],
-//                 marketing: None,
-//                 unstaking_duration: None,
-//                 staking_code_id: staking_contract_id,
-//                 initial_dao_balance: Some(Uint128::zero()),
-//             },
-//             active_threshold: None,
-//         },
-//     );
+    app.instantiate_contract(
+        query_auth_info,
+        Addr::unchecked(CREATOR_ADDR),
+        &msg,
+        &[],
+        "query_auth",
+        None,
+    )
+    .unwrap()
+}
 
-//     let info: InfoResponse = app
-//         .wrap()
-//         .query_wasm_smart(voting_addr.clone(), &QueryMsg::Info {})
-//         .unwrap();
-//     assert_eq!(
-//         info,
-//         InfoResponse {
-//             info: ContractVersion {
-//                 contract: "crates.io:dao-voting-cw20-staked".to_string(),
-//                 version: env!("CARGO_PKG_VERSION").to_string()
-//             }
-//         }
-//     );
+fn stake_tokens(
+    app: &mut App,
+    staking_addr: Addr,
+    staking_code_hash: String,
+    snip20_contract_info: ContractInfo,
+    sender: &str,
+    amount: u128,
+) {
+    let msg = snip20_reference_impl::msg::ExecuteMsg::Send {
+        recipient: staking_addr.to_string(),
+        recipient_code_hash: Some(staking_code_hash),
+        amount: Uint128::new(amount),
+        msg: Some(to_binary(&snip20_stake::msg::ReceiveMsg::Stake {}).unwrap()),
+        memo: None,
+        decoys: None,
+        entropy: None,
+        padding: None,
+    };
+    app.execute_contract(Addr::unchecked(sender), &snip20_contract_info, &msg, &[])
+        .unwrap();
+}
 
-//     let dao: Addr = app
-//         .wrap()
-//         .query_wasm_smart(voting_addr, &QueryMsg::Dao {})
-//         .unwrap();
-//     assert_eq!(dao, Addr::unchecked(DAO_ADDR));
-// }
+#[test]
+#[should_panic(expected = "Initial governance token balances must not be empty")]
+fn test_instantiate_zero_supply() {
+    let mut app = App::default();
+    let snip20_instantiate_info = app.store_code(snip20_contract());
+    let voting_instantiate_info = app.store_code(staked_balance_voting_contract());
+    let staking_instantiate_info = app.store_code(staking_contract());
+    let query_auth = instantiate_query_auth(&mut app);
+
+    instantiate_voting(
+        &mut app,
+        voting_instantiate_info,
+        InstantiateMsg {
+            token_info: crate::msg::Snip20TokenInfo::New {
+                code_id: snip20_instantiate_info.code_id,
+                code_hash: snip20_instantiate_info.code_hash,
+                name: "DAO DAO".to_string(),
+                symbol: "DAO".to_string(),
+                decimals: 6,
+                initial_balances: vec![InitialBalance {
+                    address: CREATOR_ADDR.to_string(),
+                    amount: Uint128::zero(),
+                }],
+                unstaking_duration: None,
+                staking_code_id: staking_instantiate_info.code_id,
+                staking_code_hash: staking_instantiate_info.code_hash,
+                initial_dao_balance: Some(Uint128::zero()),
+                query_auth: RawContract {
+                    address: query_auth.address.to_string(),
+                    code_hash: query_auth.code_hash,
+                },
+            },
+            active_threshold: None,
+            dao_code_hash: "dao_code_hash".to_string(),
+        },
+    );
+}
+
+#[test]
+#[should_panic(expected = "Initial governance token balances must not be empty")]
+fn test_instantiate_no_balances() {
+    let mut app = App::default();
+    let snip20_instantiate_info = app.store_code(snip20_contract());
+    let voting_instantiate_info = app.store_code(staked_balance_voting_contract());
+    let staking_instantiate_info = app.store_code(staking_contract());
+    let query_auth = instantiate_query_auth(&mut app);
+
+    instantiate_voting(
+        &mut app,
+        voting_instantiate_info,
+        InstantiateMsg {
+            token_info: crate::msg::Snip20TokenInfo::New {
+                code_id: snip20_instantiate_info.code_id,
+                code_hash: snip20_instantiate_info.code_hash,
+                name: "DAO DAO".to_string(),
+                symbol: "DAO".to_string(),
+                decimals: 6,
+                initial_balances: vec![],
+                unstaking_duration: None,
+                staking_code_id: staking_instantiate_info.code_id,
+                staking_code_hash: staking_instantiate_info.code_hash,
+                initial_dao_balance: Some(Uint128::zero()),
+                query_auth: RawContract {
+                    address: query_auth.address.to_string(),
+                    code_hash: query_auth.code_hash,
+                },
+            },
+            active_threshold: None,
+            dao_code_hash: "dao_code_hash".to_string(),
+        },
+    );
+}
+
+#[test]
+#[should_panic(expected = "Active threshold count must be greater than zero")]
+fn test_instantiate_zero_active_threshold_count() {
+    let mut app = App::default();
+    let voting_instantiate_info = app.store_code(staked_balance_voting_contract());
+    let query_auth = instantiate_query_auth(&mut app);
+    let initial_balances = vec![Snip20InitialBalance {
+        address: CREATOR_ADDR.to_string(),
+        amount: Uint128::from(100u128),
+    }];
+    let snip20_info = instantiate_snip20(&mut app, initial_balances);
+    let staking_info = instantiate_staking(
+        &mut app,
+        snip20_info.clone().address,
+        snip20_info.clone().code_hash,
+        None,
+        shade_protocol::Contract {
+            address: query_auth.clone().address,
+            code_hash: query_auth.clone().code_hash,
+        },
+    );
+
+    instantiate_voting(
+        &mut app,
+        voting_instantiate_info,
+        InstantiateMsg {
+            token_info: crate::msg::Snip20TokenInfo::Existing {
+                address: snip20_info.clone().address.to_string(),
+                code_hash: snip20_info.clone().code_hash,
+                staking_contract: StakingInfo::Existing {
+                    staking_contract_address: staking_info.clone().address.to_string(),
+                    staking_contract_code_hash: staking_info.clone().code_hash,
+                },
+            },
+            active_threshold: Some(ActiveThreshold::AbsoluteCount {
+                count: Uint128::new(0),
+            }),
+            dao_code_hash: "dao_code_hash".to_string(),
+        },
+    );
+}
+
+#[test]
+fn test_contract_info() {
+    let mut app = App::default();
+    let voting_instantiate_info = app.store_code(staked_balance_voting_contract());
+    let query_auth = instantiate_query_auth(&mut app);
+    let initial_balances = vec![Snip20InitialBalance {
+        address: CREATOR_ADDR.to_string(),
+        amount: Uint128::from(100u128),
+    }];
+    let snip20_info = instantiate_snip20(&mut app, initial_balances);
+    let staking_info = instantiate_staking(
+        &mut app,
+        snip20_info.clone().address,
+        snip20_info.clone().code_hash,
+        None,
+        shade_protocol::Contract {
+            address: query_auth.clone().address,
+            code_hash: query_auth.clone().code_hash,
+        },
+    );
+
+    let voting_info = instantiate_voting(
+        &mut app,
+        voting_instantiate_info,
+        InstantiateMsg {
+            token_info: crate::msg::Snip20TokenInfo::Existing {
+                address: snip20_info.clone().address.to_string(),
+                code_hash: snip20_info.clone().code_hash,
+                staking_contract: StakingInfo::Existing {
+                    staking_contract_address: staking_info.clone().address.to_string(),
+                    staking_contract_code_hash: staking_info.clone().code_hash,
+                },
+            },
+            active_threshold: None,
+            dao_code_hash: "dao_code_hash".to_string(),
+        },
+    );
+
+    let info: InfoResponse = app
+        .wrap()
+        .query_wasm_smart(
+            voting_info.clone().code_hash,
+            voting_info.clone().address.to_string(),
+            &QueryMsg::Info {},
+        )
+        .unwrap();
+    assert_eq!(
+        info,
+        InfoResponse {
+            info: ContractVersion {
+                contract: "crates.io:dao-voting-snip20-staked".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string()
+            }
+        }
+    );
+
+    let dao: AnyContractInfo = app
+        .wrap()
+        .query_wasm_smart(
+            voting_info.clone().code_hash,
+            voting_info.clone().address.to_string(),
+            &QueryMsg::Dao {},
+        )
+        .unwrap();
+    assert_eq!(
+        dao,
+        AnyContractInfo {
+            addr: Addr::unchecked(DAO_ADDR),
+            code_hash: "dao_code_hash".to_string(),
+        }
+    );
+}
 
 // #[test]
 // fn test_new_cw20() {
 //     let mut app = App::default();
-//     let cw20_id = app.store_code(cw20_contract());
-//     let voting_id = app.store_code(staked_balance_voting_contract());
-//     let staking_contract_id = app.store_code(staking_contract());
-
-//     let voting_addr = instantiate_voting(
+//     let voting_instantiate_info = app.store_code(staked_balance_voting_contract());
+//     let query_auth = instantiate_query_auth(&mut app);
+//     let initial_balances = vec![Snip20InitialBalance {
+//         address: DAO_ADDR.to_string(),
+//         amount: Uint128::from(100u128),
+//     }];
+//     let snip20_info = instantiate_snip20(&mut app, initial_balances);
+//     let staking_contract_info = instantiate_staking(
 //         &mut app,
-//         voting_id,
-//         InstantiateMsg {
-//             token_info: crate::msg::TokenInfo::New {
-//                 code_id: cw20_id,
-//                 label: "DAO DAO voting".to_string(),
-//                 name: "DAO DAO".to_string(),
-//                 symbol: "DAO".to_string(),
-//                 decimals: 6,
-//                 initial_balances: vec![Cw20Coin {
-//                     address: CREATOR_ADDR.to_string(),
-//                     amount: Uint128::from(2u64),
-//                 }],
-//                 marketing: None,
-//                 unstaking_duration: None,
-//                 staking_code_id: staking_contract_id,
-//                 initial_dao_balance: Some(Uint128::from(10u64)),
-//             },
-//             active_threshold: None,
+//         snip20_info.clone().address,
+//         snip20_info.clone().code_hash,
+//         None,
+//         shade_protocol::Contract {
+//             address: query_auth.clone().address,
+//             code_hash: query_auth.clone().code_hash,
 //         },
 //     );
 
-//     let token_addr: Addr = app
+//     let voting_info = instantiate_voting(
+//         &mut app,
+//         voting_instantiate_info,
+//         InstantiateMsg {
+//             token_info: crate::msg::Snip20TokenInfo::Existing {
+//                 address: snip20_info.clone().address.to_string(),
+//                 code_hash: snip20_info.clone().code_hash,
+//                 staking_contract: StakingInfo::Existing {
+//                     staking_contract_address: staking_contract_info.clone().address.to_string(),
+//                     staking_contract_code_hash: staking_contract_info.clone().code_hash,
+//                 },
+//             },
+//             active_threshold: None,
+//             dao_code_hash: "dao_code_hash".to_string(),
+//         },
+//     );
+
+//     let snip20_token_info: AnyContractInfo = app
 //         .wrap()
-//         .query_wasm_smart(voting_addr.clone(), &QueryMsg::TokenContract {})
+//         .query_wasm_smart(voting_info.clone().code_hash,voting_info.clone().address.to_string(), &QueryMsg::TokenContract {})
 //         .unwrap();
-//     let staking_addr: Addr = app
+//     let staking_info: AnyContractInfo = app
 //         .wrap()
-//         .query_wasm_smart(voting_addr.clone(), &QueryMsg::StakingContract {})
+//         .query_wasm_smart(voting_info.clone().code_hash,voting_info.clone().address.to_string(), &QueryMsg::StakingContract {})
 //         .unwrap();
 
-//     let token_info: TokenInfoResponse = app
+//     let token_info: snip20_reference_impl::msg::QueryAnswer = app
 //         .wrap()
-//         .query_wasm_smart(token_addr.clone(), &cw20::Cw20QueryMsg::TokenInfo {})
+//         .query_wasm_smart(snip20_token_info.clone().code_hash,snip20_token_info.clone().addr.to_string(), &snip20_reference_impl::msg::QueryMsg::TokenInfo {})
+//         .unwrap();
+  
+
+//     let minter_info: snip20_reference_impl::msg::QueryAnswer = app
+//         .wrap()
+//         .query_wasm_smart(snip20_token_info.clone().code_hash,snip20_token_info.clone().addr.to_string(), &snip20_reference_impl::msg::QueryMsg::Minters {})
+//         .unwrap();
+
+//     // Expect DAO (sender address) to have initial balance.
+//     let token_info: BalanceResponse = app
+//         .wrap()
+//         .query_wasm_smart(
+//             token_addr.clone(),
+//             &cw20::Cw20QueryMsg::Balance {
+//                 address: DAO_ADDR.to_string(),
+//             },
+//         )
 //         .unwrap();
 //     assert_eq!(
 //         token_info,
-//         TokenInfoResponse {
-//             name: "DAO DAO".to_string(),
-//             symbol: "DAO".to_string(),
-//             decimals: 6,
-//             total_supply: Uint128::from(12u64)
+//         BalanceResponse {
+//             balance: Uint128::from(10u64)
 //         }
 //     );
 
-//     let minter_info: Option<MinterResponse> = app
+//     // Expect 0 as they have not staked
+//     let creator_voting_power: VotingPowerAtHeightResponse = app
 //         .wrap()
-//         .query_wasm_smart(token_addr.clone(), &cw20::Cw20QueryMsg::Minter {})
+//         .query_wasm_smart(
+//             voting_addr.clone(),
+//             &QueryMsg::VotingPowerAtHeight {
+//                 address: CREATOR_ADDR.to_string(),
+//                 height: None,
+//             },
+//         )
 //         .unwrap();
+
 //     assert_eq!(
-//         minter_info,
-//         Some(MinterResponse {
-//             minter: DAO_ADDR.to_string(),
-//             cap: None,
-//         })
+//         creator_voting_power,
+//         VotingPowerAtHeightResponse {
+//             power: Uint128::zero(),
+//             height: app.block_info().height,
+//         }
 //     );
+
+//     // Expect 0 as DAO has not staked
+//     let dao_voting_power: VotingPowerAtHeightResponse = app
+//         .wrap()
+//         .query_wasm_smart(
+//             voting_addr.clone(),
+//             &QueryMsg::VotingPowerAtHeight {
+//                 address: DAO_ADDR.to_string(),
+//                 height: None,
+//             },
+//         )
+//         .unwrap();
+
+//     assert_eq!(
+//         dao_voting_power,
+//         VotingPowerAtHeightResponse {
+//             power: Uint128::zero(),
+//             height: app.block_info().height,
+//         }
+//     );
+
+//     // Stake 1 token as creator
+//     stake_tokens(&mut app, staking_addr, token_addr, CREATOR_ADDR, 1);
+//     app.update_block(next_block);
+
+//     // Expect 1 as creator has now staked 1
+//     let creator_voting_power: VotingPowerAtHeightResponse = app
+//         .wrap()
+//         .query_wasm_smart(
+//             voting_addr.clone(),
+//             &QueryMsg::VotingPowerAtHeight {
+//                 address: CREATOR_ADDR.to_string(),
+//                 height: None,
+//             },
+//         )
+//         .unwrap();
+
+//     assert_eq!(
+//         creator_voting_power,
+//         VotingPowerAtHeightResponse {
+//             power: Uint128::new(1u128),
+//             height: app.block_info().height,
+//         }
+//     );
+
+//     // Expect 1 as only one token staked to make up whole voting power
+//     let total_voting_power: VotingPowerAtHeightResponse = app
+//         .wrap()
+//         .query_wasm_smart(voting_addr, &QueryMsg::TotalPowerAtHeight { height: None })
+//         .unwrap();
+
+//     assert_eq!(
+//         total_voting_power,
+//         VotingPowerAtHeightResponse {
+//             power: Uint128::new(1u128),
+//             height: app.block_info().height,
+//         }
+//     )
+// }
+// #[test]
+// fn test_new_cw20() {
+//     let mut app = App::default();
+//     let voting_instantiate_info = app.store_code(staked_balance_voting_contract());
+//     let query_auth = instantiate_query_auth(&mut app);
+//     let initial_balances = vec![Snip20InitialBalance {
+//         address: DAO_ADDR.to_string(),
+//         amount: Uint128::from(100u128),
+//     }];
+//     let snip20_info = instantiate_snip20(&mut app, initial_balances);
+//     let staking_contract_info = instantiate_staking(
+//         &mut app,
+//         snip20_info.clone().address,
+//         snip20_info.clone().code_hash,
+//         None,
+//         shade_protocol::Contract {
+//             address: query_auth.clone().address,
+//             code_hash: query_auth.clone().code_hash,
+//         },
+//     );
+
+//     let voting_info = instantiate_voting(
+//         &mut app,
+//         voting_instantiate_info,
+//         InstantiateMsg {
+//             token_info: crate::msg::Snip20TokenInfo::Existing {
+//                 address: snip20_info.clone().address.to_string(),
+//                 code_hash: snip20_info.clone().code_hash,
+//                 staking_contract: StakingInfo::Existing {
+//                     staking_contract_address: staking_contract_info.clone().address.to_string(),
+//                     staking_contract_code_hash: staking_contract_info.clone().code_hash,
+//                 },
+//             },
+//             active_threshold: None,
+//             dao_code_hash: "dao_code_hash".to_string(),
+//         },
+//     );
+
+//     let snip20_token_info: AnyContractInfo = app
+//         .wrap()
+//         .query_wasm_smart(voting_info.clone().code_hash,voting_info.clone().address.to_string(), &QueryMsg::TokenContract {})
+//         .unwrap();
+//     let staking_info: AnyContractInfo = app
+//         .wrap()
+//         .query_wasm_smart(voting_info.clone().code_hash,voting_info.clone().address.to_string(), &QueryMsg::StakingContract {})
+//         .unwrap();
+
+//     let token_info: snip20_reference_impl::msg::QueryAnswer = app
+//         .wrap()
+//         .query_wasm_smart(snip20_token_info.clone().code_hash,snip20_token_info.clone().addr.to_string(), &snip20_reference_impl::msg::QueryMsg::TokenInfo {})
+//         .unwrap();
+  
+
+//     let minter_info: snip20_reference_impl::msg::QueryAnswer = app
+//         .wrap()
+//         .query_wasm_smart(snip20_token_info.clone().code_hash,snip20_token_info.clone().addr.to_string(), &snip20_reference_impl::msg::QueryMsg::Minters {})
+//         .unwrap();
 
 //     // Expect DAO (sender address) to have initial balance.
 //     let token_info: BalanceResponse = app
@@ -1375,7 +1670,7 @@
 //         CosmosMsg::Wasm(WasmMsg::Migrate {
 //             contract_addr: voting_addr.to_string(),
 //             new_code_id: voting_id,
-//             msg: to_json_binary(&MigrateMsg {}).unwrap(),
+//             msg: to_binary(&MigrateMsg {}).unwrap(),
 //         }),
 //     )
 //     .unwrap();

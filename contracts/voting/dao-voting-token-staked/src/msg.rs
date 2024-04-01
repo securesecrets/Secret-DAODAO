@@ -49,7 +49,10 @@ pub enum ExecuteMsg {
     /// Unstakes tokens so that they begin unbonding
     Unstake { amount: Uint128 },
     /// Updates the contract configuration
-    UpdateConfig { duration: Option<Duration> },
+    UpdateConfig {
+        duration: Option<Duration>,
+        query_auth: RawContract,
+    },
     /// Claims unstaked tokens that have completed the unbonding period
     Claim {},
     /// Sets the active threshold to a new value. Only the

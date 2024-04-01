@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::CustomMsg;
-use shade_protocol::basic_staking::Auth;
+use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
 
 #[cw_serde]
 pub struct MetadataExt {
@@ -29,6 +29,9 @@ pub enum ExecuteExt {
         token_id: String,
         role: Option<String>,
     },
+    UpdateQueryAuth {
+        query_auth : RawContract
+    }
 }
 impl CustomMsg for ExecuteExt {}
 

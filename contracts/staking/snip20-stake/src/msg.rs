@@ -38,11 +38,22 @@ pub struct Snip20ReceiveMsg {
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     Receive(Snip20ReceiveMsg),
-    Unstake { amount: Uint128 },
+    Unstake {
+        amount: Uint128,
+    },
     Claim {},
-    UpdateConfig { duration: Option<Duration> },
-    AddHook { addr: String, code_hash: String },
-    RemoveHook { addr: String, code_hash: String },
+    UpdateConfig {
+        duration: Option<Duration>,
+        query_auth: RawContract,
+    },
+    AddHook {
+        addr: String,
+        code_hash: String,
+    },
+    RemoveHook {
+        addr: String,
+        code_hash: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
@@ -87,7 +98,10 @@ pub enum QueryMsg {
     #[returns(GetHooksResponse)]
     GetHooks {},
     #[returns(ListStakersResponse)]
-    ListStakers {},
+    ListStakers {
+        start_after: Option<String>,
+        limit: Option<u32>,
+    },
     #[returns(::cw_ownable::Ownership::<::cosmwasm_std::Addr>)]
     Ownership {},
 }

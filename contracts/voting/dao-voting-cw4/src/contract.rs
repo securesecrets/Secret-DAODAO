@@ -42,21 +42,24 @@ pub fn instantiate(
         GroupContract::New {
             cw4_group_code_id,
             cw4_group_code_hash,
+            query_auth,
             initial_members,
         } => {
+            println!("here");
             if initial_members.is_empty() {
                 return Err(ContractError::NoMembers {});
             }
+            println!("here");
             let original_len = initial_members.len();
             let mut initial_members = initial_members;
             initial_members.sort_by(|a, b| a.addr.cmp(&b.addr));
             initial_members.dedup();
             let new_len = initial_members.len();
-
+            println!("here");
             if original_len != new_len {
                 return Err(ContractError::DuplicateMembers {});
             }
-
+            println!("here");
             let mut total_weight = Uint128::zero();
             for member in initial_members.iter() {
                 deps.api.addr_validate(&member.addr)?;
@@ -67,10 +70,12 @@ pub fn instantiate(
                     total_weight += weight;
                 }
             }
+            println!("here");
 
             if total_weight.is_zero() {
                 return Err(ContractError::ZeroTotalWeight {});
             }
+            println!("here");
 
             // Instantiate group contract, set DAO as admin.
             // Voting module contracts are instantiated by the main dao-dao-core
@@ -78,6 +83,7 @@ pub fn instantiate(
             let msg = cw4_group_msg::Cw4GroupInstantiateMsg {
                 admin: Some(info.sender.to_string()),
                 members: initial_members,
+                query_auth,
             };
             let sub_msg = SubMsg::reply_always(
                 msg.to_cosmos_msg(
@@ -89,6 +95,7 @@ pub fn instantiate(
                 )?,
                 INSTANTIATE_GROUP_REPLY_ID,
             );
+            println!("here");
 
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
@@ -206,6 +213,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
     match msg.id {
         INSTANTIATE_GROUP_REPLY_ID => match msg.result {
             SubMsgResult::Ok(res) => {
+                println!("reply");
                 let group_contract = GROUP_CONTRACT.may_load(deps.storage)?;
                 if group_contract.is_some() {
                     return Err(ContractError::DuplicateGroupContract {});

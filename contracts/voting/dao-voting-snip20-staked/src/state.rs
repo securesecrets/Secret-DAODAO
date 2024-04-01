@@ -4,6 +4,7 @@ use schemars::JsonSchema;
 use secret_storage_plus::Item;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
+use shade_protocol::utils::asset::RawContract;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct StakingContractInfo {
@@ -25,3 +26,4 @@ pub const STAKING_CONTRACT_UNSTAKING_DURATION: Item<Option<Duration>> =
     Item::new("staking_contract_unstaking_duration");
 pub const STAKING_CONTRACT_CODE_ID: Item<u64> = Item::new("staking_contract_code_id");
 pub const STAKING_CONTRACT_CODE_HASH: Item<String> = Item::new("staking_contract_code_hash");
+pub const QUERY_AUTH: Item<RawContract> = Item::new("qa");

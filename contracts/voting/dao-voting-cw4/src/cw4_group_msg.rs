@@ -3,7 +3,7 @@ use cw4::Member;
 use schemars::JsonSchema;
 use secret_toolkit::utils::{HandleCallback, InitCallback};
 use serde::{Deserialize, Serialize};
-use shade_protocol::basic_staking::Auth;
+use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
 
 #[cw_serde]
 pub struct Cw4GroupInstantiateMsg {
@@ -11,6 +11,7 @@ pub struct Cw4GroupInstantiateMsg {
     /// Omit it to make the group immutable.
     pub admin: Option<String>,
     pub members: Vec<Member>,
+    pub query_auth: RawContract,
 }
 
 #[cw_serde]

@@ -3,6 +3,7 @@ use cosmwasm_std::{
     to_binary, Addr, CosmosMsg, CustomQuery, QuerierWrapper, QueryRequest, StdResult, WasmMsg,
     WasmQuery,
 };
+use shade_protocol::basic_staking::Auth;
 
 use crate::msg::Cw4ExecuteMsg;
 use crate::query::HooksResponse;
@@ -99,19 +100,21 @@ impl Cw4Contract {
     pub fn is_member(
         &self,
         querier: &QuerierWrapper,
-        member: &Addr,
+        auth: Auth,
         height: Option<u64>,
         code_hash: String,
     ) -> StdResult<Option<u64>> {
+        let mut member = String::new();
+        if let Auth::ViewingKey { address, .. } = auth.clone() {
+            member = address;
+        };
         match height {
-            Some(height) => {
-                self.member_at_height(querier, member.to_string(), height.into(), code_hash)
-            }
+            Some(height) => self.member_at_height(querier, auth, height.into(), code_hash),
             None => Map::<&Addr, u64, Json>::new(MEMBERS_KEY).query(
                 querier,
                 self.addr(),
                 code_hash,
-                member,
+                &Addr::unchecked(member),
             ),
         }
     }
@@ -121,13 +124,11 @@ impl Cw4Contract {
     pub fn is_voting_member(
         &self,
         querier: &QuerierWrapper,
-        member: &Addr,
+        auth: Auth,
         height: impl Into<Option<u64>>,
         code_hash: String,
     ) -> StdResult<Option<u64>> {
-        if let Some(weight) =
-            self.member_at_height(querier, member.to_string(), height.into(), code_hash)?
-        {
+        if let Some(weight) = self.member_at_height(querier, auth, height.into(), code_hash)? {
             if weight >= 1 {
                 return Ok(Some(weight));
             }
@@ -139,17 +140,11 @@ impl Cw4Contract {
     pub fn member_at_height(
         &self,
         querier: &QuerierWrapper,
-        member: impl Into<String>,
+        auth: Auth,
         at_height: Option<u64>,
         code_hash: String,
     ) -> StdResult<Option<u64>> {
-        let query = self.encode_smart_query(
-            Cw4QueryMsg::Member {
-                addr: member.into(),
-                at_height,
-            },
-            code_hash,
-        )?;
+        let query = self.encode_smart_query(Cw4QueryMsg::Member { auth, at_height }, code_hash)?;
         let res: MemberResponse = querier.query(&query)?;
         Ok(res.weight)
     }

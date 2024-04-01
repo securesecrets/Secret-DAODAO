@@ -1,7 +1,7 @@
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, Snip20TokenInfo, StakingInfo};
 use crate::state::{
-    StakingContractInfo, TokenContractInfo, ACTIVE_THRESHOLD, DAO, STAKING_CONTRACT,
+    StakingContractInfo, TokenContractInfo, ACTIVE_THRESHOLD, DAO, QUERY_AUTH, STAKING_CONTRACT,
     STAKING_CONTRACT_CODE_ID, STAKING_CONTRACT_UNSTAKING_DURATION, TOKEN_CONTRACT,
 };
 use crate::{snip20_msg, snip20_stake_msg};
@@ -37,7 +37,7 @@ const PRECISION_FACTOR: u128 = 10u128.pow(9);
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
@@ -114,12 +114,14 @@ pub fn instantiate(
                     staking_code_hash,
                     label,
                     unstaking_duration,
+                    query_auth,
                 } => {
                     let init_msg = snip20_stake_msg::InstantiateMsg {
                         owner: Some(info.sender.to_string()),
                         unstaking_duration,
                         token_address: address.to_string(),
                         token_code_hash: Some(code_hash),
+                        query_auth,
                     };
                     let staking_contract = StakingContractInfo {
                         addr: String::new(),
@@ -148,7 +150,6 @@ pub fn instantiate(
         Snip20TokenInfo::New {
             code_id,
             code_hash,
-            label,
             name,
             symbol,
             decimals,
@@ -157,6 +158,7 @@ pub fn instantiate(
             staking_code_id,
             staking_code_hash,
             unstaking_duration,
+            query_auth,
         } => {
             let initial_supply = initial_balances
                 .iter()
@@ -190,6 +192,7 @@ pub fn instantiate(
             STAKING_CONTRACT_UNSTAKING_DURATION.save(deps.storage, &unstaking_duration)?;
             STAKING_CONTRACT.save(deps.storage, &staking_contract)?;
             TOKEN_CONTRACT.save(deps.storage, &token_contract)?;
+            QUERY_AUTH.save(deps.storage, &query_auth)?;
 
             let init_msg = snip20_msg::InstantiateMsg {
                 name,
@@ -204,7 +207,7 @@ pub fn instantiate(
             let msg = SubMsg::reply_on_success(
                 init_msg.to_cosmos_msg(
                     Some(info.sender.to_string()),
-                    label,
+                    env.contract.address.to_string(),
                     code_id,
                     code_hash,
                     None,
@@ -237,7 +240,7 @@ pub fn assert_valid_absolute_count_threshold(
     )?;
     let mut token_total_supply = Uint128::zero();
     if let QueryAnswer::TokenInfo { total_supply, .. } = token_info {
-        token_total_supply = total_supply.unwrap();
+        token_total_supply = total_supply.unwrap_or_default();
     }
 
     if count > token_total_supply {
@@ -481,11 +484,13 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                 let staking_contract = STAKING_CONTRACT.load(deps.storage)?;
                 let unstaking_duration = STAKING_CONTRACT_UNSTAKING_DURATION.load(deps.storage)?;
                 let dao_info = DAO.load(deps.storage)?;
+                let query_auth = QUERY_AUTH.load(deps.storage)?;
                 let init_msg = snip20_stake_msg::InstantiateMsg {
                     owner: Some(dao_info.addr.clone().to_string()),
                     unstaking_duration,
                     token_address: token_address.clone(),
                     token_code_hash: Some(token_contract.code_hash.clone()),
+                    query_auth,
                 };
                 let msg = SubMsg::reply_on_success(
                     init_msg.to_cosmos_msg(
@@ -499,7 +504,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                 );
                 TOKEN_CONTRACT.save(deps.storage, &token_contract)?;
                 Ok(Response::default()
-                    .add_attribute("token_address", token_address)
+                    .add_attribute("token_address", "token_address")
                     .add_submessage(msg))
             }
             SubMsgResult::Err(_) => Err(ContractError::TokenInstantiateError {}),

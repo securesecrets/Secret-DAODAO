@@ -57,8 +57,7 @@ pub fn instantiate(
         staking_contract: deps.api.addr_validate(&msg.staking_contract)?,
         reward_token,
         staking_contract_code_hash: msg.staking_contract_code_hash.clone(),
-        reward_token_code_hash: msg.reward_token_code_hash.unwrap(),
-        query_auth: msg.query_auth.into_valid(deps.api)?,
+        reward_token_code_hash: msg.reward_token_code_hash.unwrap_or_default(),
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -534,1582 +533,1306 @@ pub fn query_pending_rewards(
     })
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use std::borrow::BorrowMut;
-
-//     use crate::{msg::MigrateMsg, ContractError};
-
-//     use cosmwasm_std::{coin, to_binary, Addr, Empty, Uint128, WasmMsg};
-//     use cw20::{Cw20Coin, Cw20ExecuteMsg, Denom};
-//     use cw_ownable::{Action, Ownership, OwnershipError};
-//     use cw_utils::Duration;
-
-//     use cw_multi_test::{next_block, App, BankSudo, Contract, ContractWrapper, Executor, SudoMsg};
-
-//     use cw20_stake_external_rewards_v1 as v1;
-
-//     use crate::msg::{ExecuteMsg, InfoResponse, PendingRewardsResponse, QueryMsg, ReceiveMsg};
-
-//     const OWNER: &str = "owner";
-//     const ADDR1: &str = "addr0001";
-//     const ADDR2: &str = "addr0002";
-//     const ADDR3: &str = "addr0003";
-
-//     pub fn contract_rewards() -> Box<dyn Contract<Empty>> {
-//         let contract = ContractWrapper::new(
-//             crate::contract::execute,
-//             crate::contract::instantiate,
-//             crate::contract::query,
-//         )
-//         .with_migrate(crate::contract::migrate);
-//         Box::new(contract)
-//     }
-
-//     pub fn contract_rewards_v1() -> Box<dyn Contract<Empty>> {
-//         let contract = ContractWrapper::new(
-//             v1::contract::execute,
-//             v1::contract::instantiate,
-//             v1::contract::query,
-//         );
-//         Box::new(contract)
-//     }
-
-//     pub fn contract_staking() -> Box<dyn Contract<Empty>> {
-//         let contract = ContractWrapper::new(
-//             cw20_stake::contract::execute,
-//             cw20_stake::contract::instantiate,
-//             cw20_stake::contract::query,
-//         );
-//         Box::new(contract)
-//     }
-
-//     pub fn contract_cw20() -> Box<dyn Contract<Empty>> {
-//         let contract = ContractWrapper::new(
-//             cw20_base::contract::execute,
-//             cw20_base::contract::instantiate,
-//             cw20_base::contract::query,
-//         );
-//         Box::new(contract)
-//     }
-
-//     fn mock_app() -> App {
-//         App::default()
-//     }
-
-//     fn instantiate_cw20(app: &mut App, initial_balances: Vec<Cw20Coin>) -> Addr {
-//         let cw20_id = app.store_code(contract_cw20());
-//         let msg = cw20_base::msg::InstantiateMsg {
-//             name: String::from("Test"),
-//             symbol: String::from("TEST"),
-//             decimals: 6,
-//             initial_balances,
-//             mint: None,
-//             marketing: None,
-//         };
-
-//         app.instantiate_contract(cw20_id, Addr::unchecked(ADDR1), &msg, &[], "cw20", None)
-//             .unwrap()
-//     }
-
-//     fn instantiate_staking(
-//         app: &mut App,
-//         cw20: Addr,
-//         unstaking_duration: Option<Duration>,
-//     ) -> Addr {
-//         let staking_code_id = app.store_code(contract_staking());
-//         let msg = cw20_stake::msg::InstantiateMsg {
-//             owner: Some(OWNER.to_string()),
-//             token_address: cw20.to_string(),
-//             unstaking_duration,
-//         };
-//         app.instantiate_contract(
-//             staking_code_id,
-//             Addr::unchecked(ADDR1),
-//             &msg,
-//             &[],
-//             "staking",
-//             None,
-//         )
-//         .unwrap()
-//     }
-
-//     fn stake_tokens<T: Into<String>>(
-//         app: &mut App,
-//         staking_addr: &Addr,
-//         cw20_addr: &Addr,
-//         sender: T,
-//         amount: u128,
-//     ) {
-//         let msg = cw20::Cw20ExecuteMsg::Send {
-//             contract: staking_addr.to_string(),
-//             amount: Uint128::new(amount),
-//             msg: to_binary(&cw20_stake::msg::ReceiveMsg::Stake {}).unwrap(),
-//         };
-//         app.execute_contract(Addr::unchecked(sender), cw20_addr.clone(), &msg, &[])
-//             .unwrap();
-//     }
-
-//     fn unstake_tokens(app: &mut App, staking_addr: &Addr, address: &str, amount: u128) {
-//         let msg = cw20_stake::msg::ExecuteMsg::Unstake {
-//             amount: Uint128::new(amount),
-//         };
-//         app.execute_contract(Addr::unchecked(address), staking_addr.clone(), &msg, &[])
-//             .unwrap();
-//     }
-
-//     fn setup_staking_contract(app: &mut App, initial_balances: Vec<Cw20Coin>) -> (Addr, Addr) {
-//         // Instantiate cw20 contract
-//         let cw20_addr = instantiate_cw20(app, initial_balances.clone());
-//         app.update_block(next_block);
-//         // Instantiate staking contract
-//         let staking_addr = instantiate_staking(app, cw20_addr.clone(), None);
-//         app.update_block(next_block);
-//         for coin in initial_balances {
-//             stake_tokens(
-//                 app,
-//                 &staking_addr,
-//                 &cw20_addr,
-//                 coin.address,
-//                 coin.amount.u128(),
-//             );
-//         }
-//         (staking_addr, cw20_addr)
-//     }
-
-//     fn setup_reward_contract(
-//         app: &mut App,
-//         staking_contract: Addr,
-//         reward_token: Denom,
-//         owner: Addr,
-//     ) -> Addr {
-//         let reward_code_id = app.store_code(contract_rewards());
-//         let msg = crate::msg::InstantiateMsg {
-//             owner: Some(owner.clone().into_string()),
-//             staking_contract: staking_contract.clone().into_string(),
-//             reward_token,
-//             reward_duration: 100000,
-//         };
-//         let reward_addr = app
-//             .instantiate_contract(reward_code_id, owner, &msg, &[], "reward", None)
-//             .unwrap();
-//         let msg = cw20_stake::msg::ExecuteMsg::AddHook {
-//             addr: reward_addr.to_string(),
-//         };
-//         let _result = app
-//             .execute_contract(Addr::unchecked(OWNER), staking_contract, &msg, &[])
-//             .unwrap();
-//         reward_addr
-//     }
-
-//     fn get_balance_cw20<T: Into<String>, U: Into<String>>(
-//         app: &App,
-//         contract_addr: T,
-//         address: U,
-//     ) -> Uint128 {
-//         let msg = cw20::Cw20QueryMsg::Balance {
-//             address: address.into(),
-//         };
-//         let result: cw20::BalanceResponse =
-//             app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
-//         result.balance
-//     }
-
-//     fn get_balance_native<T: Into<String>, U: Into<String>>(
-//         app: &App,
-//         address: T,
-//         denom: U,
-//     ) -> Uint128 {
-//         app.wrap().query_balance(address, denom).unwrap().amount
-//     }
-
-//     fn get_ownership<T: Into<String>>(app: &App, address: T) -> Ownership<Addr> {
-//         app.wrap()
-//             .query_wasm_smart(address, &QueryMsg::Ownership {})
-//             .unwrap()
-//     }
-
-//     fn assert_pending_rewards(app: &mut App, reward_addr: &Addr, address: &str, expected: u128) {
-//         let res: PendingRewardsResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(
-//                 reward_addr,
-//                 &QueryMsg::GetPendingRewards {
-//                     address: address.to_string(),
-//                 },
-//             )
-//             .unwrap();
-//         assert_eq!(res.pending_rewards, Uint128::new(expected));
-//     }
-
-//     fn claim_rewards(app: &mut App, reward_addr: Addr, address: &str) {
-//         let msg = ExecuteMsg::Claim {};
-//         app.borrow_mut()
-//             .execute_contract(Addr::unchecked(address), reward_addr, &msg, &[])
-//             .unwrap();
-//     }
-
-//     fn fund_rewards_cw20(
-//         app: &mut App,
-//         admin: &Addr,
-//         reward_token: Addr,
-//         reward_addr: &Addr,
-//         amount: u128,
-//     ) {
-//         let fund_sub_msg = to_binary(&ReceiveMsg::Fund {}).unwrap();
-//         let fund_msg = Cw20ExecuteMsg::Send {
-//             contract: reward_addr.clone().into_string(),
-//             amount: Uint128::new(amount),
-//             msg: fund_sub_msg,
-//         };
-//         let _res = app
-//             .borrow_mut()
-//             .execute_contract(admin.clone(), reward_token, &fund_msg, &[])
-//             .unwrap();
-//     }
-
-//     #[test]
-//     fn test_zero_rewards_duration() {
-//         let mut app = mock_app();
-//         let admin = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let denom = "utest".to_string();
-//         let (staking_addr, _) = setup_staking_contract(&mut app, vec![]);
-//         let reward_funding = vec![coin(100000000, denom.clone())];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding,
-//             }
-//         }))
-//         .unwrap();
-
-//         let reward_token = Denom::Native(denom);
-//         let owner = admin;
-//         let reward_code_id = app.store_code(contract_rewards());
-//         let msg = crate::msg::InstantiateMsg {
-//             owner: Some(owner.clone().into_string()),
-//             staking_contract: staking_addr.to_string(),
-//             reward_token,
-//             reward_duration: 0,
-//         };
-//         let err: ContractError = app
-//             .instantiate_contract(reward_code_id, owner, &msg, &[], "reward", None)
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::ZeroRewardDuration {})
-//     }
-
-//     #[test]
-//     fn test_native_rewards() {
-//         let mut app = mock_app();
-//         let admin = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let denom = "utest".to_string();
-//         let (staking_addr, cw20_addr) = setup_staking_contract(&mut app, initial_balances);
-//         let reward_funding = vec![coin(100000000, denom.clone())];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-//         let reward_addr = setup_reward_contract(
-//             &mut app,
-//             staking_addr.clone(),
-//             Denom::Native(denom.clone()),
-//             admin.clone(),
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 1000);
-
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         let _res = app
-//             .borrow_mut()
-//             .execute_contract(
-//                 admin.clone(),
-//                 reward_addr.clone(),
-//                 &fund_msg,
-//                 &reward_funding,
-//             )
-//             .unwrap();
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(1000));
-//         assert_eq!(res.reward.period_finish, 101000);
-//         assert_eq!(res.reward.reward_duration, 100000);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 250);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 250);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 1000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 500);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 1500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 750);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 750);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 2000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 1000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 1000);
-
-//         assert_eq!(get_balance_native(&app, ADDR1, &denom), Uint128::zero());
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR1);
-//         assert_eq!(get_balance_native(&app, ADDR1, &denom), Uint128::new(2000));
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 0);
-
-//         app.borrow_mut().update_block(|b| b.height += 10);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 5000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 3500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 3500);
-
-//         unstake_tokens(&mut app, &staking_addr, ADDR2, 50);
-//         unstake_tokens(&mut app, &staking_addr, ADDR3, 50);
-
-//         app.borrow_mut().update_block(|b| b.height += 10);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 15000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 3500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 3500);
-
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR1);
-//         assert_eq!(get_balance_native(&app, ADDR1, &denom), Uint128::new(17000));
-
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR2);
-//         assert_eq!(get_balance_native(&app, ADDR2, &denom), Uint128::new(3500));
-
-//         stake_tokens(&mut app, &staking_addr, &cw20_addr, ADDR2, 50);
-//         stake_tokens(&mut app, &staking_addr, &cw20_addr, ADDR3, 50);
-
-//         app.borrow_mut().update_block(|b| b.height += 10);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 5000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 2500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 6000);
-
-//         // Current height is 1034. ADDR1 is receiving 500 tokens/block
-//         // and ADDR2 / ADDR3 are receiving 250.
-//         //
-//         // At height 101000 99966 additional blocks have passed. So we
-//         // expect:
-//         //
-//         // ADDR1: 5000 + 99966 * 500 = 49,998,000
-//         // ADDR2: 2500 + 99966 * 250 = 24,994,000
-//         // ADDR3: 6000 + 99966 * 250 = 24,997,500
-//         app.borrow_mut().update_block(|b| b.height = 101000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 49988000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 24994000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 24997500);
-
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR1);
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR2);
-//         assert_eq!(
-//             get_balance_native(&app, ADDR1, &denom),
-//             Uint128::new(50005000)
-//         );
-//         assert_eq!(
-//             get_balance_native(&app, ADDR2, &denom),
-//             Uint128::new(24997500)
-//         );
-//         assert_eq!(get_balance_native(&app, ADDR3, &denom), Uint128::new(0));
-//         assert_eq!(
-//             get_balance_native(&app, &reward_addr, &denom),
-//             Uint128::new(24997500)
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 200000);
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         // Add more rewards
-//         let reward_funding = vec![coin(200000000, denom.clone())];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-
-//         let _res = app
-//             .borrow_mut()
-//             .execute_contract(
-//                 admin.clone(),
-//                 reward_addr.clone(),
-//                 &fund_msg,
-//                 &reward_funding,
-//             )
-//             .unwrap();
-
-//         app.borrow_mut().update_block(|b| b.height = 300000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 100000000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 50000000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 74997500);
-
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR1);
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR2);
-//         assert_eq!(
-//             get_balance_native(&app, ADDR1, &denom),
-//             Uint128::new(150005000)
-//         );
-//         assert_eq!(
-//             get_balance_native(&app, ADDR2, &denom),
-//             Uint128::new(74997500)
-//         );
-//         assert_eq!(get_balance_native(&app, ADDR3, &denom), Uint128::zero());
-//         assert_eq!(
-//             get_balance_native(&app, &reward_addr, &denom),
-//             Uint128::new(74997500)
-//         );
-
-//         // Add more rewards
-//         let reward_funding = vec![coin(200000000, denom.clone())];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-
-//         let _res = app
-//             .borrow_mut()
-//             .execute_contract(admin, reward_addr.clone(), &fund_msg, &reward_funding)
-//             .unwrap();
-
-//         app.borrow_mut().update_block(|b| b.height = 400000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 100000000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 50000000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 124997500);
-
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR1);
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR2);
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR3);
-//         assert_eq!(
-//             get_balance_native(&app, ADDR1, &denom),
-//             Uint128::new(250005000)
-//         );
-//         assert_eq!(
-//             get_balance_native(&app, ADDR2, &denom),
-//             Uint128::new(124997500)
-//         );
-//         assert_eq!(
-//             get_balance_native(&app, ADDR3, &denom),
-//             Uint128::new(124997500)
-//         );
-//         assert_eq!(
-//             get_balance_native(&app, &reward_addr, &denom),
-//             Uint128::zero()
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 500000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 0);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 0);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 0);
-
-//         app.borrow_mut().update_block(|b| b.height = 1000000);
-//         unstake_tokens(&mut app, &staking_addr, ADDR3, 1);
-//         stake_tokens(&mut app, &staking_addr, &cw20_addr, ADDR3, 1);
-//     }
-
-//     #[test]
-//     fn test_cw20_rewards() {
-//         let mut app = mock_app();
-//         let admin = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let denom = "utest".to_string();
-//         let (staking_addr, cw20_addr) = setup_staking_contract(&mut app, initial_balances);
-//         let reward_token = instantiate_cw20(
-//             &mut app,
-//             vec![Cw20Coin {
-//                 address: OWNER.to_string(),
-//                 amount: Uint128::new(500000000),
-//             }],
-//         );
-//         let reward_addr = setup_reward_contract(
-//             &mut app,
-//             staking_addr.clone(),
-//             Denom::Snip20(reward_token.clone()),
-//             admin.clone(),
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 1000);
-
-//         fund_rewards_cw20(
-//             &mut app,
-//             &admin,
-//             reward_token.clone(),
-//             &reward_addr,
-//             100000000,
-//         );
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(1000));
-//         assert_eq!(res.reward.period_finish, 101000);
-//         assert_eq!(res.reward.reward_duration, 100000);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 250);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 250);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 1000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 500);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 1500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 750);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 750);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 2000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 1000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 1000);
-
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR1),
-//             Uint128::zero()
-//         );
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR1);
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR1),
-//             Uint128::new(2000)
-//         );
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 0);
-
-//         app.borrow_mut().update_block(|b| b.height += 10);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 5000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 3500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 3500);
-
-//         unstake_tokens(&mut app, &staking_addr, ADDR2, 50);
-//         unstake_tokens(&mut app, &staking_addr, ADDR3, 50);
-
-//         app.borrow_mut().update_block(|b| b.height += 10);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 15000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 3500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 3500);
-
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR1);
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR1),
-//             Uint128::new(17000)
-//         );
-
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR2);
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR2),
-//             Uint128::new(3500)
-//         );
-
-//         stake_tokens(&mut app, &staking_addr, &cw20_addr, ADDR2, 50);
-//         stake_tokens(&mut app, &staking_addr, &cw20_addr, ADDR3, 50);
-
-//         app.borrow_mut().update_block(|b| b.height += 10);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 5000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 2500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 6000);
-
-//         app.borrow_mut().update_block(|b| b.height = 101000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 49988000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 24994000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 24997500);
-
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR1);
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR2);
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR1),
-//             Uint128::new(50005000)
-//         );
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR2),
-//             Uint128::new(24997500)
-//         );
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR3),
-//             Uint128::new(0)
-//         );
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, &reward_addr),
-//             Uint128::new(24997500)
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 200000);
-
-//         let reward_funding = vec![coin(200000000, denom)];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding,
-//             }
-//         }))
-//         .unwrap();
-
-//         fund_rewards_cw20(
-//             &mut app,
-//             &admin,
-//             reward_token.clone(),
-//             &reward_addr,
-//             200000000,
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 300000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 100000000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 50000000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 74997500);
-
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR1);
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR2);
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR1),
-//             Uint128::new(150005000)
-//         );
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR2),
-//             Uint128::new(74997500)
-//         );
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR3),
-//             Uint128::zero()
-//         );
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, &reward_addr),
-//             Uint128::new(74997500)
-//         );
-
-//         // Add more rewards
-//         fund_rewards_cw20(
-//             &mut app,
-//             &admin,
-//             reward_token.clone(),
-//             &reward_addr,
-//             200000000,
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 400000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 100000000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 50000000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 124997500);
-
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR1);
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR2);
-//         claim_rewards(&mut app, reward_addr.clone(), ADDR3);
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR1),
-//             Uint128::new(250005000)
-//         );
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR2),
-//             Uint128::new(124997500)
-//         );
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, ADDR3),
-//             Uint128::new(124997500)
-//         );
-//         assert_eq!(
-//             get_balance_cw20(&app, &reward_token, &reward_addr),
-//             Uint128::zero()
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 500000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 0);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 0);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 0);
-
-//         app.borrow_mut().update_block(|b| b.height = 1000000);
-//         unstake_tokens(&mut app, &staking_addr, ADDR3, 1);
-//         stake_tokens(&mut app, &staking_addr, &cw20_addr, ADDR3, 1);
-//     }
-
-//     #[test]
-//     fn update_rewards() {
-//         let mut app = mock_app();
-//         let admin = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let denom = "utest".to_string();
-//         let (staking_addr, _cw20_addr) = setup_staking_contract(&mut app, initial_balances);
-//         let reward_funding = vec![coin(200000000, denom.clone())];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-//         // Add funding to Addr1 to make sure it can't update staking contract
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: ADDR1.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-//         let reward_addr = setup_reward_contract(
-//             &mut app,
-//             staking_addr,
-//             Denom::Native(denom.clone()),
-//             admin.clone(),
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 1000);
-
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         // None admin cannot update rewards
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(
-//                 Addr::unchecked(ADDR1),
-//                 reward_addr.clone(),
-//                 &fund_msg,
-//                 &reward_funding,
-//             )
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-
-//         assert_eq!(err, ContractError::Ownable(OwnershipError::NotOwner));
-
-//         let _res = app
-//             .borrow_mut()
-//             .execute_contract(
-//                 admin.clone(),
-//                 reward_addr.clone(),
-//                 &fund_msg,
-//                 &reward_funding,
-//             )
-//             .unwrap();
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(2000));
-//         assert_eq!(res.reward.period_finish, 101000);
-//         assert_eq!(res.reward.reward_duration, 100000);
-
-//         // Create new period after old period
-//         app.borrow_mut().update_block(|b| b.height = 101000);
-
-//         let reward_funding = vec![coin(100000000, denom.clone())];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-//         let _res = app
-//             .borrow_mut()
-//             .execute_contract(
-//                 admin.clone(),
-//                 reward_addr.clone(),
-//                 &fund_msg,
-//                 &reward_funding,
-//             )
-//             .unwrap();
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(1000));
-//         assert_eq!(res.reward.period_finish, 201000);
-//         assert_eq!(res.reward.reward_duration, 100000);
-
-//         // Add funds in middle of period returns an error
-//         app.borrow_mut().update_block(|b| b.height = 151000);
-
-//         let reward_funding = vec![coin(200000000, denom)];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-//         let err = app
-//             .borrow_mut()
-//             .execute_contract(admin, reward_addr.clone(), &fund_msg, &reward_funding)
-//             .unwrap_err();
-//         assert_eq!(
-//             ContractError::RewardPeriodNotFinished {},
-//             err.downcast().unwrap()
-//         );
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(1000));
-//         assert_eq!(res.reward.period_finish, 201000);
-//         assert_eq!(res.reward.reward_duration, 100000);
-//     }
-
-//     #[test]
-//     fn update_reward_duration() {
-//         let mut app = mock_app();
-//         let admin = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let denom = "utest".to_string();
-//         let (staking_addr, _cw20_addr) = setup_staking_contract(&mut app, initial_balances);
-
-//         let reward_addr = setup_reward_contract(
-//             &mut app,
-//             staking_addr,
-//             Denom::Native(denom.clone()),
-//             admin.clone(),
-//         );
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(0));
-//         assert_eq!(res.reward.period_finish, 0);
-//         assert_eq!(res.reward.reward_duration, 100000);
-
-//         // Zero rewards durations are not allowed.
-//         let msg = ExecuteMsg::UpdateRewardDuration { new_duration: 0 };
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(admin.clone(), reward_addr.clone(), &msg, &[])
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::ZeroRewardDuration {});
-
-//         let msg = ExecuteMsg::UpdateRewardDuration { new_duration: 10 };
-//         let _resp = app
-//             .borrow_mut()
-//             .execute_contract(admin.clone(), reward_addr.clone(), &msg, &[])
-//             .unwrap();
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(0));
-//         assert_eq!(res.reward.period_finish, 0);
-//         assert_eq!(res.reward.reward_duration, 10);
-
-//         // Non-admin cannot update rewards
-//         let msg = ExecuteMsg::UpdateRewardDuration { new_duration: 100 };
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(Addr::unchecked("non-admin"), reward_addr.clone(), &msg, &[])
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::Ownable(OwnershipError::NotOwner));
-
-//         let reward_funding = vec![coin(1000, denom)];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-//         // Add funding to Addr1 to make sure it can't update staking contract
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: ADDR1.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-
-//         app.borrow_mut().update_block(|b| b.height = 1000);
-
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         let _res = app
-//             .borrow_mut()
-//             .execute_contract(
-//                 admin.clone(),
-//                 reward_addr.clone(),
-//                 &fund_msg,
-//                 &reward_funding,
-//             )
-//             .unwrap();
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(100));
-//         assert_eq!(res.reward.period_finish, 1010);
-//         assert_eq!(res.reward.reward_duration, 10);
-
-//         // Cannot update reward period before it finishes
-//         let msg = ExecuteMsg::UpdateRewardDuration { new_duration: 10 };
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(admin.clone(), reward_addr.clone(), &msg, &[])
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::RewardPeriodNotFinished {});
-
-//         // Update reward period once rewards are finished
-//         app.borrow_mut().update_block(|b| b.height = 1010);
-
-//         let msg = ExecuteMsg::UpdateRewardDuration { new_duration: 100 };
-//         let _resp = app
-//             .borrow_mut()
-//             .execute_contract(admin, reward_addr.clone(), &msg, &[])
-//             .unwrap();
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(100));
-//         assert_eq!(res.reward.period_finish, 1010);
-//         assert_eq!(res.reward.reward_duration, 100);
-//     }
-
-//     #[test]
-//     fn test_update_owner() {
-//         let mut app = mock_app();
-//         let addr_owner = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let denom = "utest".to_string();
-//         let (staking_addr, _cw20_addr) = setup_staking_contract(&mut app, initial_balances);
-
-//         let reward_addr = setup_reward_contract(
-//             &mut app,
-//             staking_addr,
-//             Denom::Native(denom),
-//             addr_owner.clone(),
-//         );
-
-//         let owner = get_ownership(&app, &reward_addr).owner;
-//         assert_eq!(owner, Some(addr_owner.clone()));
-
-//         // random addr cannot update owner
-//         let msg = ExecuteMsg::UpdateOwnership(Action::TransferOwnership {
-//             new_owner: ADDR1.to_string(),
-//             expiry: None,
-//         });
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(Addr::unchecked(ADDR1), reward_addr.clone(), &msg, &[])
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::Ownable(OwnershipError::NotOwner));
-
-//         // owner nominates a new onwer.
-//         app.borrow_mut()
-//             .execute_contract(addr_owner.clone(), reward_addr.clone(), &msg, &[])
-//             .unwrap();
-
-//         let ownership = get_ownership(&app, &reward_addr);
-//         assert_eq!(
-//             ownership,
-//             Ownership::<Addr> {
-//                 owner: Some(addr_owner),
-//                 pending_owner: Some(Addr::unchecked(ADDR1)),
-//                 pending_expiry: None,
-//             }
-//         );
-
-//         // new owner accepts the nomination.
-//         app.execute_contract(
-//             Addr::unchecked(ADDR1),
-//             reward_addr.clone(),
-//             &ExecuteMsg::UpdateOwnership(Action::AcceptOwnership),
-//             &[],
-//         )
-//         .unwrap();
-
-//         let ownership = get_ownership(&app, &reward_addr);
-//         assert_eq!(
-//             ownership,
-//             Ownership::<Addr> {
-//                 owner: Some(Addr::unchecked(ADDR1)),
-//                 pending_owner: None,
-//                 pending_expiry: None,
-//             }
-//         );
-
-//         // new owner renounces ownership.
-//         app.execute_contract(
-//             Addr::unchecked(ADDR1),
-//             reward_addr.clone(),
-//             &ExecuteMsg::UpdateOwnership(Action::RenounceOwnership),
-//             &[],
-//         )
-//         .unwrap();
-
-//         let ownership = get_ownership(&app, &reward_addr);
-//         assert_eq!(
-//             ownership,
-//             Ownership::<Addr> {
-//                 owner: None,
-//                 pending_owner: None,
-//                 pending_expiry: None,
-//             }
-//         );
-//     }
-
-//     #[test]
-//     fn test_cannot_fund_with_wrong_coin_native() {
-//         let mut app = mock_app();
-//         let owner = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let denom = "utest".to_string();
-//         let (staking_addr, _cw20_addr) = setup_staking_contract(&mut app, initial_balances);
-
-//         let reward_addr = setup_reward_contract(
-//             &mut app,
-//             staking_addr,
-//             Denom::Native(denom.clone()),
-//             owner.clone(),
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 1000);
-
-//         // No funding
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(owner.clone(), reward_addr.clone(), &fund_msg, &[])
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::InvalidFunds {});
-
-//         // Invalid funding
-//         let invalid_funding = vec![coin(100, "invalid")];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: owner.to_string(),
-//                 amount: invalid_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(
-//                 owner.clone(),
-//                 reward_addr.clone(),
-//                 &fund_msg,
-//                 &invalid_funding,
-//             )
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::InvalidFunds {});
-
-//         // Extra funding
-//         let extra_funding = vec![coin(100, denom), coin(100, "extra")];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: owner.to_string(),
-//                 amount: extra_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(
-//                 owner.clone(),
-//                 reward_addr.clone(),
-//                 &fund_msg,
-//                 &extra_funding,
-//             )
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::InvalidFunds {});
-
-//         // Snip20 funding fails
-//         let cw20_token = instantiate_cw20(
-//             &mut app,
-//             vec![Cw20Coin {
-//                 address: OWNER.to_string(),
-//                 amount: Uint128::new(500000000),
-//             }],
-//         );
-//         let fund_sub_msg = to_binary(&ReceiveMsg::Fund {}).unwrap();
-//         let fund_msg = Cw20ExecuteMsg::Send {
-//             contract: reward_addr.into_string(),
-//             amount: Uint128::new(100),
-//             msg: fund_sub_msg,
-//         };
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(owner, cw20_token, &fund_msg, &[])
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::InvalidSnip20 {});
-//     }
-
-//     #[test]
-//     fn test_cannot_fund_with_wrong_coin_cw20() {
-//         let mut app = mock_app();
-//         let admin = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let _denom = "utest".to_string();
-//         let (staking_addr, _cw20_addr) = setup_staking_contract(&mut app, initial_balances);
-//         let reward_token = instantiate_cw20(
-//             &mut app,
-//             vec![Cw20Coin {
-//                 address: OWNER.to_string(),
-//                 amount: Uint128::new(500000000),
-//             }],
-//         );
-//         let reward_addr = setup_reward_contract(
-//             &mut app,
-//             staking_addr,
-//             Denom::Snip20(Addr::unchecked("dummy_cw20")),
-//             admin.clone(),
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 1000);
-
-//         // Test with invalid token
-//         let fund_sub_msg = to_binary(&ReceiveMsg::Fund {}).unwrap();
-//         let fund_msg = Cw20ExecuteMsg::Send {
-//             contract: reward_addr.clone().into_string(),
-//             amount: Uint128::new(100),
-//             msg: fund_sub_msg,
-//         };
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(admin.clone(), reward_token, &fund_msg, &[])
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::InvalidSnip20 {});
-
-//         // Test does not work when funded with native
-//         let invalid_funding = vec![coin(100, "invalid")];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: invalid_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         let err: ContractError = app
-//             .borrow_mut()
-//             .execute_contract(admin, reward_addr, &fund_msg, &invalid_funding)
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::InvalidFunds {})
-//     }
-
-//     #[test]
-//     fn test_rewards_with_zero_staked() {
-//         let mut app = mock_app();
-//         let admin = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let denom = "utest".to_string();
-//         // Instantiate cw20 contract
-//         let cw20_addr = instantiate_cw20(&mut app, initial_balances.clone());
-//         app.update_block(next_block);
-//         // Instantiate staking contract
-//         let staking_addr = instantiate_staking(&mut app, cw20_addr.clone(), None);
-//         app.update_block(next_block);
-//         let reward_funding = vec![coin(100000000, denom.clone())];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-//         let reward_addr = setup_reward_contract(
-//             &mut app,
-//             staking_addr.clone(),
-//             Denom::Native(denom),
-//             admin.clone(),
-//         );
-
-//         app.borrow_mut().update_block(|b| b.height = 1000);
-
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         let _res = app
-//             .borrow_mut()
-//             .execute_contract(admin, reward_addr.clone(), &fund_msg, &reward_funding)
-//             .unwrap();
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(1000));
-//         assert_eq!(res.reward.period_finish, 101000);
-//         assert_eq!(res.reward.reward_duration, 100000);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 0);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 0);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 0);
-
-//         for coin in initial_balances {
-//             stake_tokens(
-//                 &mut app,
-//                 &staking_addr,
-//                 &cw20_addr,
-//                 coin.address,
-//                 coin.amount.u128(),
-//             );
-//         }
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 250);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 250);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 1000);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 500);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 500);
-//     }
-
-//     #[test]
-//     fn test_small_rewards() {
-//         // This test was added due to a bug in the contract not properly paying out small reward
-//         // amounts due to floor division
-//         let mut app = mock_app();
-//         let admin = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let denom = "utest".to_string();
-//         let (staking_addr, _) = setup_staking_contract(&mut app, initial_balances);
-//         let reward_funding = vec![coin(1000000, denom.clone())];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-//         let reward_addr =
-//             setup_reward_contract(&mut app, staking_addr, Denom::Native(denom), admin.clone());
-
-//         app.borrow_mut().update_block(|b| b.height = 1000);
-
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         let _res = app
-//             .borrow_mut()
-//             .execute_contract(admin, reward_addr.clone(), &fund_msg, &reward_funding)
-//             .unwrap();
-
-//         let res: InfoResponse = app
-//             .borrow_mut()
-//             .wrap()
-//             .query_wasm_smart(&reward_addr, &QueryMsg::Info {})
-//             .unwrap();
-
-//         assert_eq!(res.reward.reward_rate, Uint128::new(10));
-//         assert_eq!(res.reward.period_finish, 101000);
-//         assert_eq!(res.reward.reward_duration, 100000);
-
-//         app.borrow_mut().update_block(next_block);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR1, 5);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR2, 2);
-//         assert_pending_rewards(&mut app, &reward_addr, ADDR3, 2);
-//     }
-
-//     #[test]
-//     fn test_zero_reward_rate_failed() {
-//         // This test is due to a bug when funder provides rewards config that results in less then 1
-//         // reward per block which rounds down to zer0
-//         let mut app = mock_app();
-//         let admin = Addr::unchecked(OWNER);
-//         app.borrow_mut().update_block(|b| b.height = 0);
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let denom = "utest".to_string();
-//         let (staking_addr, _) = setup_staking_contract(&mut app, initial_balances);
-//         let reward_funding = vec![coin(10000, denom.clone())];
-//         app.sudo(SudoMsg::Bank({
-//             BankSudo::Mint {
-//                 to_address: admin.to_string(),
-//                 amount: reward_funding.clone(),
-//             }
-//         }))
-//         .unwrap();
-//         let reward_addr =
-//             setup_reward_contract(&mut app, staking_addr, Denom::Native(denom), admin.clone());
-
-//         app.borrow_mut().update_block(|b| b.height = 1000);
-
-//         let fund_msg = ExecuteMsg::Fund {};
-
-//         let _res = app
-//             .borrow_mut()
-//             .execute_contract(admin, reward_addr, &fund_msg, &reward_funding)
-//             .unwrap_err();
-//     }
-
-//     #[test]
-//     fn test_migrate_from_v1() {
-//         let mut app = App::default();
-
-//         let v1_code = app.store_code(contract_rewards_v1());
-//         let v2_code = app.store_code(contract_rewards());
-
-//         let initial_balances = vec![
-//             Cw20Coin {
-//                 address: ADDR1.to_string(),
-//                 amount: Uint128::new(100),
-//             },
-//             Cw20Coin {
-//                 address: ADDR2.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//             Cw20Coin {
-//                 address: ADDR3.to_string(),
-//                 amount: Uint128::new(50),
-//             },
-//         ];
-//         let denom = "utest".to_string();
-//         let (staking_addr, _) = setup_staking_contract(&mut app, initial_balances);
-
-//         let rewards_addr = app
-//             .instantiate_contract(
-//                 v1_code,
-//                 Addr::unchecked(OWNER),
-//                 &v1::msg::InstantiateMsg {
-//                     owner: Some(OWNER.to_string()),
-//                     manager: Some(ADDR1.to_string()),
-//                     staking_contract: staking_addr.into_string(),
-//                     reward_token: cw20_013::Denom::Native(denom),
-//                     reward_duration: 10000,
-//                 },
-//                 &[],
-//                 "rewards".to_string(),
-//                 Some(OWNER.to_string()),
-//             )
-//             .unwrap();
-
-//         app.execute(
-//             Addr::unchecked(OWNER),
-//             WasmMsg::Migrate {
-//                 contract_addr: rewards_addr.to_string(),
-//                 new_code_id: v2_code,
-//                 msg: to_binary(&MigrateMsg::FromV1 {}).unwrap(),
-//             }
-//             .into(),
-//         )
-//         .unwrap();
-
-//         let ownership = get_ownership(&app, &rewards_addr);
-//         assert_eq!(
-//             ownership,
-//             Ownership::<Addr> {
-//                 owner: Some(Addr::unchecked(OWNER)),
-//                 pending_owner: None,
-//                 pending_expiry: None,
-//             }
-//         );
-
-//         let err: ContractError = app
-//             .execute(
-//                 Addr::unchecked(OWNER),
-//                 WasmMsg::Migrate {
-//                     contract_addr: rewards_addr.to_string(),
-//                     new_code_id: v2_code,
-//                     msg: to_binary(&MigrateMsg::FromV1 {}).unwrap(),
-//                 }
-//                 .into(),
-//             )
-//             .unwrap_err()
-//             .downcast()
-//             .unwrap();
-//         assert_eq!(err, ContractError::AlreadyMigrated {});
-//     }
-// }
+#[cfg(test)]
+#[allow(unused)]
+mod tests {
+    use std::borrow::BorrowMut;
+
+    use crate::{state::Denom, ContractError};
+
+    use cosmwasm_std::{
+        coin, from_binary, testing::mock_info, to_binary, Addr, ContractInfo, Empty, MessageInfo,
+        Uint128,
+    };
+    use cw_ownable::{Action, Ownership, OwnershipError};
+    use secret_utils::Duration;
+    use shade_protocol::basic_staking::Auth;
+    use snip20_reference_impl::msg::{ExecuteMsg as Snip20ExecuteMsg, InitialBalance, QueryAnswer};
+
+    use secret_multi_test::{
+        next_block, App, BankSudo, Contract, ContractWrapper, Executor, SudoMsg,
+    };
+
+    use crate::msg::{ExecuteMsg, InfoResponse, PendingRewardsResponse, QueryMsg, ReceiveMsg};
+
+    const OWNER: &str = "owner";
+    const ADDR1: &str = "addr0001";
+    const ADDR2: &str = "addr0002";
+    const ADDR3: &str = "addr0003";
+
+    pub fn contract_rewards() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(
+            crate::contract::execute,
+            crate::contract::instantiate,
+            crate::contract::query,
+        )
+        .with_migrate(crate::contract::migrate);
+        Box::new(contract)
+    }
+
+    pub fn contract_staking() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(
+            snip20_stake::contract::execute,
+            snip20_stake::contract::instantiate,
+            snip20_stake::contract::query,
+        );
+        Box::new(contract)
+    }
+
+    pub fn contract_snip20() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(
+            snip20_reference_impl::contract::execute,
+            snip20_reference_impl::contract::instantiate,
+            snip20_reference_impl::contract::query,
+        );
+        Box::new(contract)
+    }
+
+    fn contract_query_auth() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(
+            query_auth::contract::execute,
+            query_auth::contract::instantiate,
+            query_auth::contract::query,
+        );
+        Box::new(contract)
+    }
+
+    fn mock_app() -> App {
+        App::default()
+    }
+
+    fn instantiate_snip20(app: &mut App, initial_balances: Vec<InitialBalance>) -> ContractInfo {
+        let snip20_info = app.store_code(contract_snip20());
+        let msg = snip20_reference_impl::msg::InstantiateMsg {
+            name: String::from("Test"),
+            symbol: String::from("TEST"),
+            decimals: 6,
+            initial_balances: Some(initial_balances),
+            admin: None,
+            prng_seed: to_binary("seed").unwrap(),
+            config: None,
+            supported_denoms: None,
+        };
+
+        app.instantiate_contract(
+            snip20_info,
+            Addr::unchecked(ADDR1),
+            &msg,
+            &[],
+            "snip20",
+            None,
+        )
+        .unwrap()
+    }
+
+    fn instantiate_staking(
+        app: &mut App,
+        snip20_info: ContractInfo,
+        unstaking_duration: Option<Duration>,
+        query_auth: shade_protocol::Contract,
+    ) -> ContractInfo {
+        let staking_info = app.store_code(contract_staking());
+        let msg = snip20_stake::msg::InstantiateMsg {
+            owner: Some(OWNER.to_string()),
+            token_address: snip20_info.address.to_string(),
+            unstaking_duration,
+            token_code_hash: Some(snip20_info.code_hash),
+            query_auth: query_auth.into(),
+        };
+        app.instantiate_contract(
+            staking_info,
+            Addr::unchecked(ADDR1),
+            &msg,
+            &[],
+            "staking",
+            Some("admin".to_string()),
+        )
+        .unwrap()
+    }
+
+    fn instantiate_query_auth(app: &mut App) -> ContractInfo {
+        let query_auth_info = app.store_code(contract_query_auth());
+        let msg = shade_protocol::contract_interfaces::query_auth::InstantiateMsg {
+            admin_auth: shade_protocol::Contract {
+                address: Addr::unchecked("admin_contract"),
+                code_hash: "code_hash".to_string(),
+            },
+            prng_seed: to_binary("seed").unwrap(),
+        };
+
+        app.instantiate_contract(
+            query_auth_info,
+            Addr::unchecked(ADDR1),
+            &msg,
+            &[],
+            "query_auth",
+            None,
+        )
+        .unwrap()
+    }
+
+    fn stake_tokens<T: Into<String>>(
+        app: &mut App,
+        staking_addr: &Addr,
+        staking_code_hash: String,
+        snip20_addr: &Addr,
+        snip20_code_hash: String,
+        sender: T,
+        amount: u128,
+    ) {
+        let msg = Snip20ExecuteMsg::Send {
+            recipient: staking_addr.to_string(),
+            recipient_code_hash: Some(staking_code_hash),
+            amount: Uint128::new(amount),
+            msg: Some(to_binary(&snip20_stake::msg::ReceiveMsg::Stake {}).unwrap()),
+            memo: None,
+            decoys: None,
+            entropy: None,
+            padding: None,
+        };
+        app.execute_contract(
+            Addr::unchecked(sender),
+            &ContractInfo {
+                address: snip20_addr.clone(),
+                code_hash: snip20_code_hash,
+            },
+            &msg,
+            &[],
+        )
+        .unwrap();
+    }
+
+    fn create_viewing_key(app: &mut App, contract_info: ContractInfo, info: MessageInfo) -> String {
+        let msg = shade_protocol::contract_interfaces::query_auth::ExecuteMsg::CreateViewingKey {
+            entropy: "entropy".to_string(),
+            padding: None,
+        };
+        let res = app
+            .execute_contract(info.sender, &contract_info, &msg, &[])
+            .unwrap();
+        let mut viewing_key = String::new();
+        let data: shade_protocol::contract_interfaces::query_auth::ExecuteAnswer =
+            from_binary(&res.data.unwrap()).unwrap();
+        match data {
+            shade_protocol::contract_interfaces::query_auth::ExecuteAnswer::CreateViewingKey {
+                key,
+            } => {
+                viewing_key = key;
+            }
+            _ => (),
+        };
+        viewing_key
+    }
+
+    fn create_viewing_key_snip20(
+        app: &mut App,
+        contract_info: ContractInfo,
+        info: MessageInfo,
+    ) -> String {
+        let msg = snip20_reference_impl::msg::ExecuteMsg::CreateViewingKey {
+            entropy: "entropy".to_string(),
+            padding: None,
+        };
+        let res = app
+            .execute_contract(info.sender, &contract_info, &msg, &[])
+            .unwrap();
+        let mut viewing_key = String::new();
+        let data: snip20_reference_impl::msg::ExecuteAnswer =
+            from_binary(&res.data.unwrap()).unwrap();
+        match data {
+            snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } => {
+                viewing_key = key;
+            }
+            _ => (),
+        };
+        viewing_key
+    }
+
+    fn unstake_tokens(app: &mut App, staking_info: &ContractInfo, address: &str, amount: u128) {
+        let msg = snip20_stake::msg::ExecuteMsg::Unstake {
+            amount: Uint128::new(amount),
+        };
+        app.execute_contract(Addr::unchecked(address), staking_info, &msg, &[])
+            .unwrap();
+    }
+
+    fn setup_staking_contract(
+        app: &mut App,
+        initial_balances: Vec<InitialBalance>,
+    ) -> (ContractInfo, ContractInfo, ContractInfo) {
+        // Instantiate snip20 contract
+        let snip20_info = instantiate_snip20(app, initial_balances.clone());
+        app.update_block(next_block);
+        // Instantiate query_auth contract
+        let query_auth_info = instantiate_query_auth(app);
+        app.update_block(next_block);
+        // Instantiate staking contract
+        let staking_info = instantiate_staking(
+            app,
+            snip20_info.clone(),
+            None,
+            shade_protocol::Contract {
+                address: query_auth_info.clone().address,
+                code_hash: query_auth_info.clone().code_hash,
+            },
+        );
+        app.update_block(next_block);
+        for coin in initial_balances {
+            stake_tokens(
+                app,
+                &staking_info.clone().address,
+                staking_info.clone().code_hash,
+                &snip20_info.clone().address,
+                snip20_info.clone().code_hash,
+                coin.address,
+                coin.amount.u128(),
+            );
+        }
+        (staking_info, snip20_info, query_auth_info)
+    }
+
+    fn setup_reward_contract(
+        app: &mut App,
+        staking_info: ContractInfo,
+        reward_token: Denom,
+        reward_token_code_hash: Option<String>,
+        owner: Addr,
+    ) -> ContractInfo {
+        let reward_info = app.store_code(contract_rewards());
+        let msg = crate::msg::InstantiateMsg {
+            owner: Some(owner.clone().into_string()),
+            staking_contract: staking_info.address.clone().into_string(),
+            staking_contract_code_hash: staking_info.clone().code_hash,
+            reward_token,
+            reward_token_code_hash,
+            reward_duration: 100000,
+        };
+        let reward_contract_info = app
+            .instantiate_contract(reward_info, owner, &msg, &[], "reward", None)
+            .unwrap();
+        let msg = snip20_stake::msg::ExecuteMsg::AddHook {
+            addr: reward_contract_info.clone().address.to_string(),
+            code_hash: reward_contract_info.clone().code_hash,
+        };
+        let _result = app
+            .execute_contract(Addr::unchecked(OWNER), &staking_info, &msg, &[])
+            .unwrap();
+        reward_contract_info
+    }
+
+    fn get_balance_snip20(
+        app: &App,
+        snip20_info: ContractInfo,
+        address: String,
+        key: String,
+    ) -> Uint128 {
+        let msg = snip20_reference_impl::msg::QueryMsg::Balance { address, key };
+        let result: snip20_reference_impl::msg::QueryAnswer = app
+            .wrap()
+            .query_wasm_smart(snip20_info.code_hash, snip20_info.address.to_string(), &msg)
+            .unwrap();
+        let mut balance = Uint128::zero();
+        match result {
+            QueryAnswer::Balance { amount } => {
+                balance = amount;
+            }
+            _ => (),
+        }
+        balance
+    }
+
+    fn get_balance_native<T: Into<String>, U: Into<String>>(
+        app: &App,
+        address: T,
+        denom: U,
+    ) -> Uint128 {
+        app.wrap().query_balance(address, denom).unwrap().amount
+    }
+
+    fn get_ownership<T: Into<String>, C: Into<String>>(
+        app: &App,
+        address: T,
+        code_hash: C,
+    ) -> Ownership<Addr> {
+        app.wrap()
+            .query_wasm_smart(code_hash, address, &QueryMsg::Ownership {})
+            .unwrap()
+    }
+
+    fn assert_pending_rewards(
+        app: &mut App,
+        reward_contract_info: ContractInfo,
+        auth: Auth,
+        expected: u128,
+    ) {
+        let res: PendingRewardsResponse = app
+            .borrow_mut()
+            .wrap()
+            .query_wasm_smart(
+                reward_contract_info.code_hash,
+                reward_contract_info.address.to_string(),
+                &QueryMsg::GetPendingRewards {
+                    auth: Box::new(auth),
+                },
+            )
+            .unwrap();
+        assert_eq!(res.pending_rewards, Uint128::new(expected));
+    }
+
+    fn claim_rewards(app: &mut App, reward_contract_info: ContractInfo, auth: Auth) {
+        let msg = ExecuteMsg::Claim { auth: auth.clone() };
+        let mut sender = String::new();
+        match auth {
+            Auth::ViewingKey { address, .. } => sender = address,
+            _ => (),
+        }
+        app.borrow_mut()
+            .execute_contract(Addr::unchecked(sender), &reward_contract_info, &msg, &[])
+            .unwrap();
+    }
+
+    fn fund_rewards_snip20(
+        app: &mut App,
+        admin: &Addr,
+        snip20_info: ContractInfo,
+        reward_contract_info: ContractInfo,
+        amount: u128,
+    ) {
+        let fund_sub_msg = to_binary(&ReceiveMsg::Fund {}).unwrap();
+        let fund_msg = Snip20ExecuteMsg::Send {
+            recipient: reward_contract_info.address.clone().into_string(),
+            recipient_code_hash: Some(reward_contract_info.clone().code_hash),
+            amount: Uint128::new(amount),
+            msg: Some(fund_sub_msg),
+            memo: None,
+            decoys: None,
+            entropy: None,
+            padding: None,
+        };
+        let _res = app
+            .borrow_mut()
+            .execute_contract(admin.clone(), &snip20_info, &fund_msg, &[])
+            .unwrap();
+    }
+
+    #[test]
+    fn test_zero_rewards_duration() {
+        let mut app = mock_app();
+        let admin = Addr::unchecked(OWNER);
+        app.borrow_mut().update_block(|b| b.height = 0);
+        let denom = "utest".to_string();
+        let (staking_info, _, _) = setup_staking_contract(&mut app, vec![]);
+        let reward_funding = vec![coin(100000000, denom.clone())];
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: admin.to_string(),
+                amount: reward_funding,
+            }
+        }))
+        .unwrap();
+
+        let reward_token = Denom::Native(denom);
+        let owner = admin;
+        let reward_info = app.store_code(contract_rewards());
+        let msg = crate::msg::InstantiateMsg {
+            owner: Some(owner.clone().into_string()),
+            staking_contract: staking_info.address.to_string(),
+            staking_contract_code_hash: staking_info.code_hash,
+            reward_token,
+            reward_token_code_hash: None,
+            reward_duration: 0,
+        };
+        let err: ContractError = app
+            .instantiate_contract(reward_info, owner, &msg, &[], "reward", None)
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::ZeroRewardDuration {})
+    }
+
+    #[test]
+    fn update_rewards() {
+        let mut app = mock_app();
+        let admin = Addr::unchecked(OWNER);
+        app.borrow_mut().update_block(|b| b.height = 0);
+        let initial_balances = vec![
+            InitialBalance {
+                address: ADDR1.to_string(),
+                amount: Uint128::new(100),
+            },
+            InitialBalance {
+                address: ADDR2.to_string(),
+                amount: Uint128::new(50),
+            },
+            InitialBalance {
+                address: ADDR3.to_string(),
+                amount: Uint128::new(50),
+            },
+        ];
+        let denom = "utest".to_string();
+        let (staking_info, _snip20_info, query_auth_info) =
+            setup_staking_contract(&mut app, initial_balances);
+
+        let info = mock_info(ADDR1, &[]);
+        let viewing_key_addr1 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+        let info = mock_info(OWNER, &[]);
+        let viewing_key_admin = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+        let reward_funding = vec![coin(200000000, denom.clone())];
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: admin.to_string(),
+                amount: reward_funding.clone(),
+            }
+        }))
+        .unwrap();
+        // Add funding to Addr1 to make sure it can't update staking contract
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: ADDR1.to_string(),
+                amount: reward_funding.clone(),
+            }
+        }))
+        .unwrap();
+        let reward_contract_info = setup_reward_contract(
+            &mut app,
+            staking_info,
+            Denom::Native(denom.clone()),
+            None,
+            admin.clone(),
+        );
+
+        app.borrow_mut().update_block(|b| b.height = 1000);
+
+        let fund_msg_addr1 = ExecuteMsg::Fund {
+            auth: Auth::ViewingKey {
+                key: viewing_key_addr1.clone(),
+                address: ADDR1.to_string(),
+            },
+        };
+        let fund_msg_admin = ExecuteMsg::Fund {
+            auth: Auth::ViewingKey {
+                key: viewing_key_admin.clone(),
+                address: OWNER.to_string(),
+            },
+        };
+
+        // None admin cannot update rewards
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(
+                Addr::unchecked(ADDR1),
+                &reward_contract_info.clone(),
+                &fund_msg_addr1,
+                &reward_funding,
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+
+        assert_eq!(err, ContractError::Ownable(OwnershipError::NotOwner));
+
+        let _res = app
+            .borrow_mut()
+            .execute_contract(
+                admin.clone(),
+                &reward_contract_info.clone(),
+                &fund_msg_admin,
+                &reward_funding,
+            )
+            .unwrap();
+
+        let res: InfoResponse = app
+            .borrow_mut()
+            .wrap()
+            .query_wasm_smart(
+                &reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().address.to_string(),
+                &QueryMsg::Info {},
+            )
+            .unwrap();
+
+        assert_eq!(res.reward.reward_rate, Uint128::new(2000));
+        assert_eq!(res.reward.period_finish, 101000);
+        assert_eq!(res.reward.reward_duration, 100000);
+
+        // Create new period after old period
+        app.borrow_mut().update_block(|b| b.height = 101000);
+
+        let reward_funding = vec![coin(100000000, denom.clone())];
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: admin.to_string(),
+                amount: reward_funding.clone(),
+            }
+        }))
+        .unwrap();
+        let _res = app
+            .borrow_mut()
+            .execute_contract(
+                admin.clone(),
+                &reward_contract_info.clone(),
+                &fund_msg_admin,
+                &reward_funding,
+            )
+            .unwrap();
+
+        let res: InfoResponse = app
+            .borrow_mut()
+            .wrap()
+            .query_wasm_smart(
+                &reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().address.to_string(),
+                &QueryMsg::Info {},
+            )
+            .unwrap();
+
+        assert_eq!(res.reward.reward_rate, Uint128::new(1000));
+        assert_eq!(res.reward.period_finish, 201000);
+        assert_eq!(res.reward.reward_duration, 100000);
+
+        // Add funds in middle of period returns an error
+        app.borrow_mut().update_block(|b| b.height = 151000);
+
+        let reward_funding = vec![coin(200000000, denom)];
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: admin.to_string(),
+                amount: reward_funding.clone(),
+            }
+        }))
+        .unwrap();
+        let err = app
+            .borrow_mut()
+            .execute_contract(
+                admin,
+                &reward_contract_info.clone(),
+                &fund_msg_admin,
+                &reward_funding,
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::RewardPeriodNotFinished {},
+            err.downcast().unwrap()
+        );
+
+        let res: InfoResponse = app
+            .borrow_mut()
+            .wrap()
+            .query_wasm_smart(
+                &reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().address.to_string(),
+                &QueryMsg::Info {},
+            )
+            .unwrap();
+
+        assert_eq!(res.reward.reward_rate, Uint128::new(1000));
+        assert_eq!(res.reward.period_finish, 201000);
+        assert_eq!(res.reward.reward_duration, 100000);
+    }
+
+    #[test]
+    fn update_reward_duration() {
+        let mut app = mock_app();
+        let admin = Addr::unchecked(OWNER);
+        app.borrow_mut().update_block(|b| b.height = 0);
+        let initial_balances = vec![
+            InitialBalance {
+                address: ADDR1.to_string(),
+                amount: Uint128::new(100),
+            },
+            InitialBalance {
+                address: ADDR2.to_string(),
+                amount: Uint128::new(50),
+            },
+            InitialBalance {
+                address: ADDR3.to_string(),
+                amount: Uint128::new(50),
+            },
+        ];
+        let denom = "utest".to_string();
+        let (staking_info, _snip20_info, query_auth_info) =
+            setup_staking_contract(&mut app, initial_balances);
+
+        let info = mock_info(OWNER, &[]);
+        let viewing_key_admin = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+        let reward_contract_info = setup_reward_contract(
+            &mut app,
+            staking_info,
+            Denom::Native(denom.clone()),
+            None,
+            admin.clone(),
+        );
+
+        let res: InfoResponse = app
+            .borrow_mut()
+            .wrap()
+            .query_wasm_smart(
+                reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().address.to_string(),
+                &QueryMsg::Info {},
+            )
+            .unwrap();
+
+        assert_eq!(res.reward.reward_rate, Uint128::new(0));
+        assert_eq!(res.reward.period_finish, 0);
+        assert_eq!(res.reward.reward_duration, 100000);
+
+        // Zero rewards durations are not allowed.
+        let msg = ExecuteMsg::UpdateRewardDuration { new_duration: 0 };
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(admin.clone(), &reward_contract_info.clone(), &msg, &[])
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::ZeroRewardDuration {});
+
+        let msg = ExecuteMsg::UpdateRewardDuration { new_duration: 10 };
+        let _resp = app
+            .borrow_mut()
+            .execute_contract(admin.clone(), &reward_contract_info.clone(), &msg, &[])
+            .unwrap();
+
+        let res: InfoResponse = app
+            .borrow_mut()
+            .wrap()
+            .query_wasm_smart(
+                reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().address.to_string(),
+                &QueryMsg::Info {},
+            )
+            .unwrap();
+
+        assert_eq!(res.reward.reward_rate, Uint128::new(0));
+        assert_eq!(res.reward.period_finish, 0);
+        assert_eq!(res.reward.reward_duration, 10);
+
+        // Non-admin cannot update rewards
+        let msg = ExecuteMsg::UpdateRewardDuration { new_duration: 100 };
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(
+                Addr::unchecked("non-admin"),
+                &reward_contract_info.clone(),
+                &msg,
+                &[],
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::Ownable(OwnershipError::NotOwner));
+
+        let reward_funding = vec![coin(1000, denom)];
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: admin.to_string(),
+                amount: reward_funding.clone(),
+            }
+        }))
+        .unwrap();
+        // Add funding to Addr1 to make sure it can't update staking contract
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: ADDR1.to_string(),
+                amount: reward_funding.clone(),
+            }
+        }))
+        .unwrap();
+
+        app.borrow_mut().update_block(|b| b.height = 1000);
+
+        let fund_msg = ExecuteMsg::Fund {
+            auth: Auth::ViewingKey {
+                key: viewing_key_admin.clone(),
+                address: OWNER.to_string(),
+            },
+        };
+
+        let _res = app
+            .borrow_mut()
+            .execute_contract(
+                admin.clone(),
+                &reward_contract_info.clone(),
+                &fund_msg,
+                &reward_funding,
+            )
+            .unwrap();
+
+        let res: InfoResponse = app
+            .borrow_mut()
+            .wrap()
+            .query_wasm_smart(
+                reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().address.to_string(),
+                &QueryMsg::Info {},
+            )
+            .unwrap();
+
+        assert_eq!(res.reward.reward_rate, Uint128::new(100));
+        assert_eq!(res.reward.period_finish, 1010);
+        assert_eq!(res.reward.reward_duration, 10);
+
+        // Cannot update reward period before it finishes
+        let msg = ExecuteMsg::UpdateRewardDuration { new_duration: 10 };
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(admin.clone(), &reward_contract_info.clone(), &msg, &[])
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::RewardPeriodNotFinished {});
+
+        // Update reward period once rewards are finished
+        app.borrow_mut().update_block(|b| b.height = 1010);
+
+        let msg = ExecuteMsg::UpdateRewardDuration { new_duration: 100 };
+        let _resp = app
+            .borrow_mut()
+            .execute_contract(admin, &reward_contract_info.clone(), &msg, &[])
+            .unwrap();
+
+        let res: InfoResponse = app
+            .borrow_mut()
+            .wrap()
+            .query_wasm_smart(
+                reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().address.to_string(),
+                &QueryMsg::Info {},
+            )
+            .unwrap();
+
+        assert_eq!(res.reward.reward_rate, Uint128::new(100));
+        assert_eq!(res.reward.period_finish, 1010);
+        assert_eq!(res.reward.reward_duration, 100);
+    }
+
+    #[test]
+    fn test_update_owner() {
+        let mut app = mock_app();
+        let addr_owner = Addr::unchecked(OWNER);
+        app.borrow_mut().update_block(|b| b.height = 0);
+        let initial_balances = vec![
+            InitialBalance {
+                address: ADDR1.to_string(),
+                amount: Uint128::new(100),
+            },
+            InitialBalance {
+                address: ADDR2.to_string(),
+                amount: Uint128::new(50),
+            },
+            InitialBalance {
+                address: ADDR3.to_string(),
+                amount: Uint128::new(50),
+            },
+        ];
+        let denom = "utest".to_string();
+        let (staking_info, _snip20_info, _query_auth_info) =
+            setup_staking_contract(&mut app, initial_balances);
+
+        let reward_contract_info = setup_reward_contract(
+            &mut app,
+            staking_info,
+            Denom::Native(denom),
+            None,
+            addr_owner.clone(),
+        );
+
+        let owner = get_ownership(
+            &app,
+            &reward_contract_info.clone().address.to_string(),
+            reward_contract_info.clone().code_hash,
+        )
+        .owner;
+        assert_eq!(owner, Some(addr_owner.clone()));
+
+        // random addr cannot update owner
+        let msg = ExecuteMsg::UpdateOwnership(Action::TransferOwnership {
+            new_owner: ADDR1.to_string(),
+            expiry: None,
+        });
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(
+                Addr::unchecked(ADDR1),
+                &reward_contract_info.clone(),
+                &msg,
+                &[],
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::Ownable(OwnershipError::NotOwner));
+
+        // owner nominates a new onwer.
+        app.borrow_mut()
+            .execute_contract(addr_owner.clone(), &reward_contract_info.clone(), &msg, &[])
+            .unwrap();
+
+        let ownership = get_ownership(
+            &app,
+            &reward_contract_info.clone().address.to_string(),
+            reward_contract_info.clone().code_hash,
+        );
+        assert_eq!(
+            ownership,
+            Ownership::<Addr> {
+                owner: Some(addr_owner),
+                pending_owner: Some(Addr::unchecked(ADDR1)),
+                pending_expiry: None,
+            }
+        );
+
+        // new owner accepts the nomination.
+        app.execute_contract(
+            Addr::unchecked(ADDR1),
+            &reward_contract_info.clone(),
+            &ExecuteMsg::UpdateOwnership(Action::AcceptOwnership),
+            &[],
+        )
+        .unwrap();
+
+        let ownership = get_ownership(
+            &app,
+            &reward_contract_info.clone().address.to_string(),
+            reward_contract_info.clone().code_hash,
+        );
+        assert_eq!(
+            ownership,
+            Ownership::<Addr> {
+                owner: Some(Addr::unchecked(ADDR1)),
+                pending_owner: None,
+                pending_expiry: None,
+            }
+        );
+
+        // new owner renounces ownership.
+        app.execute_contract(
+            Addr::unchecked(ADDR1),
+            &reward_contract_info.clone(),
+            &ExecuteMsg::UpdateOwnership(Action::RenounceOwnership),
+            &[],
+        )
+        .unwrap();
+
+        let ownership = get_ownership(
+            &app,
+            &reward_contract_info.clone().address.to_string(),
+            reward_contract_info.clone().code_hash,
+        );
+        assert_eq!(
+            ownership,
+            Ownership::<Addr> {
+                owner: None,
+                pending_owner: None,
+                pending_expiry: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_cannot_fund_with_wrong_coin_native() {
+        let mut app = mock_app();
+        let owner = Addr::unchecked(OWNER);
+        app.borrow_mut().update_block(|b| b.height = 0);
+        let initial_balances = vec![
+            InitialBalance {
+                address: ADDR1.to_string(),
+                amount: Uint128::new(100),
+            },
+            InitialBalance {
+                address: ADDR2.to_string(),
+                amount: Uint128::new(50),
+            },
+            InitialBalance {
+                address: ADDR3.to_string(),
+                amount: Uint128::new(50),
+            },
+        ];
+        let denom = "utest".to_string();
+        let (staking_info, _snip20_info, query_auth_info) =
+            setup_staking_contract(&mut app, initial_balances);
+
+        let info = mock_info(OWNER, &[]);
+        let viewing_key_admin = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+        let reward_contract_info = setup_reward_contract(
+            &mut app,
+            staking_info,
+            Denom::Native(denom.clone()),
+            None,
+            owner.clone(),
+        );
+
+        app.borrow_mut().update_block(|b| b.height = 1000);
+
+        // No funding
+        let fund_msg = ExecuteMsg::Fund {
+            auth: Auth::ViewingKey {
+                key: viewing_key_admin.clone(),
+                address: OWNER.to_string(),
+            },
+        };
+
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(owner.clone(), &reward_contract_info.clone(), &fund_msg, &[])
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::InvalidFunds {});
+
+        // Invalid funding
+        let invalid_funding = vec![coin(100, "invalid")];
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: owner.to_string(),
+                amount: invalid_funding.clone(),
+            }
+        }))
+        .unwrap();
+
+        let fund_msg = ExecuteMsg::Fund {
+            auth: Auth::ViewingKey {
+                key: viewing_key_admin.clone(),
+                address: OWNER.to_string(),
+            },
+        };
+
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(
+                owner.clone(),
+                &reward_contract_info.clone(),
+                &fund_msg,
+                &invalid_funding,
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::InvalidFunds {});
+
+        // Extra funding
+        let extra_funding = vec![coin(100, denom), coin(100, "extra")];
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: owner.to_string(),
+                amount: extra_funding.clone(),
+            }
+        }))
+        .unwrap();
+
+        let fund_msg = ExecuteMsg::Fund {
+            auth: Auth::ViewingKey {
+                key: viewing_key_admin.clone(),
+                address: OWNER.to_string(),
+            },
+        };
+
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(
+                owner.clone(),
+                &reward_contract_info.clone(),
+                &fund_msg,
+                &extra_funding,
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::InvalidFunds {});
+
+        // Snip20 funding fails
+        let snip20_info = instantiate_snip20(
+            &mut app,
+            vec![InitialBalance {
+                address: OWNER.to_string(),
+                amount: Uint128::new(500000000),
+            }],
+        );
+        let fund_sub_msg = to_binary(&ReceiveMsg::Fund {}).unwrap();
+        let fund_msg = snip20_reference_impl::msg::ExecuteMsg::Send {
+            recipient: reward_contract_info.clone().address.into_string(),
+            recipient_code_hash: Some(reward_contract_info.clone().code_hash),
+            amount: Uint128::new(100),
+            msg: Some(fund_sub_msg),
+            memo: None,
+            decoys: None,
+            entropy: None,
+            padding: None,
+        };
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(owner, &snip20_info, &fund_msg, &[])
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::InvalidSnip20 {});
+    }
+
+    #[test]
+    fn test_cannot_fund_with_wrong_coin_cw20() {
+        let mut app = mock_app();
+        let admin = Addr::unchecked(OWNER);
+        app.borrow_mut().update_block(|b| b.height = 0);
+        let initial_balances = vec![
+            InitialBalance {
+                address: ADDR1.to_string(),
+                amount: Uint128::new(100),
+            },
+            InitialBalance {
+                address: ADDR2.to_string(),
+                amount: Uint128::new(50),
+            },
+            InitialBalance {
+                address: ADDR3.to_string(),
+                amount: Uint128::new(50),
+            },
+        ];
+        let _denom = "utest".to_string();
+        let (staking_info, _snip20_info, query_auth_info) =
+            setup_staking_contract(&mut app, initial_balances);
+
+        let info = mock_info(OWNER, &[]);
+        let viewing_key_admin = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+        let snip20_info = instantiate_snip20(
+            &mut app,
+            vec![InitialBalance {
+                address: OWNER.to_string(),
+                amount: Uint128::new(500000000),
+            }],
+        );
+        let reward_contract_info = setup_reward_contract(
+            &mut app,
+            staking_info,
+            Denom::Snip20(Addr::unchecked("dummy_cw20")),
+            Some("Dummy_Snip20_Code_hash".to_string()),
+            admin.clone(),
+        );
+
+        app.borrow_mut().update_block(|b| b.height = 1000);
+
+        // Test with invalid token
+        let fund_sub_msg = to_binary(&ReceiveMsg::Fund {}).unwrap();
+        let fund_msg = snip20_reference_impl::msg::ExecuteMsg::Send {
+            recipient: reward_contract_info.clone().address.into_string(),
+            recipient_code_hash: Some(reward_contract_info.clone().code_hash),
+            amount: Uint128::new(100),
+            msg: Some(fund_sub_msg),
+            memo: None,
+            decoys: None,
+            entropy: None,
+            padding: None,
+        };
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(admin.clone(), &snip20_info, &fund_msg, &[])
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::InvalidSnip20 {});
+
+        // Test does not work when funded with native
+        let invalid_funding = vec![coin(100, "invalid")];
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: admin.to_string(),
+                amount: invalid_funding.clone(),
+            }
+        }))
+        .unwrap();
+
+        let fund_msg = ExecuteMsg::Fund {
+            auth: Auth::ViewingKey {
+                key: viewing_key_admin.clone(),
+                address: OWNER.to_string(),
+            },
+        };
+
+        let err: ContractError = app
+            .borrow_mut()
+            .execute_contract(admin, &reward_contract_info, &fund_msg, &invalid_funding)
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::InvalidFunds {})
+    }
+
+    #[test]
+    fn test_small_rewards() {
+        // This test was added due to a bug in the contract not properly paying out small reward
+        // amounts due to floor division
+        let mut app = mock_app();
+        let admin = Addr::unchecked(OWNER);
+        app.borrow_mut().update_block(|b| b.height = 0);
+        let initial_balances = vec![
+            InitialBalance {
+                address: ADDR1.to_string(),
+                amount: Uint128::new(100),
+            },
+            InitialBalance {
+                address: ADDR2.to_string(),
+                amount: Uint128::new(50),
+            },
+            InitialBalance {
+                address: ADDR3.to_string(),
+                amount: Uint128::new(50),
+            },
+        ];
+        let denom = "utest".to_string();
+        let (staking_info, _snip20_info, query_auth_info) =
+            setup_staking_contract(&mut app, initial_balances);
+
+        let info = mock_info(OWNER, &[]);
+        let viewing_key_admin = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+        let info = mock_info(ADDR1, &[]);
+        let viewing_key_addr1 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+        let info = mock_info(ADDR2, &[]);
+        let viewing_key_addr2 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+        let info = mock_info(ADDR3, &[]);
+        let viewing_key_addr3 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+        let reward_funding = vec![coin(1000000, denom.clone())];
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: admin.to_string(),
+                amount: reward_funding.clone(),
+            }
+        }))
+        .unwrap();
+        let reward_contract_info = setup_reward_contract(
+            &mut app,
+            staking_info,
+            Denom::Native(denom),
+            None,
+            admin.clone(),
+        );
+
+        app.borrow_mut().update_block(|b| b.height = 1000);
+
+        let fund_msg = ExecuteMsg::Fund {
+            auth: Auth::ViewingKey {
+                key: viewing_key_admin.clone(),
+                address: OWNER.to_string(),
+            },
+        };
+
+        let _res = app
+            .borrow_mut()
+            .execute_contract(
+                admin,
+                &reward_contract_info.clone(),
+                &fund_msg,
+                &reward_funding,
+            )
+            .unwrap();
+
+        let res: InfoResponse = app
+            .borrow_mut()
+            .wrap()
+            .query_wasm_smart(
+                &reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().address.to_string(),
+                &QueryMsg::Info {},
+            )
+            .unwrap();
+
+        assert_eq!(res.reward.reward_rate, Uint128::new(10));
+        assert_eq!(res.reward.period_finish, 101000);
+        assert_eq!(res.reward.reward_duration, 100000);
+
+        app.borrow_mut().update_block(next_block);
+        assert_pending_rewards(
+            &mut app,
+            reward_contract_info.clone(),
+            Auth::ViewingKey {
+                key: viewing_key_addr1,
+                address: ADDR1.to_string(),
+            },
+            5,
+        );
+        assert_pending_rewards(
+            &mut app,
+            reward_contract_info.clone(),
+            Auth::ViewingKey {
+                key: viewing_key_addr2,
+                address: ADDR2.to_string(),
+            },
+            2,
+        );
+        assert_pending_rewards(
+            &mut app,
+            reward_contract_info.clone(),
+            Auth::ViewingKey {
+                key: viewing_key_addr3,
+                address: ADDR3.to_string(),
+            },
+            2,
+        );
+    }
+
+    #[test]
+    fn test_zero_reward_rate_failed() {
+        // This test is due to a bug when funder provides rewards config that results in less then 1
+        // reward per block which rounds down to zer0
+        let mut app = mock_app();
+        let admin = Addr::unchecked(OWNER);
+        app.borrow_mut().update_block(|b| b.height = 0);
+        let initial_balances = vec![
+            InitialBalance {
+                address: ADDR1.to_string(),
+                amount: Uint128::new(100),
+            },
+            InitialBalance {
+                address: ADDR2.to_string(),
+                amount: Uint128::new(50),
+            },
+            InitialBalance {
+                address: ADDR3.to_string(),
+                amount: Uint128::new(50),
+            },
+        ];
+        let denom = "utest".to_string();
+        let (staking_info, _snip20_info, query_auth_info) =
+            setup_staking_contract(&mut app, initial_balances);
+
+        let info = mock_info(OWNER, &[]);
+        let viewing_key_admin = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+        let reward_funding = vec![coin(10000, denom.clone())];
+        app.sudo(SudoMsg::Bank({
+            BankSudo::Mint {
+                to_address: admin.to_string(),
+                amount: reward_funding.clone(),
+            }
+        }))
+        .unwrap();
+        let reward_contract_info = setup_reward_contract(
+            &mut app,
+            staking_info,
+            Denom::Native(denom),
+            None,
+            admin.clone(),
+        );
+
+        app.borrow_mut().update_block(|b| b.height = 1000);
+
+        let fund_msg = ExecuteMsg::Fund {
+            auth: Auth::ViewingKey {
+                key: viewing_key_admin.clone(),
+                address: OWNER.to_string(),
+            },
+        };
+
+        let _res = app
+            .borrow_mut()
+            .execute_contract(admin, &reward_contract_info, &fund_msg, &reward_funding)
+            .unwrap_err();
+    }
+}

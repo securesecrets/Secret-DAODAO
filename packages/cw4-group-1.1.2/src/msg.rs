@@ -34,6 +34,9 @@ pub enum ExecuteMsg {
     AddHook { hook: HookItem },
     /// Remove a hook. Must be called by Admin
     RemoveHook { hook: HookItem },
+    UpdateQueryAuth {
+        query_auth : RawContract
+    }
 }
 
 #[cw_serde]

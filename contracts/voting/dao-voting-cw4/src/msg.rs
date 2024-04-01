@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use dao_dao_macros::voting_module_query;
+use shade_protocol::utils::asset::RawContract;
 
 #[cw_serde]
 pub enum GroupContract {
@@ -11,6 +12,7 @@ pub enum GroupContract {
         cw4_group_code_id: u64,
         cw4_group_code_hash: String,
         initial_members: Vec<cw4::Member>,
+        query_auth: RawContract,
     },
 }
 

@@ -11,7 +11,7 @@ pub use secret_cw_controllers::ClaimsResponse;
 pub use cw_ownable::Ownership;
 
 use cw_ownable::cw_ownable_execute;
-use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
+use shade_protocol::basic_staking::Auth;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
 pub struct InstantiateMsg {
@@ -21,7 +21,6 @@ pub struct InstantiateMsg {
     pub reward_token: Denom,
     pub reward_token_code_hash: Option<String>,
     pub reward_duration: u64,
-    pub query_auth: RawContract,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]

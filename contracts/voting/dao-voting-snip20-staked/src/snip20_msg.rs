@@ -1,12 +1,12 @@
 #![allow(clippy::field_reassign_with_default)] // This is triggered in `#[derive(JsonSchema)]`
 
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Binary, Uint128};
 use schemars::JsonSchema;
 use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(test, derive(Eq, PartialEq))]
-#[derive(Serialize, Deserialize, Clone, JsonSchema)]
+#[cw_serde]
 pub struct InitialBalance {
     pub address: String,
     pub amount: Uint128,

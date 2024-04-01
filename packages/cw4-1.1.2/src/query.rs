@@ -1,4 +1,5 @@
 use cosmwasm_schema::cw_serde;
+use shade_protocol::basic_staking::Auth;
 
 #[cw_serde]
 
@@ -13,10 +14,7 @@ pub enum Cw4QueryMsg {
         limit: Option<u32>,
     },
     /// Returns MemberResponse
-    Member {
-        addr: String,
-        at_height: Option<u64>,
-    },
+    Member { auth: Auth, at_height: Option<u64> },
     /// Shows all registered hooks. Returns HooksResponse.
     Hooks {},
 }
