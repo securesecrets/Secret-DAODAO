@@ -410,7 +410,6 @@ fn test_contract_info() {
 //         .wrap()
 //         .query_wasm_smart(snip20_token_info.clone().code_hash,snip20_token_info.clone().addr.to_string(), &snip20_reference_impl::msg::QueryMsg::TokenInfo {})
 //         .unwrap();
-  
 
 //     let minter_info: snip20_reference_impl::msg::QueryAnswer = app
 //         .wrap()
@@ -563,7 +562,6 @@ fn test_contract_info() {
 //         .wrap()
 //         .query_wasm_smart(snip20_token_info.clone().code_hash,snip20_token_info.clone().addr.to_string(), &snip20_reference_impl::msg::QueryMsg::TokenInfo {})
 //         .unwrap();
-  
 
 //     let minter_info: snip20_reference_impl::msg::QueryAnswer = app
 //         .wrap()

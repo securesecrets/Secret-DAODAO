@@ -10,6 +10,7 @@ const DAO_ADDR: &str = "dao";
 const ADDR1: &str = "addr1";
 const ADDR2: &str = "addr2";
 const ADDR3: &str = "addr3";
+#[allow(dead_code)]
 const ADDR4: &str = "addr4";
 const OWNER: &str = "owner";
 
@@ -41,6 +42,7 @@ fn voting_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
+#[allow(dead_code)]
 fn instantiate_voting(
     app: &mut App,
     contract_instantiate_info: ContractInstantiationInfo,
@@ -89,13 +91,11 @@ fn _create_viewing_key(app: &mut App, contract_info: ContractInfo, info: Message
     let mut viewing_key = String::new();
     let data: shade_protocol::contract_interfaces::query_auth::ExecuteAnswer =
         from_binary(&res.data.unwrap()).unwrap();
-    match data {
-        shade_protocol::contract_interfaces::query_auth::ExecuteAnswer::CreateViewingKey {
-            key,
-        } => {
-            viewing_key = key;
-        }
-        _ => (),
+    if let shade_protocol::contract_interfaces::query_auth::ExecuteAnswer::CreateViewingKey {
+        key,
+    } = data
+    {
+        viewing_key = key;
     };
     viewing_key
 }

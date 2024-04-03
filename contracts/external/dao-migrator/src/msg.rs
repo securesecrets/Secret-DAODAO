@@ -1,14 +1,15 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use dao_interface::query::SubDao;
 
-use crate::types::{MigrationParams, V1CodeIds, V2CodeIds};
+use crate::types::{MigrationParams, V1CodeIdsAndHashes, V2CodeIdsAndHashes};
 
 #[cw_serde]
 pub struct MigrateV1ToV2 {
     pub sub_daos: Vec<SubDao>,
+    pub dao_code_hash: String,
     pub migration_params: MigrationParams,
-    pub v1_code_ids: V1CodeIds,
-    pub v2_code_ids: V2CodeIds,
+    pub v1_code_ids_and_hashes: V1CodeIdsAndHashes,
+    pub v2_code_ids_and_hashes: V2CodeIdsAndHashes,
 }
 
 pub type InstantiateMsg = MigrateV1ToV2;

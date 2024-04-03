@@ -1,26 +1,26 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_json, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Order, Reply,
-    Response, StdResult, SubMsg, WasmMsg,
+    from_binary, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdResult, SubMsg, WasmMsg,
 };
 use cosmwasm_std::{Addr, Coin};
 
-use cw2::set_contract_version;
-use cw20::Cw20ExecuteMsg;
-use cw20::Cw20ReceiveMsg;
 use cw_denom::CheckedDenom;
-use cw_storage_plus::Bound;
-use cw_utils::{nonpayable, parse_reply_instantiate_data};
 use cw_vesting::msg::{
     InstantiateMsg as PayrollInstantiateMsg, QueryMsg as PayrollQueryMsg,
     ReceiveMsg as PayrollReceiveMsg,
 };
 use cw_vesting::vesting::Vest;
+use secret_cw2::set_contract_version;
+use secret_utils::{nonpayable, parse_reply_instantiate_data};
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg};
-use crate::state::{vesting_contracts, VestingContract, TMP_INSTANTIATOR_INFO, VESTING_CODE_ID};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg, Snip20ReceiveMsg};
+use crate::state::{
+    vesting_contracts, VestingContract, VestingContractInstantiateInfo, TMP_INSTANTIATOR_INFO,
+    VESTING_INFO,
+};
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:cw-payroll-factory";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -37,7 +37,13 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     cw_ownable::initialize_owner(deps.storage, deps.api, msg.owner.as_deref())?;
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    VESTING_CODE_ID.save(deps.storage, &msg.vesting_code_id)?;
+    VESTING_INFO.save(
+        deps.storage,
+        &VestingContractInstantiateInfo {
+            code_id: msg.vesting_code_id,
+            code_hash: msg.vesting_code_hash,
+        },
+    )?;
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("creator", info.sender))
@@ -51,34 +57,34 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Receive(msg) => execute_receive_cw20(env, deps, info, msg),
+        ExecuteMsg::Receive(msg) => execute_receive_snip20(env, deps, info, msg),
         ExecuteMsg::InstantiateNativePayrollContract {
             instantiate_msg,
             label,
         } => execute_instantiate_native_payroll_contract(deps, info, instantiate_msg, label),
         ExecuteMsg::UpdateOwnership(action) => execute_update_owner(deps, info, env, action),
-        ExecuteMsg::UpdateCodeId { vesting_code_id } => {
-            execute_update_code_id(deps, info, vesting_code_id)
+        ExecuteMsg::UpdateCodeIdAndCodeHash { vesting_code_id,vesting_code_hash } => {
+            execute_update_code_id_and_code_hash(deps, info, vesting_code_id,vesting_code_hash)
         }
     }
 }
 
-pub fn execute_receive_cw20(
+pub fn execute_receive_snip20(
     _env: Env,
     deps: DepsMut,
     info: MessageInfo,
-    receive_msg: Cw20ReceiveMsg,
+    receive_msg: Snip20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-    // Only accepts cw20 tokens
+    // Only accepts snip20 tokens
     nonpayable(&info)?;
 
-    let msg: ReceiveMsg = from_json(&receive_msg.msg)?;
+    let msg: ReceiveMsg = from_binary(&receive_msg.msg.unwrap())?;
 
     if TMP_INSTANTIATOR_INFO.may_load(deps.storage)?.is_some() {
         return Err(ContractError::Reentrancy);
     }
 
-    // Save instantiator info for use in reply (cw20 sender in this case)
+    // Save instantiator info for use in reply (snip20 sender in this case)
     let sender = deps.api.addr_validate(&receive_msg.sender)?;
     TMP_INSTANTIATOR_INFO.save(deps.storage, &sender)?;
 
@@ -112,8 +118,8 @@ pub fn execute_instantiate_native_payroll_contract(
 
 /// `sender` here refers to the initiator of the vesting, not the
 /// literal sender of the message. Practically speaking, this means
-/// that it should be set to the sender of the cw20's being vested,
-/// and not the cw20 contract when dealing with non-native vesting.
+/// that it should be set to the sender of the snip20's being vested,
+/// and not the snip20 contract when dealing with non-native vesting.
 pub fn instantiate_contract(
     deps: DepsMut,
     sender: Addr,
@@ -131,13 +137,14 @@ pub fn instantiate_contract(
         return Err(ContractError::Unauthorized {});
     }
 
-    let code_id = VESTING_CODE_ID.load(deps.storage)?;
+    let vesting_contract_info = VESTING_INFO.load(deps.storage)?;
 
     // Instantiate the specified contract with owner as the admin.
     let instantiate = WasmMsg::Instantiate {
         admin: instantiate_msg.owner.clone(),
-        code_id,
-        msg: to_json_binary(&instantiate_msg)?,
+        code_id: vesting_contract_info.code_id,
+        code_hash: vesting_contract_info.code_hash,
+        msg: to_binary(&instantiate_msg)?,
         funds: funds.unwrap_or_default(),
         label,
     };
@@ -159,16 +166,21 @@ pub fn execute_update_owner(
     Ok(Response::default().add_attributes(ownership.into_attributes()))
 }
 
-pub fn execute_update_code_id(
+pub fn execute_update_code_id_and_code_hash(
     deps: DepsMut,
     info: MessageInfo,
-    vesting_code_id: u64,
+    code_id: u64,
+    code_hash: String,
 ) -> Result<Response, ContractError> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    VESTING_CODE_ID.save(deps.storage, &vesting_code_id)?;
+    VESTING_INFO.save(deps.storage, &VestingContractInstantiateInfo{
+        code_id,
+        code_hash: code_hash.clone()
+    })?;
     Ok(Response::default()
         .add_attribute("action", "update_code_id")
-        .add_attribute("vesting_code_id", vesting_code_id.to_string()))
+        .add_attribute("vesting_code_id", code_id.to_string())
+    .add_attribute("vesting_code_hash", code_hash))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -184,7 +196,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
                 .collect();
 
-            Ok(to_json_binary(&res)?)
+            Ok(to_binary(&res)?)
         }
         QueryMsg::ListVestingContractsReverse {
             start_before,
@@ -199,7 +211,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
                 .collect();
 
-            Ok(to_json_binary(&res)?)
+            Ok(to_binary(&res)?)
         }
         QueryMsg::ListVestingContractsByInstantiator {
             instantiator,
@@ -221,7 +233,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
                 .collect();
 
-            Ok(to_json_binary(&res)?)
+            Ok(to_binary(&res)?)
         }
         QueryMsg::ListVestingContractsByInstantiatorReverse {
             instantiator,
@@ -243,7 +255,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
                 .collect();
 
-            Ok(to_json_binary(&res)?)
+            Ok(to_binary(&res)?)
         }
         QueryMsg::ListVestingContractsByRecipient {
             recipient,
@@ -265,7 +277,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
                 .collect();
 
-            Ok(to_json_binary(&res)?)
+            Ok(to_binary(&res)?)
         }
         QueryMsg::ListVestingContractsByRecipientReverse {
             recipient,
@@ -287,10 +299,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
                 .collect();
 
-            Ok(to_json_binary(&res)?)
+            Ok(to_binary(&res)?)
         }
-        QueryMsg::Ownership {} => to_json_binary(&cw_ownable::get_ownership(deps.storage)?),
-        QueryMsg::CodeId {} => to_json_binary(&VESTING_CODE_ID.load(deps.storage)?),
+        QueryMsg::Ownership {} => to_binary(&cw_ownable::get_ownership(deps.storage)?),
+        QueryMsg::CodeIdAndHash {} => to_binary(&VESTING_INFO.load(deps.storage)?),
     }
 }
 
@@ -325,14 +337,21 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             // If cw20, fire off fund message!
             let msgs: Vec<CosmosMsg> = match vest.denom {
                 CheckedDenom::Native(_) => vec![],
-                CheckedDenom::Cw20(ref denom) => {
+                CheckedDenom::Cw20(ref denom, code_hash) => {
                     // Send transaction to fund contract
                     vec![CosmosMsg::Wasm(WasmMsg::Execute {
                         contract_addr: denom.to_string(),
-                        msg: to_json_binary(&Cw20ExecuteMsg::Send {
-                            contract: contract_addr.to_string(),
+                        code_hash,
+                        msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Send {
+                            recipient: contract_addr.to_string(),
+                            recipient_code_hash: todo!(),
                             amount: vest.total(),
-                            msg: to_json_binary(&PayrollReceiveMsg::Fund {})?,
+                            msg: Some(to_binary(&PayrollReceiveMsg::Fund {})?),
+                            amount: todo!(),
+                            memo: todo!(),
+                            decoys: todo!(),
+                            entropy: todo!(),
+                            padding: todo!(),
                         })?,
                         funds: vec![],
                     })]

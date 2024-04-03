@@ -240,7 +240,7 @@ dependencies = [
  "digest 0.10.7",
  "ecdsa 0.16.9",
  "ed25519-zebra",
- "k256 0.13.2",
+ "k256 0.13.3",
  "rand_core 0.6.4",
  "thiserror",
 ]
@@ -515,6 +515,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-fund-distributor"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "cw-paginate-storage 2.4.0",
+ "dao-dao-core",
+ "dao-interface",
+ "dao-voting-snip20-staked",
+ "schemars 0.8.16",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit",
+ "secret-utils 0.13.4",
+ "serde",
+ "shade-protocol",
+ "snip20-reference-impl",
+ "snip20-stake",
+ "thiserror",
+]
+
+[[package]]
 name = "cw-hooks"
 version = "2.4.0"
 dependencies = [
@@ -573,6 +596,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-stake-tracker"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "cw-wormhole",
+ "secret-cosmwasm-std",
+]
+
+[[package]]
 name = "cw-storage-plus"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -592,6 +624,22 @@ dependencies = [
  "cosmwasm-std 1.5.0",
  "schemars 0.8.16",
  "serde",
+]
+
+[[package]]
+name = "cw-token-swap"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "schemars 0.8.16",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-utils 0.13.4",
+ "serde",
+ "snip20-reference-impl",
+ "thiserror",
 ]
 
 [[package]]
@@ -619,6 +667,40 @@ dependencies = [
  "semver",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "cw-vesting"
+version = "2.4.0"
+dependencies = [
+ "anyhow",
+ "cosmwasm-schema 1.1.11",
+ "cw-denom",
+ "cw-ownable",
+ "cw-paginate-storage 2.4.0",
+ "cw-stake-tracker",
+ "cw-wormhole",
+ "schemars 0.8.16",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-utils 0.13.4",
+ "serde",
+ "snip20-reference-impl",
+ "thiserror",
+ "wynd-utils",
+]
+
+[[package]]
+name = "cw-wormhole"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "secret-cosmwasm-std",
+ "secret-storage-plus",
+ "secret-toolkit",
+ "serde",
 ]
 
 [[package]]
@@ -832,6 +914,30 @@ dependencies = [
  "secret-utils 0.13.4",
  "serde",
  "shade-protocol",
+]
+
+[[package]]
+name = "dao-migrator"
+version = "2.4.0"
+dependencies = [
+ "anyhow",
+ "cosmwasm-schema 1.1.11",
+ "dao-dao-core",
+ "dao-interface",
+ "dao-proposal-single",
+ "dao-voting 2.4.0",
+ "dao-voting-cw4",
+ "dao-voting-snip20-staked",
+ "schemars 0.8.16",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-utils 0.13.4",
+ "serde",
+ "shade-protocol",
+ "snip20-reference-impl",
+ "thiserror",
 ]
 
 [[package]]
@@ -1542,9 +1648,9 @@ dependencies = [
 
 [[package]]
 name = "k256"
-version = "0.13.2"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f01b677d82ef7a676aa37e099defd83a28e15687112cafdd112d60236b6115b"
+checksum = "956ff9b67e26e1a6a866cb758f12c6f8746208489e3e4a4b5580802f2f0a587b"
 dependencies = [
  "cfg-if",
  "ecdsa 0.16.9",

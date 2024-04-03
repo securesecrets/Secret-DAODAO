@@ -6,23 +6,31 @@ use super::query_helpers::{
     v1_expiration_to_v2, v1_status_to_v2, v1_threshold_to_v2, v1_votes_to_v2,
 };
 
-pub fn query_proposal_count_v1(deps: Deps, proposals_addrs: Vec<Addr>) -> StdResult<Vec<u64>> {
-    proposals_addrs
+pub fn query_proposal_count_v1(
+    deps: Deps,
+    proposals_info: Vec<(Addr, String)>,
+) -> StdResult<Vec<u64>> {
+    proposals_info
         .into_iter()
-        .map(|proposal_addr| {
+        .map(|(proposal_addr, code_hash)| {
             deps.querier.query_wasm_smart(
+                code_hash,
                 proposal_addr,
-                &cw_proposal_single_v1::msg::QueryMsg::ProposalCount {},
+                &dao_proposal_single::msg::QueryMsg::ProposalCount {},
             )
         })
         .collect()
 }
 
-pub fn query_proposal_count_v2(deps: Deps, proposals_addrs: Vec<Addr>) -> StdResult<Vec<u64>> {
-    proposals_addrs
+pub fn query_proposal_count_v2(
+    deps: Deps,
+    proposals_info: Vec<(Addr, String)>,
+) -> StdResult<Vec<u64>> {
+    proposals_info
         .into_iter()
-        .map(|proposal_addr| {
+        .map(|(proposal_addr, code_hash)| {
             deps.querier.query_wasm_smart(
+                code_hash,
                 proposal_addr,
                 &dao_proposal_single::msg::QueryMsg::ProposalCount {},
             )
@@ -32,7 +40,7 @@ pub fn query_proposal_count_v2(deps: Deps, proposals_addrs: Vec<Addr>) -> StdRes
 
 pub fn query_proposal_v1(
     deps: Deps,
-    proposals_addrs: Vec<Addr>,
+    proposal_info: Vec<(Addr, String)>,
 ) -> Result<
     (
         Vec<dao_proposal_single::proposal::SingleChoiceProposal>,
@@ -42,13 +50,14 @@ pub fn query_proposal_v1(
 > {
     let mut sample_proposal = None;
 
-    let proposals = proposals_addrs
+    let proposals = proposal_info
         .into_iter()
-        .map(|proposal_addr| {
-            let proposals: cw_proposal_single_v1::query::ProposalListResponse =
+        .map(|(proposal_addr, code_hash)| {
+            let proposals: dao_proposal_single::query::ProposalListResponse =
                 deps.querier.query_wasm_smart(
+                    code_hash.clone(),
                     proposal_addr.clone(),
-                    &cw_proposal_single_v1::msg::QueryMsg::ReverseProposals {
+                    &dao_proposal_single::msg::QueryMsg::ReverseProposals {
                         start_before: None,
                         limit: None,
                     },
@@ -94,7 +103,7 @@ pub fn query_proposal_v1(
 
 pub fn query_proposal_v2(
     deps: Deps,
-    proposals_addrs: Vec<Addr>,
+    proposals_info: Vec<(Addr, String)>,
 ) -> Result<
     (
         Vec<dao_proposal_single::proposal::SingleChoiceProposal>,
@@ -104,11 +113,12 @@ pub fn query_proposal_v2(
 > {
     let mut sample_proposal = None;
 
-    let proposals = proposals_addrs
+    let proposals = proposals_info
         .into_iter()
-        .map(|proposal_addr| {
+        .map(|(proposal_addr, code_hash)| {
             let proposals: dao_proposal_single::query::ProposalListResponse =
                 deps.querier.query_wasm_smart(
+                    code_hash.clone(),
                     proposal_addr.clone(),
                     &dao_proposal_single::msg::QueryMsg::ReverseProposals {
                         start_before: None,
@@ -142,59 +152,29 @@ pub fn query_proposal_v2(
 pub fn query_total_voting_power_v1(
     deps: Deps,
     voting_addr: Addr,
-    height: u64,
-) -> StdResult<Uint128> {
-    let res: cw_core_interface_v1::voting::TotalPowerAtHeightResponse =
-        deps.querier.query_wasm_smart(
-            voting_addr,
-            &cw20_staked_balance_voting_v1::msg::QueryMsg::TotalPowerAtHeight {
-                height: Some(height),
-            },
-        )?;
-    Ok(res.power)
-}
-
-pub fn query_total_voting_power_v2(
-    deps: Deps,
-    voting_addr: Addr,
+    voting_code_hash: String,
     height: u64,
 ) -> StdResult<Uint128> {
     let res: dao_interface::voting::TotalPowerAtHeightResponse = deps.querier.query_wasm_smart(
+        voting_code_hash,
         voting_addr,
-        &dao_voting_cw20_staked::msg::QueryMsg::TotalPowerAtHeight {
+        &dao_voting_snip20_staked::msg::QueryMsg::TotalPowerAtHeight {
             height: Some(height),
         },
     )?;
     Ok(res.power)
 }
 
-pub fn query_single_voting_power_v1(
+pub fn query_total_voting_power_v2(
     deps: Deps,
     voting_addr: Addr,
-    address: Addr,
+    voting_code_hash: String,
     height: u64,
 ) -> StdResult<Uint128> {
-    let res: cw_core_interface_v1::voting::VotingPowerAtHeightResponse =
-        deps.querier.query_wasm_smart(
-            voting_addr,
-            &cw20_staked_balance_voting_v1::msg::QueryMsg::VotingPowerAtHeight {
-                address: address.into(),
-                height: Some(height),
-            },
-        )?;
-    Ok(res.power)
-}
-
-pub fn query_single_voting_power_v2(
-    deps: Deps,
-    voting_addr: Addr,
-    address: Addr,
-    height: u64,
-) -> StdResult<Uint128> {
-    let res: dao_interface::voting::VotingPowerAtHeightResponse = deps.querier.query_wasm_smart(
+    let res: dao_interface::voting::TotalPowerAtHeightResponse = deps.querier.query_wasm_smart(
+        voting_code_hash,
         voting_addr,
-        &dao_voting_cw20_staked::msg::QueryMsg::VotingPowerAtHeight {
-            address: address.into(),
+        &dao_voting_snip20_staked::msg::QueryMsg::TotalPowerAtHeight {
             height: Some(height),
         },
     )?;

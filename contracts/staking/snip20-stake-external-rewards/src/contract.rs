@@ -713,13 +713,11 @@ mod tests {
         let mut viewing_key = String::new();
         let data: shade_protocol::contract_interfaces::query_auth::ExecuteAnswer =
             from_binary(&res.data.unwrap()).unwrap();
-        match data {
-            shade_protocol::contract_interfaces::query_auth::ExecuteAnswer::CreateViewingKey {
-                key,
-            } => {
-                viewing_key = key;
-            }
-            _ => (),
+        if let shade_protocol::contract_interfaces::query_auth::ExecuteAnswer::CreateViewingKey {
+            key,
+        } = data
+        {
+            viewing_key = key;
         };
         viewing_key
     }
@@ -739,11 +737,8 @@ mod tests {
         let mut viewing_key = String::new();
         let data: snip20_reference_impl::msg::ExecuteAnswer =
             from_binary(&res.data.unwrap()).unwrap();
-        match data {
-            snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } => {
-                viewing_key = key;
-            }
-            _ => (),
+        if let snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } = data {
+            viewing_key = key;
         };
         viewing_key
     }
@@ -832,11 +827,8 @@ mod tests {
             .query_wasm_smart(snip20_info.code_hash, snip20_info.address.to_string(), &msg)
             .unwrap();
         let mut balance = Uint128::zero();
-        match result {
-            QueryAnswer::Balance { amount } => {
-                balance = amount;
-            }
-            _ => (),
+        if let QueryAnswer::Balance { amount } = result {
+            balance = amount;
         }
         balance
     }
@@ -882,9 +874,8 @@ mod tests {
     fn claim_rewards(app: &mut App, reward_contract_info: ContractInfo, auth: Auth) {
         let msg = ExecuteMsg::Claim { auth: auth.clone() };
         let mut sender = String::new();
-        match auth {
-            Auth::ViewingKey { address, .. } => sender = address,
-            _ => (),
+        if let Auth::ViewingKey { address, .. } = auth {
+            sender = address
         }
         app.borrow_mut()
             .execute_contract(Addr::unchecked(sender), &reward_contract_info, &msg, &[])
@@ -1047,7 +1038,7 @@ mod tests {
             .borrow_mut()
             .wrap()
             .query_wasm_smart(
-                &reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().code_hash,
                 reward_contract_info.clone().address.to_string(),
                 &QueryMsg::Info {},
             )
@@ -1082,7 +1073,7 @@ mod tests {
             .borrow_mut()
             .wrap()
             .query_wasm_smart(
-                &reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().code_hash,
                 reward_contract_info.clone().address.to_string(),
                 &QueryMsg::Info {},
             )
@@ -1121,7 +1112,7 @@ mod tests {
             .borrow_mut()
             .wrap()
             .query_wasm_smart(
-                &reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().code_hash,
                 reward_contract_info.clone().address.to_string(),
                 &QueryMsg::Info {},
             )
@@ -1342,7 +1333,7 @@ mod tests {
 
         let owner = get_ownership(
             &app,
-            &reward_contract_info.clone().address.to_string(),
+            reward_contract_info.clone().address.to_string(),
             reward_contract_info.clone().code_hash,
         )
         .owner;
@@ -1373,7 +1364,7 @@ mod tests {
 
         let ownership = get_ownership(
             &app,
-            &reward_contract_info.clone().address.to_string(),
+            reward_contract_info.clone().address.to_string(),
             reward_contract_info.clone().code_hash,
         );
         assert_eq!(
@@ -1396,7 +1387,7 @@ mod tests {
 
         let ownership = get_ownership(
             &app,
-            &reward_contract_info.clone().address.to_string(),
+            reward_contract_info.clone().address.to_string(),
             reward_contract_info.clone().code_hash,
         );
         assert_eq!(
@@ -1419,7 +1410,7 @@ mod tests {
 
         let ownership = get_ownership(
             &app,
-            &reward_contract_info.clone().address.to_string(),
+            reward_contract_info.clone().address.to_string(),
             reward_contract_info.clone().code_hash,
         );
         assert_eq!(
@@ -1737,7 +1728,7 @@ mod tests {
             .borrow_mut()
             .wrap()
             .query_wasm_smart(
-                &reward_contract_info.clone().code_hash,
+                reward_contract_info.clone().code_hash,
                 reward_contract_info.clone().address.to_string(),
                 &QueryMsg::Info {},
             )

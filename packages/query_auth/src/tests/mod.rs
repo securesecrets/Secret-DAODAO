@@ -84,8 +84,7 @@ pub fn get_permit() -> QueryPermit {
 }
 
 pub fn get_config(chain: &App, auth: &ContractInfo) -> StdResult<(Contract, ContractStatus)> {
-    let query: query_auth::QueryAnswer =
-        query_auth::QueryMsg::Config {}.test_query(&auth, &chain)?;
+    let query: query_auth::QueryAnswer = query_auth::QueryMsg::Config {}.test_query(auth, chain)?;
 
     match query {
         query_auth::QueryAnswer::Config { admin, state } => Ok((admin, state)),
@@ -98,7 +97,7 @@ pub fn validate_vk(chain: &App, auth: &ContractInfo, user: &str, key: &str) -> S
         user: Addr::unchecked(user),
         key: key.to_string(),
     }
-    .test_query(&auth, &chain)?;
+    .test_query(auth, chain)?;
 
     match query {
         query_auth::QueryAnswer::ValidateViewingKey { is_valid } => Ok(is_valid),
@@ -110,7 +109,7 @@ pub fn validate_permit(chain: &App, auth: &ContractInfo) -> StdResult<(Addr, boo
     let query: query_auth::QueryAnswer = query_auth::QueryMsg::ValidatePermit {
         permit: get_permit(),
     }
-    .test_query(&auth, &chain)?;
+    .test_query(auth, chain)?;
 
     match query {
         query_auth::QueryAnswer::ValidatePermit { user, is_revoked } => Ok((user, is_revoked)),

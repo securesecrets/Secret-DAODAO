@@ -1,15 +1,15 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
-use cw2::set_contract_version;
-use cw_storage_plus::Item;
-use cw_utils::must_pay;
+use secret_cw2::set_contract_version;
+use secret_storage_plus::Item;
+use secret_utils::must_pay;
 
 use crate::{
     error::ContractError,
-    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, StatusResponse},
+    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, Snip20ReceiveMsg, StatusResponse},
     state::{CheckedCounterparty, CheckedTokenInfo, COUNTERPARTY_ONE, COUNTERPARTY_TWO},
 };
 
@@ -133,9 +133,9 @@ fn do_fund(
 pub fn execute_receive(
     deps: DepsMut,
     token_contract: Addr,
-    msg: cw20::Cw20ReceiveMsg,
+    msg: Snip20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-    let sender = deps.api.addr_validate(&msg.sender)?;
+    let sender = deps.api.addr_validate(msg.sender.as_ref())?;
 
     let CounterpartyResponse {
         counterparty,
@@ -143,9 +143,10 @@ pub fn execute_receive(
         storage,
     } = get_counterparty(deps.as_ref(), &sender)?;
 
-    let (expected_payment, paid) = if let CheckedTokenInfo::Cw20 {
+    let (expected_payment, paid) = if let CheckedTokenInfo::Snip20 {
         contract_addr,
         amount,
+        ..
     } = &counterparty.promise
     {
         if *contract_addr != token_contract {
@@ -240,7 +241,7 @@ pub fn query_status(deps: Deps) -> StdResult<Binary> {
     let counterparty_one = COUNTERPARTY_ONE.load(deps.storage)?;
     let counterparty_two = COUNTERPARTY_TWO.load(deps.storage)?;
 
-    to_json_binary(&StatusResponse {
+    to_binary(&StatusResponse {
         counterparty_one,
         counterparty_two,
     })

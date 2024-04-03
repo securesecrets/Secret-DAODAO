@@ -197,12 +197,14 @@ pub fn voting_module_query(metadata: TokenStream, input: TokenStream) -> TokenSt
 /// ```
 #[proc_macro_attribute]
 pub fn cw20_token_query(metadata: TokenStream, input: TokenStream) -> TokenStream {
+    let ci = dao_interface_path("state::AnyContractInfo");
+
     merge_variants(
         metadata,
         input,
         quote! {
         enum Right {
-            #[returns(::cosmwasm_std::Addr)]
+            #[returns(#ci)]
             TokenContract {}
         }
         }

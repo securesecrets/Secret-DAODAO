@@ -1,6 +1,6 @@
 use cosmwasm_std::{StdError, Uint128};
 use cw_ownable::OwnershipError;
-use cw_utils::{ParseReplyError, PaymentError};
+use secret_utils::{ParseReplyError, PaymentError};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]

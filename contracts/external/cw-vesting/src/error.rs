@@ -1,7 +1,7 @@
 use cosmwasm_std::{StdError, Uint128};
 use cw_denom::DenomError;
 use cw_ownable::OwnershipError;
-use cw_utils::PaymentError;
+use secret_utils::PaymentError;
 use thiserror::Error;
 use wynd_utils::CurveError;
 

@@ -90,7 +90,7 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     /// Gets the address of the cw20-stake contract this voting module
     /// is wrapping.
-    #[returns(cosmwasm_std::Addr)]
+    #[returns(dao_interface::state::AnyContractInfo)]
     StakingContract {},
     #[returns(dao_voting::threshold::ActiveThresholdResponse)]
     ActiveThreshold {},

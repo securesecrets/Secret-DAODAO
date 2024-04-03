@@ -23,7 +23,9 @@ pub struct InstantiateMsgResponse {
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Change the admin
-    UpdateAdmin { admin: Option<String> },
+    UpdateAdmin {
+        admin: Option<String>,
+    },
     /// apply a diff to the existing members.
     /// remove is applied after add, so if an address is in both, it is removed
     UpdateMembers {
@@ -31,12 +33,16 @@ pub enum ExecuteMsg {
         add: Vec<Member>,
     },
     /// Add a new hook to be informed of all membership changes. Must be called by Admin
-    AddHook { hook: HookItem },
+    AddHook {
+        hook: HookItem,
+    },
     /// Remove a hook. Must be called by Admin
-    RemoveHook { hook: HookItem },
+    RemoveHook {
+        hook: HookItem,
+    },
     UpdateQueryAuth {
-        query_auth : RawContract
-    }
+        query_auth: RawContract,
+    },
 }
 
 #[cw_serde]

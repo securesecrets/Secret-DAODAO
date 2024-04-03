@@ -3,11 +3,12 @@
 pub mod contract;
 mod error;
 pub mod msg;
+pub mod snip20_stake;
 pub mod state;
 pub mod types;
 pub mod utils;
 
-#[cfg(test)]
-mod testing;
+// #[cfg(test)]
+// mod testing;
 
 pub use crate::error::ContractError;

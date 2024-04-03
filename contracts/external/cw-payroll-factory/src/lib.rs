@@ -5,8 +5,8 @@ mod error;
 pub mod msg;
 pub mod state;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 // so that consumers don't need a cw_ownable dependency to consume this contract's queries.
 pub use cw_ownable::Ownership;

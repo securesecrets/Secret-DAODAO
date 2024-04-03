@@ -27,7 +27,7 @@ fn set_admin() {
 
     match get_config(&chain, &auth) {
         Ok((admin, _)) => assert_eq!(admin.address, Addr::unchecked("some_addr")),
-        Err(_) => assert!(false),
+        Err(_) => panic!(),
     };
 }
 
@@ -50,7 +50,7 @@ fn set_runstate() {
 
     match get_config(&chain, &auth) {
         Ok((_, state)) => assert_eq!(state, ContractStatus::DisableAll),
-        Err(_) => assert!(false),
+        Err(_) => panic!(),
     };
 }
 
@@ -225,8 +225,7 @@ fn create_vk() {
     let key = match msg {
         query_auth::ExecuteAnswer::CreateViewingKey { key, .. } => key,
         _ => {
-            assert!(false);
-            "doesnt_work".to_string()
+            panic!();
         }
     };
 

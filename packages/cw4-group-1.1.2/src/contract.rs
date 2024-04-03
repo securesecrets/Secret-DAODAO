@@ -112,7 +112,7 @@ pub fn execute(
         )?),
         ExecuteMsg::UpdateQueryAuth { query_auth } => {
             ADMIN.assert_admin(deps.as_ref(), &info.sender)?;
-            let mut queryauth  = QUERY_AUTH.load(deps.storage)?;
+            let mut queryauth = QUERY_AUTH.load(deps.storage)?;
             queryauth = query_auth.into_valid(deps.api)?;
             QUERY_AUTH.save(deps.storage, &queryauth)?;
             Ok(Response::default().add_attribute("action", "update query_auth"))
@@ -247,7 +247,6 @@ pub fn query_list_members(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<MemberListResponse> {
-    
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
 
     let mut res_members: Vec<Member> = Vec::new();

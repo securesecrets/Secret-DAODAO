@@ -1,9 +1,10 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Timestamp, Uint128};
-use cw20::Cw20ReceiveMsg;
+use cosmwasm_std::{Addr, Binary, Timestamp, Uint128};
 use cw_denom::UncheckedDenom;
 use cw_ownable::cw_ownable_execute;
 use cw_stake_tracker::StakeTrackerQuery;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use crate::vesting::Schedule;
 
@@ -60,6 +61,17 @@ pub struct InstantiateMsg {
     pub unbonding_duration_seconds: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Snip20ReceiveMsg {
+    pub sender: Addr,
+    pub from: Addr,
+    pub amount: Uint128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+    pub msg: Option<Binary>,
+}
+
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -68,7 +80,7 @@ pub enum ExecuteMsg {
     /// as the amount to be vested (as set during instantiation).
     /// Anyone may call this method so long as the contract has not
     /// yet been funded.
-    Receive(Cw20ReceiveMsg),
+    Receive(Snip20ReceiveMsg),
     /// Distribute vested tokens to the vest receiver. Anyone may call
     /// this method.
     Distribute {

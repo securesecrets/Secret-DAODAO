@@ -1,5 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Addr, Binary, Uint128};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use crate::state::CheckedCounterparty;
 
@@ -9,8 +11,9 @@ pub enum TokenInfo {
     /// A native token.
     Native { denom: String, amount: Uint128 },
     /// A cw20 token.
-    Cw20 {
+    Snip20 {
         contract_addr: String,
+        code_hash: String,
         amount: Uint128,
     },
 }
@@ -31,10 +34,20 @@ pub struct InstantiateMsg {
     pub counterparty_two: Counterparty,
 }
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Snip20ReceiveMsg {
+    pub sender: Addr,
+    pub from: Addr,
+    pub amount: Uint128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+    pub msg: Option<Binary>,
+}
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Used to provide cw20 tokens to satisfy a funds promise.
-    Receive(cw20::Cw20ReceiveMsg),
+    Receive(Snip20ReceiveMsg),
     /// Provides native tokens to satisfy a funds promise.
     Fund {},
     /// Withdraws provided funds. Only allowed if the other

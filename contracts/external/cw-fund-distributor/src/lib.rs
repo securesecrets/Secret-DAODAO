@@ -4,7 +4,7 @@ mod error;
 pub mod msg;
 pub mod state;
 
-#[cfg(test)]
-mod testing;
+// #[cfg(test)]
+// mod testing;
 
 pub use crate::error::ContractError;

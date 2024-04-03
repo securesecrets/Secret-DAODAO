@@ -1,19 +1,33 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cw20::Cw20ReceiveMsg;
+use cosmwasm_std::{Addr, Binary, Uint128};
 use cw_ownable::cw_ownable_execute;
 use cw_vesting::msg::InstantiateMsg as PayrollInstantiateMsg;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner: Option<String>,
     pub vesting_code_id: u64,
+    pub vesting_code_hash: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Snip20ReceiveMsg {
+    pub sender: Addr,
+    pub from: Addr,
+    pub amount: Uint128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+    pub msg: Option<Binary>,
 }
 
 #[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Instantiates a new vesting contract that is funded by a cw20 token.
-    Receive(Cw20ReceiveMsg),
+    Receive(Snip20ReceiveMsg),
     /// Instantiates a new vesting contract that is funded by a native token.
     InstantiateNativePayrollContract {
         instantiate_msg: PayrollInstantiateMsg,
@@ -22,7 +36,7 @@ pub enum ExecuteMsg {
 
     /// Callable only by the current owner. Updates the code ID used
     /// while instantiating vesting contracts.
-    UpdateCodeId { vesting_code_id: u64 },
+    UpdateCodeIdAndCodeHash { vesting_code_id: u64, vesting_code_hash: String },
 }
 
 // Receiver setup
@@ -83,6 +97,6 @@ pub enum QueryMsg {
     Ownership {},
 
     /// Returns the code ID currently being used to instantiate vesting contracts.
-    #[returns(::std::primitive::u64)]
-    CodeId {},
+    #[returns(crate::state::VestingContractInstantiateInfo)]
+    CodeIdAndHash {},
 }

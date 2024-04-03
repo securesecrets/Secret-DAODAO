@@ -1,16 +1,22 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
-use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
+use secret_storage_plus::Item;
 
 /// Temporarily holds the address of the instantiator for use in submessages
 pub const TMP_INSTANTIATOR_INFO: Item<Addr> = Item::new("tmp_instantiator_info");
-pub const VESTING_CODE_ID: Item<u64> = Item::new("pci");
+pub const VESTING_INFO: Item<VestingContractInstantiateInfo> = Item::new("pci");
 
 #[cw_serde]
 pub struct VestingContract {
     pub contract: String,
     pub instantiator: String,
     pub recipient: String,
+}
+
+#[cw_serde]
+pub struct VestingContractInstantiateInfo {
+    pub code_id: u64,
+    pub code_hash: String,
 }
 
 pub struct TokenIndexes<'a> {
@@ -25,7 +31,7 @@ impl<'a> IndexList<VestingContract> for TokenIndexes<'a> {
     }
 }
 
-pub fn vesting_contracts<'a>() -> IndexedMap<'a, &'a str, VestingContract, TokenIndexes<'a>> {
+pub fn vesting_contracts<'a>() -> IndexedMap< &'a str, VestingContract, TokenIndexes<'a>> {
     let indexes = TokenIndexes {
         instantiator: MultiIndex::new(
             |_pk: &[u8], d: &VestingContract| d.instantiator.clone(),

@@ -3,26 +3,27 @@ use std::{collections::HashSet, env};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdResult, SubMsg, WasmMsg,
+    to_binary, Binary, ContractInfoResponse, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply,
+    Response, StdResult, SubMsg, WasmMsg,
 };
-use cw2::set_contract_version;
 use dao_interface::{
     query::SubDao,
-    state::{ModuleInstantiateCallback, ProposalModule},
+    state::{AnyContractInfo, ModuleInstantiateCallback, ProposalModule},
 };
+use secret_cw2::set_contract_version;
 
 use crate::{
     error::ContractError,
     msg::{ExecuteMsg, InstantiateMsg, MigrateV1ToV2, QueryMsg},
-    state::{CORE_ADDR, MODULES_ADDRS, TEST_STATE},
+    snip20_stake,
+    state::{CORE_INFO, MODULES_ADDRS, TEST_STATE},
     types::{
-        CodeIdPair, MigrationMsgs, MigrationParams, ModulesAddrs, TestState, V1CodeIds, V2CodeIds,
+        CodeIdPair, MigrationMsgs, MigrationParams, ModulesAddrs, TestState, V1CodeIdsAndHashes,
+        V2CodeIdsAndHashes,
     },
     utils::state_queries::{
         query_proposal_count_v1, query_proposal_count_v2, query_proposal_v1, query_proposal_v2,
-        query_single_voting_power_v1, query_single_voting_power_v2, query_total_voting_power_v1,
-        query_total_voting_power_v2,
+        query_total_voting_power_v1,
     },
 };
 
@@ -39,17 +40,25 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    CORE_ADDR.save(deps.storage, &info.sender)?;
+    CORE_INFO.save(
+        deps.storage,
+        &AnyContractInfo {
+            addr: info.sender,
+            code_hash: msg.dao_code_hash.clone(),
+        },
+    )?;
 
     Ok(
-        Response::default().set_data(to_json_binary(&ModuleInstantiateCallback {
+        Response::default().set_data(to_binary(&ModuleInstantiateCallback {
             msgs: vec![WasmMsg::Execute {
                 contract_addr: env.contract.address.to_string(),
-                msg: to_json_binary(&MigrateV1ToV2 {
+                code_hash: env.contract.code_hash,
+                msg: to_binary(&MigrateV1ToV2 {
                     sub_daos: msg.sub_daos,
+                    dao_code_hash: msg.dao_code_hash,
                     migration_params: msg.migration_params,
-                    v1_code_ids: msg.v1_code_ids,
-                    v2_code_ids: msg.v2_code_ids,
+                    v1_code_ids_and_hashes: msg.v1_code_ids_and_hashes,
+                    v2_code_ids_and_hashes: msg.v2_code_ids_and_hashes,
                 })?,
                 funds: vec![],
             }
@@ -71,8 +80,8 @@ pub fn execute(
         info,
         msg.sub_daos,
         msg.migration_params,
-        msg.v1_code_ids,
-        msg.v2_code_ids,
+        msg.v1_code_ids_and_hashes,
+        msg.v2_code_ids_and_hashes,
     )
 }
 
@@ -82,10 +91,10 @@ fn execute_migration_v1_v2(
     info: MessageInfo,
     sub_daos: Vec<SubDao>,
     migration_params: MigrationParams,
-    v1_code_ids: V1CodeIds,
-    v2_code_ids: V2CodeIds,
+    v1_code_ids_and_hashes: V1CodeIdsAndHashes,
+    v2_code_ids_and_hashes: V2CodeIdsAndHashes,
 ) -> Result<Response, ContractError> {
-    if info.sender != CORE_ADDR.load(deps.storage)? {
+    if info.sender != CORE_INFO.load(deps.storage)?.addr {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -108,8 +117,8 @@ fn execute_migration_v1_v2(
             (
                 addr,
                 CodeIdPair::new(
-                    v1_code_ids.proposal_single,
-                    v2_code_ids.proposal_single,
+                    v1_code_ids_and_hashes.proposal_single,
+                    v2_code_ids_and_hashes.proposal_single,
                     MigrationMsgs::DaoProposalSingle(
                         dao_proposal_single::msg::MigrateMsg::FromV1 {
                             close_proposal_on_execution_failure: proposal_params
@@ -124,20 +133,20 @@ fn execute_migration_v1_v2(
         .collect(); // cw-proposal-single -> dao_proposal_single
     let voting_pairs: Vec<CodeIdPair> = vec![
         CodeIdPair::new(
-            v1_code_ids.cw4_voting,
-            v2_code_ids.cw4_voting,
+            v1_code_ids_and_hashes.cw4_voting,
+            v2_code_ids_and_hashes.cw4_voting,
             MigrationMsgs::DaoVotingCw4(dao_voting_cw4::msg::MigrateMsg {}),
         ), // cw4-voting -> dao_voting_cw4
         CodeIdPair::new(
-            v1_code_ids.cw20_staked_balances_voting,
-            v2_code_ids.cw20_staked_balances_voting,
-            MigrationMsgs::DaoVotingCw20Staked(dao_voting_cw20_staked::msg::MigrateMsg {}),
+            v1_code_ids_and_hashes.snip20_staked_balances_voting,
+            v2_code_ids_and_hashes.snip20_staked_balances_voting,
+            MigrationMsgs::DaoVotingSnip20Staked(dao_voting_snip20_staked::msg::MigrateMsg {}),
         ), // cw20-staked-balances-voting -> dao-voting-cw20-staked
     ];
     let staking_pair = CodeIdPair::new(
-        v1_code_ids.cw20_stake,
-        v2_code_ids.cw20_stake,
-        MigrationMsgs::Cw20Stake(cw20_stake::msg::MigrateMsg::FromV1 {}),
+        v1_code_ids_and_hashes.snip20_stake,
+        v2_code_ids_and_hashes.snip20_stake,
+        MigrationMsgs::Snip20Stake(snip20_stake::MigrateMsg::FromV1 {}),
     ); // cw20-stake -> cw20_stake
 
     let mut msgs: Vec<CosmosMsg> = vec![];
@@ -146,20 +155,26 @@ fn execute_migration_v1_v2(
     // --------------------
     // verify voting module
     // --------------------
-    let voting_module: Addr = deps.querier.query_wasm_smart(
+    let voting_module: AnyContractInfo = deps.querier.query_wasm_smart(
+        CORE_INFO.load(deps.storage)?.code_hash,
         info.sender.clone(),
         &dao_interface::msg::QueryMsg::VotingModule {},
     )?;
 
-    let voting_code_id =
-        if let Ok(contract_info) = deps.querier.query_wasm_contract_info(voting_module.clone()) {
-            contract_info.code_id
-        } else {
-            // Return false if we don't get contract info, means something went wrong.
-            return Err(ContractError::NoContractInfo {
-                address: voting_module.into(),
-            });
-        };
+    let voting_code_id = if let Ok(contract_info) =
+        deps.querier
+            .query::<ContractInfoResponse>(&cosmwasm_std::QueryRequest::Wasm(
+                cosmwasm_std::WasmQuery::ContractInfo {
+                    contract_addr: voting_module.clone().addr.to_string(),
+                },
+            )) {
+        contract_info.code_id
+    } else {
+        // Return false if we don't get contract info, means something went wrong.
+        return Err(ContractError::NoContractInfo {
+            address: voting_module.clone().addr.into(),
+        });
+    };
 
     if let Some(voting_pair) = voting_pairs
         .into_iter()
@@ -167,53 +182,59 @@ fn execute_migration_v1_v2(
     {
         msgs.push(
             WasmMsg::Migrate {
-                contract_addr: voting_module.to_string(),
-                new_code_id: voting_pair.v2_code_id,
-                msg: to_json_binary(&voting_pair.migrate_msg).unwrap(),
+                contract_addr: voting_module.clone().addr.to_string(),
+                code_id: voting_pair.v2_code_id,
+                msg: to_binary(&voting_pair.migrate_msg).unwrap(),
+                code_hash: voting_module.clone().code_hash,
             }
             .into(),
         );
-        modules_addrs.voting = Some(voting_module.clone());
+        modules_addrs.voting = Some((voting_module.clone().addr, voting_module.clone().code_hash));
 
         // If voting module is staked cw20, we check that they confirmed migration
         // and migrate the cw20_staked module
-        if let MigrationMsgs::DaoVotingCw20Staked(_) = voting_pair.migrate_msg {
+        if let MigrationMsgs::DaoVotingSnip20Staked(_) = voting_pair.migrate_msg {
             if !migration_params
-                .migrate_stake_cw20_manager
+                .migrate_stake_snip20_manager
                 .unwrap_or_default()
             {
-                return Err(ContractError::DontMigrateCw20);
+                return Err(ContractError::DontMigrateSnip20);
             }
 
-            let cw20_staked_addr: Addr = deps.querier.query_wasm_smart(
-                voting_module,
-                &cw20_staked_balance_voting_v1::msg::QueryMsg::StakingContract {},
+            let snip20_staked_info: AnyContractInfo = deps.querier.query_wasm_smart(
+                voting_module.clone().code_hash,
+                voting_module.clone().addr.to_string(),
+                &dao_voting_snip20_staked::msg::QueryMsg::StakingContract {},
             )?;
 
-            let c20_staked_code_id = if let Ok(contract_info) = deps
+            let snip20_staked_code_id = if let Ok(contract_info) = deps
                 .querier
-                .query_wasm_contract_info(cw20_staked_addr.clone())
-            {
+                .query::<ContractInfoResponse>(&cosmwasm_std::QueryRequest::Wasm(
+                    cosmwasm_std::WasmQuery::ContractInfo {
+                        contract_addr: snip20_staked_info.clone().addr.to_string(),
+                    },
+                )) {
                 contract_info.code_id
             } else {
                 // Return false if we don't get contract info, means something went wrong.
                 return Err(ContractError::NoContractInfo {
-                    address: cw20_staked_addr.into(),
+                    address: snip20_staked_info.clone().addr.into(),
                 });
             };
 
             // If module is not DAO DAO module
-            if c20_staked_code_id != staking_pair.v1_code_id {
+            if snip20_staked_code_id != staking_pair.v1_code_id {
                 return Err(ContractError::CantMigrateModule {
-                    code_id: c20_staked_code_id,
+                    code_id: snip20_staked_code_id,
                 });
             }
 
             msgs.push(
                 WasmMsg::Migrate {
-                    contract_addr: cw20_staked_addr.to_string(),
-                    new_code_id: staking_pair.v2_code_id,
-                    msg: to_json_binary(&staking_pair.migrate_msg).unwrap(),
+                    contract_addr: snip20_staked_info.clone().addr.to_string(),
+                    code_hash: snip20_staked_info.clone().code_hash,
+                    code_id: staking_pair.v2_code_id,
+                    msg: to_binary(&staking_pair.migrate_msg).unwrap(),
                 }
                 .into(),
             );
@@ -227,6 +248,7 @@ fn execute_migration_v1_v2(
     // -----------------------
     // We take all the proposal modules of the DAO.
     let proposal_modules: Vec<ProposalModule> = deps.querier.query_wasm_smart(
+        CORE_INFO.load(deps.storage)?.code_hash,
         info.sender.clone(),
         &dao_interface::msg::QueryMsg::ProposalModules {
             start_after: None,
@@ -245,13 +267,13 @@ fn execute_migration_v1_v2(
         .iter()
         .try_for_each(|module| -> Result<(), ContractError> {
             // Instead of doing 2 loops, just ignore our module, we don't care about the vec after this.
-            if module.address == env.contract.address {
+            if module.address.clone() == env.contract.address {
                 return Ok(());
             }
 
             let proposal_pair = proposal_pairs
                 .iter()
-                .find(|(addr, _)| addr == module.address.as_str())
+                .find(|(addr, _)| addr == module.address.clone().as_str())
                 .ok_or(ContractError::ProposalModuleNotFoundInParams {
                     addr: module.address.clone().into(),
                 })?
@@ -261,8 +283,11 @@ fn execute_migration_v1_v2(
             // Get the code id of the module
             let proposal_code_id = if let Ok(contract_info) = deps
                 .querier
-                .query_wasm_contract_info(module.address.clone())
-            {
+                .query::<ContractInfoResponse>(&cosmwasm_std::QueryRequest::Wasm(
+                    cosmwasm_std::WasmQuery::ContractInfo {
+                        contract_addr: module.address.clone().to_string(),
+                    },
+                )) {
                 Ok(contract_info.code_id)
             } else {
                 // Return false if we don't get contract info, means something went wrong.
@@ -275,13 +300,16 @@ fn execute_migration_v1_v2(
             if proposal_code_id == proposal_pair.v1_code_id {
                 msgs.push(
                     WasmMsg::Migrate {
-                        contract_addr: module.address.to_string(),
-                        new_code_id: proposal_pair.v2_code_id,
-                        msg: to_json_binary(&proposal_pair.migrate_msg).unwrap(),
+                        contract_addr: module.address.clone().to_string(),
+                        code_hash: module.code_hash.clone(),
+                        code_id: proposal_pair.v2_code_id,
+                        msg: to_binary(&proposal_pair.migrate_msg).unwrap(),
                     }
                     .into(),
                 );
-                modules_addrs.proposals.push(module.address.clone());
+                modules_addrs
+                    .proposals
+                    .push((module.address.clone(), module.code_hash.clone()));
                 Ok(())
             } else {
                 // Return false because we couldn't find the code id on our list.
@@ -306,7 +334,8 @@ fn execute_migration_v1_v2(
     msgs.push(
         WasmMsg::Execute {
             contract_addr: info.sender.to_string(),
-            msg: to_json_binary(&dao_interface::msg::ExecuteMsg::UpdateSubDaos {
+            code_hash: CORE_INFO.load(deps.storage)?.code_hash,
+            msg: to_binary(&dao_interface::msg::ExecuteMsg::UpdateSubDaos {
                 to_add: sub_daos,
                 to_remove: vec![],
             })?,
@@ -319,7 +348,8 @@ fn execute_migration_v1_v2(
     let proposal_hook_msg = SubMsg::reply_on_success(
         WasmMsg::Execute {
             contract_addr: info.sender.to_string(),
-            msg: to_json_binary(&dao_interface::msg::ExecuteMsg::ExecuteProposalHook { msgs })?,
+            code_hash: CORE_INFO.load(deps.storage)?.code_hash,
+            msg: to_binary(&dao_interface::msg::ExecuteMsg::ExecuteProposalHook { msgs })?,
             funds: vec![],
         },
         V1_V2_REPLY_ID,
@@ -337,7 +367,7 @@ pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
     match reply.id {
         V1_V2_REPLY_ID => {
-            let core_addr = CORE_ADDR.load(deps.storage)?;
+            let core_info = CORE_INFO.load(deps.storage)?;
             // This is called after we got all the migrations successfully
             test_state(deps.as_ref())?;
 
@@ -345,16 +375,16 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
             // Reason we do it now, is because we first need to test the state
             // and only then delete our module if everything worked out.
             let remove_msg = WasmMsg::Execute {
-                contract_addr: core_addr.to_string(),
-                msg: to_json_binary(&dao_interface::msg::ExecuteMsg::ExecuteProposalHook {
+                contract_addr: core_info.addr.clone().to_string(),
+                code_hash: core_info.code_hash.clone(),
+                msg: to_binary(&dao_interface::msg::ExecuteMsg::ExecuteProposalHook {
                     msgs: vec![WasmMsg::Execute {
-                        contract_addr: core_addr.to_string(),
-                        msg: to_json_binary(
-                            &dao_interface::msg::ExecuteMsg::UpdateProposalModules {
-                                to_add: vec![],
-                                to_disable: vec![env.contract.address.to_string()],
-                            },
-                        )?,
+                        contract_addr: core_info.addr.clone().to_string(),
+                        code_hash: core_info.code_hash.clone(),
+                        msg: to_binary(&dao_interface::msg::ExecuteMsg::UpdateProposalModules {
+                            to_add: vec![],
+                            to_disable: vec![env.contract.address.to_string()],
+                        })?,
                         funds: vec![],
                     }
                     .into()],
@@ -374,15 +404,11 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, Contract
 fn query_state_v1(deps: Deps, module_addrs: ModulesAddrs) -> Result<TestState, ContractError> {
     let proposal_counts = query_proposal_count_v1(deps, module_addrs.proposals.clone())?;
     let (proposals, sample_proposal_data) = query_proposal_v1(deps, module_addrs.proposals)?;
+    let (voting_addr, voting_code_hash) = module_addrs.voting.unwrap();
     let total_voting_power = query_total_voting_power_v1(
         deps,
-        module_addrs.voting.clone().unwrap(),
-        sample_proposal_data.start_height,
-    )?;
-    let single_voting_power = query_single_voting_power_v1(
-        deps,
-        module_addrs.voting.unwrap(),
-        sample_proposal_data.proposer,
+        voting_addr.clone(),
+        voting_code_hash.clone(),
         sample_proposal_data.start_height,
     )?;
 
@@ -390,7 +416,6 @@ fn query_state_v1(deps: Deps, module_addrs: ModulesAddrs) -> Result<TestState, C
         proposal_counts,
         proposals,
         total_voting_power,
-        single_voting_power,
     })
 }
 
@@ -398,15 +423,11 @@ fn query_state_v2(deps: Deps, module_addrs: ModulesAddrs) -> Result<TestState, C
     let proposal_counts = query_proposal_count_v2(deps, module_addrs.proposals.clone())?;
     let (proposals, sample_proposal_data) =
         query_proposal_v2(deps, module_addrs.proposals.clone())?;
-    let total_voting_power = query_total_voting_power_v2(
+    let (voting_addr, voting_code_hash) = module_addrs.voting.unwrap();
+    let total_voting_power = query_total_voting_power_v1(
         deps,
-        module_addrs.voting.clone().unwrap(),
-        sample_proposal_data.start_height,
-    )?;
-    let single_voting_power = query_single_voting_power_v2(
-        deps,
-        module_addrs.voting.unwrap(),
-        sample_proposal_data.proposer,
+        voting_addr.clone(),
+        voting_code_hash.clone(),
         sample_proposal_data.start_height,
     )?;
 
@@ -414,7 +435,6 @@ fn query_state_v2(deps: Deps, module_addrs: ModulesAddrs) -> Result<TestState, C
         proposal_counts,
         proposals,
         total_voting_power,
-        single_voting_power,
     })
 }
 

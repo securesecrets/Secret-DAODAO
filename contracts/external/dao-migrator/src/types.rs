@@ -2,42 +2,58 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
 use dao_voting::veto::VetoConfig;
 
-use crate::ContractError;
+use crate::{snip20_stake, ContractError};
 
 #[cw_serde]
-pub struct V1CodeIds {
+pub struct V1CodeIdsAndHashes {
     pub proposal_single: u64,
+    pub proposal_single_code_hash: String,
     pub cw4_voting: u64,
-    pub cw20_stake: u64,
-    pub cw20_staked_balances_voting: u64,
+    pub cw4_voting_code_hash: String,
+    pub snip20_stake: u64,
+    pub snip20_stake_code_hash: String,
+    pub snip20_staked_balances_voting: u64,
+    pub snip20_staked_balances_voting_code_hash: String,
 }
 
-impl V1CodeIds {
-    pub fn to(self) -> dao_interface::migrate_msg::V1CodeIds {
-        dao_interface::migrate_msg::V1CodeIds {
+impl V1CodeIdsAndHashes {
+    pub fn to(self) -> dao_interface::migrate_msg::V1CodeIdsAndHashes {
+        dao_interface::migrate_msg::V1CodeIdsAndHashes {
             proposal_single: self.proposal_single,
             cw4_voting: self.cw4_voting,
-            cw20_stake: self.cw20_stake,
-            cw20_staked_balances_voting: self.cw20_staked_balances_voting,
+            snip20_stake: self.snip20_stake,
+            proposal_single_code_hash: self.proposal_single_code_hash,
+            cw4_voting_code_hash: self.cw4_voting_code_hash,
+            snip20_stake_code_hash: self.snip20_stake_code_hash,
+            snip20_staked_balances_voting: self.snip20_staked_balances_voting,
+            snip20_staked_balances_code_hash: self.snip20_staked_balances_voting_code_hash,
         }
     }
 }
 
 #[cw_serde]
-pub struct V2CodeIds {
+pub struct V2CodeIdsAndHashes {
     pub proposal_single: u64,
+    pub proposal_single_code_hash: String,
     pub cw4_voting: u64,
-    pub cw20_stake: u64,
-    pub cw20_staked_balances_voting: u64,
+    pub cw4_voting_code_hash: String,
+    pub snip20_stake: u64,
+    pub snip20_stake_code_hash: String,
+    pub snip20_staked_balances_voting: u64,
+    pub snip20_staked_balances_voting_code_hash: String,
 }
 
-impl V2CodeIds {
-    pub fn to(self) -> dao_interface::migrate_msg::V2CodeIds {
-        dao_interface::migrate_msg::V2CodeIds {
+impl V2CodeIdsAndHashes {
+    pub fn to(self) -> dao_interface::migrate_msg::V2CodeIdsAndHashes {
+        dao_interface::migrate_msg::V2CodeIdsAndHashes {
             proposal_single: self.proposal_single,
             cw4_voting: self.cw4_voting,
-            cw20_stake: self.cw20_stake,
-            cw20_staked_balances_voting: self.cw20_staked_balances_voting,
+            snip20_stake: self.snip20_stake,
+            proposal_single_code_hash: self.proposal_single_code_hash,
+            cw4_voting_code_hash: self.cw4_voting_code_hash,
+            snip20_stake_code_hash: self.snip20_stake_code_hash,
+            snip20_staked_balances_voting: self.snip20_staked_balances_voting,
+            snip20_staked_balances_code_hash: self.snip20_staked_balances_voting_code_hash,
         }
     }
 }
@@ -57,7 +73,7 @@ pub struct MigrationParams {
     /// manager. If this is not set to true and a stake_cw20
     /// contract is detected in the DAO's configuration the
     /// migration will be aborted.
-    pub migrate_stake_cw20_manager: Option<bool>,
+    pub migrate_stake_snip20_manager: Option<bool>,
     /// List of (address, ProposalParams) where `address` is an
     /// address of a proposal module currently part of the DAO.
     pub proposal_params: Vec<(String, ProposalParams)>,
@@ -69,8 +85,8 @@ pub struct MigrationParams {
 pub enum MigrationMsgs {
     DaoProposalSingle(dao_proposal_single::msg::MigrateMsg),
     DaoVotingCw4(dao_voting_cw4::msg::MigrateMsg),
-    Cw20Stake(cw20_stake::msg::MigrateMsg),
-    DaoVotingCw20Staked(dao_voting_cw20_staked::msg::MigrateMsg),
+    Snip20Stake(snip20_stake::MigrateMsg),
+    DaoVotingSnip20Staked(dao_voting_snip20_staked::msg::MigrateMsg),
 }
 
 /// Module data we need for migrations and tests.
@@ -98,8 +114,8 @@ impl CodeIdPair {
 #[cw_serde]
 #[derive(Default)]
 pub struct ModulesAddrs {
-    pub voting: Option<Addr>,
-    pub proposals: Vec<Addr>,
+    pub voting: Option<(Addr, String)>,
+    pub proposals: Vec<(Addr, String)>,
 }
 
 impl ModulesAddrs {
@@ -128,6 +144,4 @@ pub struct TestState {
     pub proposal_counts: Vec<u64>,
     pub proposals: Vec<dao_proposal_single::proposal::SingleChoiceProposal>,
     pub total_voting_power: Uint128,
-    /// This is the voting power of the proposer of the sample proposal
-    pub single_voting_power: Uint128,
 }

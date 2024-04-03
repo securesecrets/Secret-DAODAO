@@ -29,14 +29,14 @@ pub const INITIAL_NFTS: Item<Vec<Binary>> = Item::new("initial_nfts");
 /// The set of NFTs currently staked by each address. The existence of
 /// an `(address, token_id)` pair implies that `address` has staked
 /// `token_id`.
-pub static STAKED_NFTS_PER_OWNER: Keymap<(Addr, String), Empty,Json> = Keymap::new(b"snpw");
+pub static STAKED_NFTS_PER_OWNER: Keymap<(Addr, String), Empty, Json> = Keymap::new(b"snpw");
 
 /// The number of NFTs staked by an address as a function of block
 /// height.
-pub static NFT_BALANCES_PRIMARY: Keymap<Addr, Uint128,Json> = Keymap::new(b"nft_balances_primary");
-pub static NFT_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128,Json> =
+pub static NFT_BALANCES_PRIMARY: Keymap<Addr, Uint128, Json> = Keymap::new(b"nft_balances_primary");
+pub static NFT_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128, Json> =
     Keymap::new(b"nft_balances_snapshot");
-pub static USER_STAKED_NFT_AT_HEIGHT: Keymap<Addr, Vec<u64>,Json> =
+pub static USER_STAKED_NFT_AT_HEIGHT: Keymap<Addr, Vec<u64>, Json> =
     Keymap::new(b"user_Staked_Nft_at_height");
 
 pub struct NftBalancesStore {}
@@ -100,7 +100,7 @@ impl NftBalancesStore {
 /// The number of NFTs staked with this contract as a function of
 /// block height.
 pub const TOTAL_STAKED_NFTS_PRIMARY: Item<Uint128> = Item::new("tsnP");
-pub static TOTAL_STAKED_NFTS_SNAPSHOT: Keymap<u64, Uint128,Json> = Keymap::new(b"tsns");
+pub static TOTAL_STAKED_NFTS_SNAPSHOT: Keymap<u64, Uint128, Json> = Keymap::new(b"tsns");
 pub const TOTAL_STAKED_NFTS_AT_HEIGHTS: Item<Vec<u64>> = Item::new("tsnah");
 
 pub struct StakedNftsTotalStore {}

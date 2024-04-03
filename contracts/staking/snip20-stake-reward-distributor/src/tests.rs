@@ -150,11 +150,8 @@ fn get_balance_snip20<T: Into<String>, C: Into<String>, U: Into<String>, K: Into
         .query_wasm_smart(code_hash, contract_addr, &msg)
         .unwrap();
     let mut balance = Uint128::zero();
-    match result {
-        snip20_reference_impl::msg::QueryAnswer::Balance { amount } => {
-            balance = amount;
-        }
-        _ => (),
+    if let snip20_reference_impl::msg::QueryAnswer::Balance { amount } = result {
+        balance = amount;
     }
     balance
 }
@@ -187,11 +184,8 @@ fn create_viewing_key_snip20(app: &mut App, contract_info: ContractInfo, addr: A
         .unwrap();
     let mut viewing_key = String::new();
     let data: snip20_reference_impl::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
-    match data {
-        snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } => {
-            viewing_key = key;
-        }
-        _ => (),
+    if let snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } = data {
+        viewing_key = key;
     };
     viewing_key
 }

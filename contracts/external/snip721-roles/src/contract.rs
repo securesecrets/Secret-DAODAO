@@ -94,7 +94,7 @@ pub fn instantiate(
         config: msg.config,
         post_init_callback: None,
     };
-    
+
     let submsg = SubMsg::reply_always(
         init_msg.to_cosmos_msg(
             Some(info.sender.clone().to_string()),
@@ -982,19 +982,6 @@ pub fn query_list_members(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<MemberListResponse> {
-    // let addr = maybe_addr(deps.api, start_after)?;
-    // let start = addr.as_ref().map(Bound::exclusive);
-
-    // let members = MEMBERS
-    //     .range(deps.storage, start, None, Order::Ascending)
-    //     .take(limit)
-    //     .map(|item| {
-    //         item.map(|(addr, weight)| Member {
-    //             addr: addr.into(),
-    //             weight,
-    //         })
-    //     })
-    //     .collect::<StdResult<_>>()?;
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
 
     let mut res_members: Vec<Member> = Vec::new();

@@ -1,24 +1,52 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Uint128};
-use cw_utils::Duration;
+use cosmwasm_std::{Addr, Binary, Uint128};
+use schemars::JsonSchema;
+use secret_utils::Duration;
+use serde::{Deserialize, Serialize};
+use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
+
+use crate::state::VotingContractInfo;
 
 #[cw_serde]
 pub struct InstantiateMsg {
     // To determine voting power
     pub voting_contract: String,
+    pub voting_contract_hash: String,
+
     // period after which the funds can be claimed
     pub funding_period: Duration,
     // snapshot for evaluating the voting power
     pub distribution_height: u64,
+
+    pub query_auth: RawContract,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Snip20ReceiveMsg {
+    pub sender: Addr,
+    pub from: Addr,
+    pub amount: Uint128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+    pub msg: Option<Binary>,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct TokenInfo {
+    pub address: Addr,
+    pub code_hash: String,
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    Receive(cw20::Cw20ReceiveMsg),
+    Receive(Snip20ReceiveMsg),
     FundNative {},
-    ClaimCW20 { tokens: Vec<String> },
-    ClaimNatives { denoms: Vec<String> },
-    ClaimAll {},
+    ClaimSnip20 { auth: Auth, tokens: Vec<TokenInfo> },
+    ClaimNatives { auth: Auth, denoms: Vec<String> },
+    ClaimAll { auth: Auth },
+    SetSnip20sCodeHash { token_info: Vec<TokenInfo> },
 }
 
 #[cw_serde]
@@ -26,22 +54,22 @@ pub enum QueryMsg {
     TotalPower {},
     VotingContract {},
     NativeDenoms {},
-    CW20Tokens {},
+    Snip20Tokens {},
     NativeEntitlement {
-        sender: Addr,
+        auth: Auth,
         denom: String,
     },
-    CW20Entitlement {
-        sender: Addr,
+    Snip20Entitlement {
+        auth: Auth,
         token: String,
     },
     NativeEntitlements {
-        sender: Addr,
+        auth: Auth,
         start_at: Option<String>,
         limit: Option<u32>,
     },
-    CW20Entitlements {
-        sender: Addr,
+    Snip20Entitlements {
+        auth: Auth,
         start_at: Option<String>,
         limit: Option<u32>,
     },
@@ -50,7 +78,7 @@ pub enum QueryMsg {
 #[cw_serde]
 pub struct VotingContractResponse {
     // voting power contract being used
-    pub contract: Addr,
+    pub contract: VotingContractInfo,
     // height at which voting power is being determined
     pub distribution_height: u64,
 }
@@ -73,7 +101,7 @@ pub struct DenomResponse {
 }
 
 #[cw_serde]
-pub struct CW20Response {
+pub struct Snip20Response {
     pub contract_balance: Uint128,
     pub token: String,
 }
@@ -85,7 +113,7 @@ pub struct NativeEntitlementResponse {
 }
 
 #[cw_serde]
-pub struct CW20EntitlementResponse {
+pub struct Snip20EntitlementResponse {
     pub amount: Uint128,
     pub token_contract: Addr,
 }

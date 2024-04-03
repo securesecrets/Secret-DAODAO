@@ -1,5 +1,5 @@
 use cosmwasm_std::StdError;
-use cw_utils::ParseReplyError;
+use secret_utils::ParseReplyError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -25,8 +25,8 @@ pub enum ContractError {
     #[error("Test failed! New DAO state doesn't match the old DAO state.")]
     TestFailed,
 
-    #[error("Failed to confirm migration of cw20_stake")]
-    DontMigrateCw20,
+    #[error("Failed to confirm migration of snip20_stake")]
+    DontMigrateSnip20,
 
     #[error("Failed to verify DAO voting module address")]
     VotingModuleNotFound,

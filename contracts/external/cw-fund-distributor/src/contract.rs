@@ -1,22 +1,32 @@
 use crate::error::ContractError;
 use crate::msg::{
-    CW20EntitlementResponse, CW20Response, DenomResponse, ExecuteMsg, InstantiateMsg, MigrateMsg,
-    NativeEntitlementResponse, QueryMsg, TotalPowerResponse, VotingContractResponse,
+    DenomResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, NativeEntitlementResponse, QueryMsg,
+    Snip20EntitlementResponse, Snip20ReceiveMsg, Snip20Response, TokenInfo, TotalPowerResponse,
+    VotingContractResponse,
 };
 use crate::state::{
-    CW20_BALANCES, CW20_CLAIMS, DISTRIBUTION_HEIGHT, FUNDING_PERIOD_EXPIRATION, NATIVE_BALANCES,
-    NATIVE_CLAIMS, TOTAL_POWER, VOTING_CONTRACT,
+    Config, VotingContractInfo, CONFIG, DISTRIBUTION_HEIGHT, FUNDING_PERIOD_EXPIRATION,
+    NATIVE_BALANCES, NATIVE_CLAIMS, SNIP20S_CODE_HASH, SNIP20_BALANCES, SNIP20_CLAIMS, TOTAL_POWER,
+    VOTING_CONTRACT,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Addr, BankMsg, Binary, Coin, Decimal, Deps, DepsMut, Env, Fraction,
-    MessageInfo, Order, Response, StdError, StdResult, Uint128, WasmMsg,
+    to_binary, Addr, BankMsg, Binary, Coin, Decimal, Deps, DepsMut, Env, Fraction, MessageInfo,
+    Response, StdError, StdResult, Uint128, WasmMsg,
 };
-use cw2::set_contract_version;
-use cw_paginate_storage::paginate_map;
+use secret_cw2::set_contract_version;
 
 use dao_interface::voting;
+use secret_toolkit::storage::keymap::KeyIter;
+use secret_toolkit::storage::Keymap;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use shade_protocol::basic_staking::{Auth, AuthPermit};
+use shade_protocol::query_auth::helpers::{
+    authenticate_permit, authenticate_vk, PermitAuthentication,
+};
+use shade_protocol::Contract;
 
 const CONTRACT_NAME: &str = "crates.io:cw-fund-distributor";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -28,7 +38,7 @@ type Cw20ClaimEntry = Result<((Addr, Addr), Uint128), StdError>;
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -42,9 +52,16 @@ pub fn instantiate(
 
     // validate the contract and save it
     let voting_contract = deps.api.addr_validate(&msg.voting_contract)?;
-    VOTING_CONTRACT.save(deps.storage, &voting_contract)?;
+    VOTING_CONTRACT.save(
+        deps.storage,
+        &VotingContractInfo {
+            address: voting_contract.clone(),
+            code_hash: msg.voting_contract_hash.clone(),
+        },
+    )?;
 
     let total_power: voting::TotalPowerAtHeightResponse = deps.querier.query_wasm_smart(
+        msg.voting_contract_hash,
         voting_contract.clone(),
         &voting::Query::TotalPowerAtHeight {
             height: Some(env.block.height),
@@ -55,6 +72,13 @@ pub fn instantiate(
         return Err(ContractError::ZeroVotingPower {});
     }
     TOTAL_POWER.save(deps.storage, &total_power.power)?;
+    CONFIG.save(
+        deps.storage,
+        &Config {
+            owner: info.sender,
+            query_auth: msg.query_auth.into_valid(deps.api)?,
+        },
+    )?;
 
     Ok(Response::default()
         .add_attribute("distribution_height", env.block.height.to_string())
@@ -70,21 +94,34 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
+        ExecuteMsg::Receive(Snip20ReceiveMsg {
             sender: _,
             amount,
             msg: _,
-        }) => execute_fund_cw20(deps, env, info.sender, amount),
+            from: _,
+            memo: _,
+        }) => execute_fund_snip20(deps, env, info.sender, amount),
         ExecuteMsg::FundNative {} => execute_fund_native(deps, env, info),
-        ExecuteMsg::ClaimCW20 { tokens } => execute_claim_cw20s(deps, env, info.sender, tokens),
-        ExecuteMsg::ClaimNatives { denoms } => {
-            execute_claim_natives(deps, env, info.sender, denoms)
+        ExecuteMsg::ClaimSnip20 { auth, tokens } => execute_claim_snip20s(deps, env, auth, tokens),
+        ExecuteMsg::ClaimNatives { auth, denoms } => execute_claim_natives(deps, env, auth, denoms),
+        ExecuteMsg::ClaimAll { auth } => execute_claim_all(deps, env, auth),
+        ExecuteMsg::SetSnip20sCodeHash { token_info } => {
+            if info.sender != CONFIG.load(deps.storage)?.owner {
+                return Err(ContractError::Unauthorized {});
+            }
+            for token_info in token_info {
+                SNIP20S_CODE_HASH.insert(
+                    deps.storage,
+                    &token_info.address,
+                    &token_info.code_hash,
+                )?;
+            }
+            Ok(Response::default())
         }
-        ExecuteMsg::ClaimAll {} => execute_claim_all(deps, env, info.sender),
     }
 }
 
-pub fn execute_fund_cw20(
+pub fn execute_fund_snip20(
     deps: DepsMut,
     env: Env,
     token: Addr,
@@ -97,22 +134,21 @@ pub fn execute_fund_cw20(
     }
 
     if amount > Uint128::zero() {
-        CW20_BALANCES.update(
-            deps.storage,
-            token.clone(),
-            |current_balance| -> Result<_, ContractError> {
-                match current_balance {
-                    // add the funding amount to current balance
-                    Some(old_amount) => Ok(old_amount.checked_add(amount)?),
-                    // with no existing balance, set it to the funding amount
-                    None => Ok(amount),
-                }
-            },
-        )?;
+        match SNIP20_BALANCES.get(deps.storage, &token.clone()) {
+            // If the token balance exists, update it
+            Some(old_amount) => {
+                let new_amount = old_amount.checked_add(amount)?;
+                SNIP20_BALANCES.insert(deps.storage, &token, &new_amount)?;
+            }
+            // If the token balance doesn't exist, insert a new balance
+            None => {
+                SNIP20_BALANCES.insert(deps.storage, &token, &amount)?;
+            }
+        }
     }
 
     Ok(Response::default()
-        .add_attribute("method", "fund_cw20")
+        .add_attribute("method", "fund_snip20")
         .add_attribute("token", token)
         .add_attribute("amount", amount))
 }
@@ -130,22 +166,19 @@ pub fn execute_fund_native(
 
     // collect a list of successful funding kv pairs
     let mut attributes: Vec<(String, String)> = Vec::new();
+
     for coin in info.funds {
         if coin.amount > Uint128::zero() {
-            NATIVE_BALANCES.update(
-                deps.storage,
-                coin.denom.clone(),
-                |current_balance| -> Result<_, ContractError> {
-                    let new_amount = match current_balance {
-                        // add the funding amount to current balance
-                        Some(current_balance) => coin.amount.checked_add(current_balance)?,
-                        // with no existing balance, set it to the funding amount
-                        None => coin.amount,
-                    };
-                    attributes.push((coin.denom, new_amount.to_string()));
-                    Ok(new_amount)
-                },
-            )?;
+            let current_balance = NATIVE_BALANCES.get(deps.storage, &coin.denom.clone());
+
+            let new_balance = match current_balance {
+                Some(current_balance) => coin.amount.checked_add(current_balance)?,
+                None => coin.amount,
+            };
+
+            NATIVE_BALANCES.insert(deps.storage, &coin.denom, &new_balance)?;
+
+            attributes.push((coin.denom.clone(), coin.amount.to_string()));
         }
     }
 
@@ -167,16 +200,17 @@ fn get_entitlement(
     }
 }
 
-fn get_relative_share(deps: &Deps, sender: Addr) -> Result<Decimal, StdError> {
-    let voting_contract = VOTING_CONTRACT.load(deps.storage)?;
+fn get_relative_share(deps: &Deps, auth: Auth) -> Result<Decimal, StdError> {
+    let voting_contract_info = VOTING_CONTRACT.load(deps.storage)?;
     let dist_height = DISTRIBUTION_HEIGHT.load(deps.storage)?;
     let total_power = TOTAL_POWER.load(deps.storage)?;
 
     // find the voting power of sender at distributor instantiation
     let voting_power: voting::VotingPowerAtHeightResponse = deps.querier.query_wasm_smart(
-        voting_contract,
+        voting_contract_info.code_hash,
+        voting_contract_info.address.to_string(),
         &voting::Query::VotingPowerAtHeight {
-            address: sender.to_string(),
+            auth,
             height: Some(dist_height),
         },
     )?;
@@ -184,11 +218,11 @@ fn get_relative_share(deps: &Deps, sender: Addr) -> Result<Decimal, StdError> {
     Ok(Decimal::from_ratio(voting_power.power, total_power))
 }
 
-pub fn execute_claim_cw20s(
+pub fn execute_claim_snip20s(
     deps: DepsMut,
     env: Env,
-    sender: Addr,
-    tokens: Vec<String>,
+    auth: Auth,
+    tokens: Vec<TokenInfo>,
 ) -> Result<Response, ContractError> {
     let funding_deadline = FUNDING_PERIOD_EXPIRATION.load(deps.storage)?;
     // if current block indicates funding period, return an error
@@ -199,8 +233,12 @@ pub fn execute_claim_cw20s(
         return Err(ContractError::EmptyClaim {});
     }
 
-    let relative_share = get_relative_share(&deps.as_ref(), sender.clone())?;
-    let messages = get_cw20_claim_wasm_messages(tokens, deps, sender.clone(), relative_share)?;
+    let relative_share = get_relative_share(&deps.as_ref(), auth.clone())?;
+    let mut sender = Addr::unchecked("");
+    if let Auth::ViewingKey { address, .. } = auth {
+        sender = deps.api.addr_validate(&address)?;
+    }
+    let messages = get_snip20_claim_wasm_messages(tokens, deps, sender.clone(), relative_share)?;
 
     Ok(Response::default()
         .add_attribute("method", "claim_cw20s")
@@ -208,48 +246,62 @@ pub fn execute_claim_cw20s(
         .add_messages(messages))
 }
 
-/// Looks at the CW20_BALANCES map entries and returns a vector of WasmMsg::Execute
+/// Looks at the SNIP20_BALANCES map entries and returns a vector of WasmMsg::Execute
 /// messages that entail the amount that the user is entitled to.
-/// Updates the CW20_CLAIMS entries accordingly.
-fn get_cw20_claim_wasm_messages(
-    tokens: Vec<String>,
+/// Updates the SNIP20_CLAIMS entries accordingly.
+fn get_snip20_claim_wasm_messages(
+    tokens: Vec<TokenInfo>,
     deps: DepsMut,
     sender: Addr,
     relative_share: Decimal,
 ) -> Result<Vec<WasmMsg>, ContractError> {
     let mut messages: Vec<WasmMsg> = vec![];
-    for addr in tokens {
+    for token_info in tokens {
         // get the balance of distributor at instantiation
-        let bal = CW20_BALANCES.load(deps.storage, Addr::unchecked(addr.clone()))?;
+        let bal = SNIP20_BALANCES
+            .get(deps.storage, &Addr::unchecked(token_info.address.clone()))
+            .unwrap_or_default();
 
         // check for any previous claims
-        let previous_claim = CW20_CLAIMS
-            .may_load(
+        let previous_claim = SNIP20_CLAIMS
+            .get(
                 deps.storage,
-                (sender.clone(), Addr::unchecked(addr.clone())),
-            )?
+                &(sender.clone(), Addr::unchecked(token_info.address.clone())),
+            )
             .unwrap_or_default();
 
         // get % share of sender and subtract any previous claims
         let entitlement = get_entitlement(bal, relative_share, previous_claim)?;
         if !entitlement.is_zero() {
             // reflect the new total claim amount
-            CW20_CLAIMS.update(
+            let previous_claim = SNIP20_CLAIMS.get(
                 deps.storage,
-                (sender.clone(), Addr::unchecked(addr.clone())),
-                |claim| match claim {
-                    Some(previous_claim) => previous_claim
-                        .checked_add(entitlement)
-                        .map_err(ContractError::OverflowErr),
-                    None => Ok(entitlement),
-                },
+                &(sender.clone(), Addr::unchecked(token_info.address.clone())),
+            );
+
+            let new_claim = match previous_claim {
+                Some(previous_claim) => previous_claim
+                    .checked_add(entitlement)
+                    .map_err(ContractError::OverflowErr),
+                None => Ok(entitlement),
+            };
+
+            SNIP20_CLAIMS.insert(
+                deps.storage,
+                &(sender.clone(), Addr::unchecked(token_info.address.clone())),
+                &new_claim?,
             )?;
 
             messages.push(WasmMsg::Execute {
-                contract_addr: addr,
-                msg: to_json_binary(&cw20::Cw20ExecuteMsg::Transfer {
+                contract_addr: token_info.address.to_string(),
+                code_hash: token_info.code_hash,
+                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Transfer {
                     recipient: sender.to_string(),
                     amount: entitlement,
+                    memo: None,
+                    decoys: None,
+                    entropy: None,
+                    padding: None,
                 })?,
                 funds: vec![],
             });
@@ -262,7 +314,7 @@ fn get_cw20_claim_wasm_messages(
 pub fn execute_claim_natives(
     deps: DepsMut,
     env: Env,
-    sender: Addr,
+    auth: Auth,
     denoms: Vec<String>,
 ) -> Result<Response, ContractError> {
     let funding_deadline = FUNDING_PERIOD_EXPIRATION.load(deps.storage)?;
@@ -276,7 +328,11 @@ pub fn execute_claim_natives(
 
     // find the relative share of the distributor pool for the user
     // and determine the native claim transfer amounts with it
-    let relative_share = get_relative_share(&deps.as_ref(), sender.clone())?;
+    let relative_share = get_relative_share(&deps.as_ref(), auth.clone())?;
+    let mut sender = Addr::unchecked("");
+    if let Auth::ViewingKey { address, .. } = auth {
+        sender = deps.api.addr_validate(&address)?;
+    }
     let messages = get_native_claim_bank_messages(denoms, deps, sender.clone(), relative_share)?;
 
     Ok(Response::default()
@@ -298,27 +354,29 @@ fn get_native_claim_bank_messages(
 
     for addr in denoms {
         // get the balance of distributor at instantiation
-        let bal = NATIVE_BALANCES.load(deps.storage, addr.clone())?;
+        let bal = NATIVE_BALANCES
+            .get(deps.storage, &addr.clone())
+            .unwrap_or_default();
 
         // check for any previous claims
         let previous_claim = NATIVE_CLAIMS
-            .may_load(deps.storage, (sender.clone(), addr.clone()))?
+            .get(deps.storage, &(sender.clone(), addr.clone()))
             .unwrap_or_default();
 
         // get % share of sender and subtract any previous claims
         let entitlement = get_entitlement(bal, relative_share, previous_claim)?;
         if !entitlement.is_zero() {
             // reflect the new total claim amount
-            NATIVE_CLAIMS.update(
-                deps.storage,
-                (sender.clone(), addr.clone()),
-                |claim| match claim {
-                    Some(previous_claim) => previous_claim
-                        .checked_add(entitlement)
-                        .map_err(ContractError::OverflowErr),
-                    None => Ok(entitlement),
-                },
-            )?;
+            let previous_claim = NATIVE_CLAIMS.get(deps.storage, &(sender.clone(), addr.clone()));
+
+            let new_claim = match previous_claim {
+                Some(previous_claim) => previous_claim
+                    .checked_add(entitlement)
+                    .map_err(ContractError::OverflowErr),
+                None => Ok(entitlement),
+            };
+
+            NATIVE_CLAIMS.insert(deps.storage, &(sender.clone(), addr.clone()), &new_claim?)?;
 
             // collect the transfer messages
             messages.push(BankMsg::Send {
@@ -336,7 +394,7 @@ fn get_native_claim_bank_messages(
 pub fn execute_claim_all(
     mut deps: DepsMut,
     env: Env,
-    sender: Addr,
+    auth: Auth,
 ) -> Result<Response, ContractError> {
     let funding_deadline = FUNDING_PERIOD_EXPIRATION.load(deps.storage)?;
     // claims cannot happen during funding period
@@ -345,31 +403,35 @@ pub fn execute_claim_all(
     }
 
     // get the lists of tokens in distributor pool
-    let cw20s: Vec<Result<Addr, _>> = CW20_BALANCES
-        .keys(deps.storage, None, None, Order::Ascending)
-        .collect();
-    let mut cw20_addresses: Vec<String> = vec![];
-    for entry in cw20s {
-        cw20_addresses.push(entry?.to_string());
+    let snip20s: Vec<Result<Addr, _>> = SNIP20_BALANCES.iter_keys(deps.storage)?.collect();
+
+    let mut snip20_info: Vec<TokenInfo> = vec![];
+    for entry in snip20s {
+        let addr = entry?;
+        let code_hash = SNIP20S_CODE_HASH.get(deps.storage, &addr.clone()).unwrap();
+        let token_info = TokenInfo {
+            address: addr,
+            code_hash: code_hash.clone(),
+        };
+        snip20_info.push(token_info);
     }
 
-    let native_denoms: Vec<Result<String, _>> = NATIVE_BALANCES
-        .keys(deps.storage, None, None, Order::Ascending)
-        .collect();
+    let native_denoms: Vec<Result<String, _>> = NATIVE_BALANCES.iter_keys(deps.storage)?.collect();
     let mut denoms = vec![];
     for denom in native_denoms {
         denoms.push(denom?);
     }
 
-    let relative_share = get_relative_share(&deps.as_ref(), sender.clone())?;
+    let relative_share = get_relative_share(&deps.as_ref(), auth.clone())?;
+
+    let mut sender = Addr::unchecked("");
+    if let Auth::ViewingKey { address, .. } = auth {
+        sender = deps.api.addr_validate(&address)?;
+    }
 
     // get the claim messages
-    let cw20_claim_msgs = get_cw20_claim_wasm_messages(
-        cw20_addresses,
-        deps.branch(),
-        sender.clone(),
-        relative_share,
-    )?;
+    let cw20_claim_msgs =
+        get_snip20_claim_wasm_messages(snip20_info, deps.branch(), sender.clone(), relative_share)?;
     let native_claim_msgs =
         get_native_claim_bank_messages(denoms, deps.branch(), sender, relative_share)?;
 
@@ -385,28 +447,42 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::VotingContract {} => query_voting_contract(deps),
         QueryMsg::TotalPower {} => query_total_power(deps),
         QueryMsg::NativeDenoms {} => query_native_denoms(deps),
-        QueryMsg::CW20Tokens {} => query_cw20_tokens(deps),
-        QueryMsg::NativeEntitlement { sender, denom } => {
-            query_native_entitlement(deps, sender, denom)
+        QueryMsg::Snip20Tokens {} => query_snip20_tokens(deps),
+        QueryMsg::NativeEntitlement { auth, denom } => {
+            let query_auth = CONFIG.load(deps.storage)?.query_auth;
+            authenticate(deps, auth.clone(), query_auth)?;
+            query_native_entitlement(deps, auth, denom)
         }
-        QueryMsg::CW20Entitlement { sender, token } => query_cw20_entitlement(deps, sender, token),
+        QueryMsg::Snip20Entitlement { auth, token } => {
+            let query_auth = CONFIG.load(deps.storage)?.query_auth;
+            authenticate(deps, auth.clone(), query_auth)?;
+            query_snip20_entitlement(deps, auth, token)
+        }
         QueryMsg::NativeEntitlements {
-            sender,
+            auth,
             start_at,
             limit,
-        } => query_native_entitlements(deps, sender, start_at, limit),
-        QueryMsg::CW20Entitlements {
-            sender,
+        } => {
+            let query_auth = CONFIG.load(deps.storage)?.query_auth;
+            authenticate(deps, auth.clone(), query_auth)?;
+            query_native_entitlements(deps, auth, start_at, limit)
+        }
+        QueryMsg::Snip20Entitlements {
+            auth,
             start_at,
             limit,
-        } => query_cw20_entitlements(deps, sender, start_at, limit),
+        } => {
+            let query_auth = CONFIG.load(deps.storage)?.query_auth;
+            authenticate(deps, auth.clone(), query_auth)?;
+            query_snip20_entitlements(deps, auth, start_at, limit)
+        }
     }
 }
 
 pub fn query_voting_contract(deps: Deps) -> StdResult<Binary> {
     let contract = VOTING_CONTRACT.load(deps.storage)?;
     let distribution_height = DISTRIBUTION_HEIGHT.load(deps.storage)?;
-    to_json_binary(&VotingContractResponse {
+    to_binary(&VotingContractResponse {
         contract,
         distribution_height,
     })
@@ -414,11 +490,11 @@ pub fn query_voting_contract(deps: Deps) -> StdResult<Binary> {
 
 pub fn query_total_power(deps: Deps) -> StdResult<Binary> {
     let total_power: Uint128 = TOTAL_POWER.may_load(deps.storage)?.unwrap_or_default();
-    to_json_binary(&TotalPowerResponse { total_power })
+    to_binary(&TotalPowerResponse { total_power })
 }
 
 pub fn query_native_denoms(deps: Deps) -> StdResult<Binary> {
-    let native_balances = NATIVE_BALANCES.range(deps.storage, None, None, Order::Ascending);
+    let native_balances = NATIVE_BALANCES.iter(deps.storage)?;
 
     let mut denom_responses: Vec<DenomResponse> = vec![];
     for entry in native_balances {
@@ -429,61 +505,67 @@ pub fn query_native_denoms(deps: Deps) -> StdResult<Binary> {
         });
     }
 
-    to_json_binary(&denom_responses)
+    to_binary(&denom_responses)
 }
 
-pub fn query_cw20_tokens(deps: Deps) -> StdResult<Binary> {
-    let cw20_balances = CW20_BALANCES.range(deps.storage, None, None, Order::Ascending);
+pub fn query_snip20_tokens(deps: Deps) -> StdResult<Binary> {
+    let cw20_balances = SNIP20_BALANCES.iter(deps.storage)?;
 
-    let mut cw20_responses: Vec<CW20Response> = vec![];
+    let mut cw20_responses: Vec<Snip20Response> = vec![];
     for cw20 in cw20_balances {
         let (token, amount) = cw20?;
-        cw20_responses.push(CW20Response {
+        cw20_responses.push(Snip20Response {
             contract_balance: amount,
             token: token.to_string(),
         });
     }
 
-    to_json_binary(&cw20_responses)
+    to_binary(&cw20_responses)
 }
 
-pub fn query_native_entitlement(deps: Deps, sender: Addr, denom: String) -> StdResult<Binary> {
-    let address = deps.api.addr_validate(sender.as_ref())?;
+pub fn query_native_entitlement(deps: Deps, auth: Auth, denom: String) -> StdResult<Binary> {
+    let mut sender = Addr::unchecked("");
+    if let Auth::ViewingKey { address, .. } = auth.clone() {
+        sender = deps.api.addr_validate(&address)?;
+    }
     let prev_claim = NATIVE_CLAIMS
-        .may_load(deps.storage, (address, denom.clone()))?
+        .get(deps.storage, &(sender.clone(), denom.clone()))
         .unwrap_or_default();
     let total_bal = NATIVE_BALANCES
-        .may_load(deps.storage, denom.clone())?
+        .get(deps.storage, &denom.clone())
         .unwrap_or_default();
-    let relative_share = get_relative_share(&deps, sender)?;
+    let relative_share = get_relative_share(&deps, auth)?;
 
     let total_share =
         total_bal.multiply_ratio(relative_share.numerator(), relative_share.denominator());
     let entitlement = total_share.checked_sub(prev_claim)?;
 
-    to_json_binary(&NativeEntitlementResponse {
+    to_binary(&NativeEntitlementResponse {
         amount: entitlement,
         denom,
     })
 }
 
-pub fn query_cw20_entitlement(deps: Deps, sender: Addr, token: String) -> StdResult<Binary> {
-    let address = deps.api.addr_validate(sender.as_ref())?;
+pub fn query_snip20_entitlement(deps: Deps, auth: Auth, token: String) -> StdResult<Binary> {
+    let mut sender = Addr::unchecked("");
+    if let Auth::ViewingKey { address, .. } = auth.clone() {
+        sender = deps.api.addr_validate(&address)?;
+    }
     let token = Addr::unchecked(token);
 
-    let prev_claim = CW20_CLAIMS
-        .may_load(deps.storage, (address, token.clone()))?
+    let prev_claim = SNIP20_CLAIMS
+        .get(deps.storage, &(sender.clone(), token.clone()))
         .unwrap_or_default();
-    let total_bal = CW20_BALANCES
-        .may_load(deps.storage, token.clone())?
+    let total_bal = SNIP20_BALANCES
+        .get(deps.storage, &token.clone())
         .unwrap_or_default();
-    let relative_share = get_relative_share(&deps, sender)?;
+    let relative_share = get_relative_share(&deps, auth)?;
 
     let total_share =
         total_bal.multiply_ratio(relative_share.numerator(), relative_share.denominator());
     let entitlement = total_share.checked_sub(prev_claim)?;
 
-    to_json_binary(&CW20EntitlementResponse {
+    to_binary(&Snip20EntitlementResponse {
         amount: entitlement,
         token_contract: token,
     })
@@ -491,18 +573,42 @@ pub fn query_cw20_entitlement(deps: Deps, sender: Addr, token: String) -> StdRes
 
 pub fn query_native_entitlements(
     deps: Deps,
-    sender: Addr,
+    auth: Auth,
     start_at: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    let address = deps.api.addr_validate(sender.as_ref())?;
-    let relative_share = get_relative_share(&deps, sender)?;
-    let natives = paginate_map(deps, &NATIVE_BALANCES, start_at, limit, Order::Descending)?;
+    let mut sender = Addr::unchecked("");
+    if let Auth::ViewingKey { address, .. } = auth.clone() {
+        sender = deps.api.addr_validate(&address)?;
+    }
+    let relative_share = get_relative_share(&deps, auth)?;
+    let mut start = start_at.map(|h| deps.api.addr_validate(&h)).transpose()?;
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    // let natives = paginate_map(deps, &NATIVE_BALANCES, start_at, limit, Order::Descending)?;
+    let mut natives: Vec<(String, Uint128)> = Vec::new();
+
+    let binding = &NATIVE_BALANCES;
+    let iter = binding.iter(deps.storage)?;
+    for item in iter {
+        let (address, balance) = item?;
+        if let Some(start_at) = &start {
+            if &address == start_at {
+                // If we found the start point, reset it to start iterating
+                start = None;
+            }
+        }
+        if start.is_none() {
+            natives.push((address, balance));
+            if natives.len() >= limit {
+                break; // Break out of loop if limit reached
+            }
+        }
+    }
 
     let mut entitlements: Vec<NativeEntitlementResponse> = vec![];
     for (denom, amount) in natives {
         let prev_claim = NATIVE_CLAIMS
-            .may_load(deps.storage, (address.clone(), denom.clone()))?
+            .get(deps.storage, &(sender.clone(), denom.clone()))
             .unwrap_or_default();
         let total_share =
             amount.multiply_ratio(relative_share.numerator(), relative_share.denominator());
@@ -514,37 +620,61 @@ pub fn query_native_entitlements(
         });
     }
 
-    to_json_binary(&entitlements)
+    to_binary(&entitlements)
 }
 
-pub fn query_cw20_entitlements(
+// settings for pagination
+const MAX_LIMIT: u32 = 30;
+const DEFAULT_LIMIT: u32 = 10;
+pub fn query_snip20_entitlements(
     deps: Deps,
-    sender: Addr,
+    auth: Auth,
     start_at: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    let address = deps.api.addr_validate(sender.as_ref())?;
-    let relative_share = get_relative_share(&deps, sender)?;
-    let start_at = start_at.map(|h| deps.api.addr_validate(&h)).transpose()?;
-    let cw20s = paginate_map(deps, &CW20_BALANCES, start_at, limit, Order::Descending)?;
+    let mut sender = Addr::unchecked("");
+    if let Auth::ViewingKey { address, .. } = auth.clone() {
+        sender = deps.api.addr_validate(&address)?;
+    }
+    let relative_share = get_relative_share(&deps, auth)?;
+    let mut start = start_at.map(|h| deps.api.addr_validate(&h)).transpose()?;
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let mut snip20s: Vec<(Addr, Uint128)> = Vec::new();
 
-    let mut entitlements: Vec<CW20EntitlementResponse> = vec![];
-    for (token, amount) in cw20s {
-        let prev_claim = CW20_CLAIMS
-            .may_load(deps.storage, (address.clone(), token.clone()))?
+    let binding = &SNIP20_BALANCES;
+    let iter = binding.iter(deps.storage)?;
+    for item in iter {
+        let (address, balance) = item?;
+        if let Some(start_at) = &start {
+            if &address == start_at {
+                // If we found the start point, reset it to start iterating
+                start = None;
+            }
+        }
+        if start.is_none() {
+            snip20s.push((address, balance));
+            if snip20s.len() >= limit {
+                break; // Break out of loop if limit reached
+            }
+        }
+    }
+    let mut entitlements: Vec<Snip20EntitlementResponse> = vec![];
+    for (token, amount) in snip20s {
+        let prev_claim = SNIP20_CLAIMS
+            .get(deps.storage, &(sender.clone(), token.clone()))
             .unwrap_or_default();
 
         let total_share =
             amount.multiply_ratio(relative_share.numerator(), relative_share.denominator());
         let entitlement = total_share.checked_sub(prev_claim)?;
 
-        entitlements.push(CW20EntitlementResponse {
+        entitlements.push(Snip20EntitlementResponse {
             amount: entitlement,
             token_contract: token,
         });
     }
 
-    to_json_binary(&entitlements)
+    to_binary(&entitlements)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -565,48 +695,87 @@ fn execute_redistribute_unclaimed_funds(
     DISTRIBUTION_HEIGHT.save(deps.storage, &distribution_height)?;
 
     // get performed claims of cw20 and native tokens
-    let performed_cw20_claims: Vec<Cw20ClaimEntry> = CW20_CLAIMS
-        .range(deps.storage, None, None, Order::Descending)
-        .collect();
-    let performed_native_claims: Vec<NativeClaimEntry> = NATIVE_CLAIMS
-        .range(deps.storage, None, None, Order::Descending)
-        .collect();
+    let performed_snip20_claims: Vec<Cw20ClaimEntry> = SNIP20_CLAIMS.iter(deps.storage)?.collect();
+    let performed_native_claims: Vec<NativeClaimEntry> =
+        NATIVE_CLAIMS.iter(deps.storage)?.collect();
 
     // subtract every performed claim from the available distributor balance
-    for entry in performed_cw20_claims {
-        let ((_, cw20_addr), amount) = entry?;
-        CW20_BALANCES.update(deps.storage, cw20_addr.clone(), |bal| {
-            // should never hit the None arm in theory
-            match bal {
-                Some(cw20_balance) => cw20_balance
-                    .checked_sub(amount)
-                    .map_err(ContractError::OverflowErr),
-                None => Err(ContractError::Std(StdError::NotFound {
-                    kind: cw20_addr.to_string(),
-                })),
-            }
-        })?;
+    for entry in performed_snip20_claims {
+        let ((_, snip20_addr), amount) = entry?;
+
+        let previous_balance = SNIP20_BALANCES.get(deps.storage, &snip20_addr.clone());
+
+        let new_balance = match previous_balance {
+            Some(previous_balance) => previous_balance
+                .checked_sub(amount)
+                .map_err(ContractError::OverflowErr),
+            None => Err(ContractError::Std(StdError::NotFound {
+                kind: snip20_addr.to_string(),
+            })),
+        };
+        SNIP20_BALANCES.insert(deps.storage, &snip20_addr.clone(), &new_balance?)?;
     }
 
     // subtract every performed claim from the available distributor balance
     for entry in performed_native_claims {
         let ((_, denom), amount) = entry?;
-        NATIVE_BALANCES.update(deps.storage, denom.clone(), |bal| {
-            // should never hit the None arm in theory
-            match bal {
-                Some(native_balance) => native_balance
-                    .checked_sub(amount)
-                    .map_err(ContractError::OverflowErr),
-                None => Err(ContractError::Std(StdError::NotFound {
-                    kind: denom.to_string(),
-                })),
-            }
-        })?;
+
+        let previous_native_balance = NATIVE_BALANCES.get(deps.storage, &denom.clone());
+
+        let new_native_balance = match previous_native_balance {
+            Some(previous_native_balance) => previous_native_balance
+                .checked_sub(amount)
+                .map_err(ContractError::OverflowErr),
+            None => Err(ContractError::Std(StdError::NotFound {
+                kind: denom.to_string(),
+            })),
+        };
+        NATIVE_BALANCES.insert(deps.storage, &denom.clone(), &new_native_balance?)?;
     }
 
     // nullify previous claims
-    CW20_CLAIMS.clear(deps.storage);
-    NATIVE_CLAIMS.clear(deps.storage);
+    let snip20_claims = get_keys(deps.as_ref(), &SNIP20_CLAIMS);
+    for claims in snip20_claims? {
+        let (address, token_address) = claims;
+        SNIP20_CLAIMS.remove(deps.storage, &(address, token_address))?;
+    }
+    let native_claims = get_keys(deps.as_ref(), &NATIVE_CLAIMS);
+    for claims in native_claims? {
+        let (address, native_denom) = claims;
+        NATIVE_CLAIMS.remove(deps.storage, &(address, native_denom))?;
+    }
 
     Ok(Response::default().add_attribute("method", "redistribute_unclaimed_funds"))
+}
+
+// query auth authenticate function
+pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<Addr> {
+    match auth {
+        Auth::ViewingKey { key, address } => {
+            let address = deps.api.addr_validate(&address)?;
+            if !authenticate_vk(address.clone(), key, &deps.querier, &query_auth)? {
+                return Err(StdError::generic_err("Invalid Viewing Key"));
+            }
+            Ok(address)
+        }
+        Auth::Permit(permit) => {
+            let res: PermitAuthentication<AuthPermit> =
+                authenticate_permit(permit, &deps.querier, query_auth)?;
+            if res.revoked {
+                return Err(StdError::generic_err("Permit Revoked"));
+            }
+            Ok(res.sender)
+        }
+    }
+}
+
+fn get_keys<K, V>(deps: Deps, map: &Keymap<'_, K, V>) -> StdResult<Vec<K>>
+where
+    K: Serialize + DeserializeOwned,
+    V: serde::de::DeserializeOwned + serde::Serialize,
+{
+    let items = KeyIter::new(map, deps.storage, 0, map.get_len(deps.storage)?)
+        .flatten()
+        .collect();
+    Ok(items)
 }

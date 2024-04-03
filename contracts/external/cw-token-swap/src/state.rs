@@ -1,8 +1,6 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{
-    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, StdError, Uint128, WasmMsg,
-};
-use cw_storage_plus::Item;
+use cosmwasm_std::{to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, StdError, Uint128, WasmMsg};
+use secret_storage_plus::Item;
 
 use crate::{
     msg::{Counterparty, TokenInfo},
@@ -15,8 +13,9 @@ pub enum CheckedTokenInfo {
         denom: String,
         amount: Uint128,
     },
-    Cw20 {
+    Snip20 {
         contract_addr: Addr,
+        code_hash: String,
         amount: Uint128,
     },
 }
@@ -51,8 +50,9 @@ impl TokenInfo {
                     Ok(CheckedTokenInfo::Native { denom, amount })
                 }
             }
-            TokenInfo::Cw20 {
+            TokenInfo::Snip20 {
                 contract_addr,
+                code_hash,
                 amount,
             } => {
                 if amount.is_zero() {
@@ -60,12 +60,15 @@ impl TokenInfo {
                 } else {
                     let contract_addr = deps.api.addr_validate(&contract_addr)?;
                     // Make sure we are dealing with a cw20.
-                    let _: cw20::TokenInfoResponse = deps.querier.query_wasm_smart(
-                        contract_addr.clone(),
-                        &cw20::Cw20QueryMsg::TokenInfo {},
-                    )?;
-                    Ok(CheckedTokenInfo::Cw20 {
+                    let _: snip20_reference_impl::msg::QueryAnswer =
+                        deps.querier.query_wasm_smart(
+                            code_hash.clone(),
+                            contract_addr.clone(),
+                            &snip20_reference_impl::msg::QueryMsg::TokenInfo {},
+                        )?;
+                    Ok(CheckedTokenInfo::Snip20 {
                         contract_addr,
+                        code_hash: code_hash.clone(),
                         amount,
                     })
                 }
@@ -82,14 +85,20 @@ impl CheckedTokenInfo {
                 amount: vec![Coin { denom, amount }],
             }
             .into(),
-            Self::Cw20 {
+            Self::Snip20 {
                 contract_addr,
+                code_hash,
                 amount,
             } => WasmMsg::Execute {
                 contract_addr: contract_addr.into_string(),
-                msg: to_json_binary(&cw20::Cw20ExecuteMsg::Transfer {
+                code_hash,
+                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Transfer {
                     recipient: recipient.to_string(),
                     amount,
+                    memo: None,
+                    decoys: None,
+                    entropy: None,
+                    padding: None,
                 })?,
                 funds: vec![],
             }
@@ -124,9 +133,10 @@ mod tests {
 
     #[test]
     fn test_into_spend_message_cw20() {
-        let info = CheckedTokenInfo::Cw20 {
+        let info = CheckedTokenInfo::Snip20 {
             amount: Uint128::new(100),
             contract_addr: Addr::unchecked("ekez_token"),
+            code_hash: "ekez_token_code_hash".to_string(),
         };
         let message = info.into_send_message(&Addr::unchecked("ekez")).unwrap();
 
@@ -135,9 +145,14 @@ mod tests {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 funds: vec![],
                 contract_addr: "ekez_token".to_string(),
-                msg: to_json_binary(&cw20::Cw20ExecuteMsg::Transfer {
+                code_hash: "ekez_token_code_hash".to_string(),
+                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Transfer {
                     recipient: "ekez".to_string(),
-                    amount: Uint128::new(100)
+                    amount: Uint128::new(100),
+                    memo: None,
+                    decoys: None,
+                    entropy: None,
+                    padding: None,
                 })
                 .unwrap()
             })
