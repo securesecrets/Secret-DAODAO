@@ -10,6 +10,7 @@ members = [
   "./contracts/external/cw-vesting/",
   "./contracts/external/cw-token-swap/",
   "./contracts/external/dao-migrator/",
+  "./contracts/external/cw-payroll-factory/",
   "./contracts/proposal/*",
   "./contracts/pre-propose/*",
   "./contracts/staking/*",

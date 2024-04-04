@@ -1,7 +1,7 @@
+use crate::cw_vesting::PayrollInstantiateMsg;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary, Uint128};
 use cw_ownable::cw_ownable_execute;
-use cw_vesting::msg::InstantiateMsg as PayrollInstantiateMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -36,7 +36,10 @@ pub enum ExecuteMsg {
 
     /// Callable only by the current owner. Updates the code ID used
     /// while instantiating vesting contracts.
-    UpdateCodeIdAndCodeHash { vesting_code_id: u64, vesting_code_hash: String },
+    UpdateCodeIdAndCodeHash {
+        vesting_code_id: u64,
+        vesting_code_hash: String,
+    },
 }
 
 // Receiver setup

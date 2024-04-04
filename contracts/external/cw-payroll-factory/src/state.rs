@@ -1,10 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
 use secret_storage_plus::Item;
-
-/// Temporarily holds the address of the instantiator for use in submessages
-pub const TMP_INSTANTIATOR_INFO: Item<Addr> = Item::new("tmp_instantiator_info");
-pub const VESTING_INFO: Item<VestingContractInstantiateInfo> = Item::new("pci");
+use secret_toolkit::storage::Keymap;
 
 #[cw_serde]
 pub struct VestingContract {
@@ -19,30 +16,7 @@ pub struct VestingContractInstantiateInfo {
     pub code_hash: String,
 }
 
-pub struct TokenIndexes<'a> {
-    pub instantiator: MultiIndex<'a, String, VestingContract, String>,
-    pub recipient: MultiIndex<'a, String, VestingContract, String>,
-}
-
-impl<'a> IndexList<VestingContract> for TokenIndexes<'a> {
-    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<VestingContract>> + '_> {
-        let v: Vec<&dyn Index<VestingContract>> = vec![&self.instantiator, &self.recipient];
-        Box::new(v.into_iter())
-    }
-}
-
-pub fn vesting_contracts<'a>() -> IndexedMap< &'a str, VestingContract, TokenIndexes<'a>> {
-    let indexes = TokenIndexes {
-        instantiator: MultiIndex::new(
-            |_pk: &[u8], d: &VestingContract| d.instantiator.clone(),
-            "vesting_contracts",
-            "vesting_contracts__instantiator",
-        ),
-        recipient: MultiIndex::new(
-            |_pk: &[u8], d: &VestingContract| d.recipient.clone(),
-            "vesting_contracts",
-            "vesting_contracts__recipient",
-        ),
-    };
-    IndexedMap::new("vesting_contracts", indexes)
-}
+/// Temporarily holds the address of the instantiator for use in submessages
+pub const TMP_INSTANTIATOR_INFO: Item<Addr> = Item::new("tmp_instantiator_info");
+pub const VESTING_INFO: Item<VestingContractInstantiateInfo> = Item::new("pci");
+pub static VESTING_CONTRACTS: Keymap<Addr, VestingContract> = Keymap::new(b"vc");

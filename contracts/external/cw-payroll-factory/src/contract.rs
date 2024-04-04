@@ -1,24 +1,23 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use cosmwasm_std::Addr;
 use cosmwasm_std::{
     from_binary, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdResult, SubMsg, WasmMsg,
+    StdError, StdResult, SubMsg, WasmMsg,
 };
-use cosmwasm_std::{Addr, Coin};
 
+use crate::cw_vesting::PayrollInstantiateMsg;
 use cw_denom::CheckedDenom;
-use cw_vesting::msg::{
-    InstantiateMsg as PayrollInstantiateMsg, QueryMsg as PayrollQueryMsg,
-    ReceiveMsg as PayrollReceiveMsg,
-};
+use cw_vesting::msg::{QueryMsg as PayrollQueryMsg, ReceiveMsg as PayrollReceiveMsg};
 use cw_vesting::vesting::Vest;
 use secret_cw2::set_contract_version;
-use secret_utils::{nonpayable, parse_reply_instantiate_data};
+use secret_toolkit::utils::InitCallback;
+use secret_utils::{nonpayable, parse_reply_event_for_contract_address};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg, Snip20ReceiveMsg};
 use crate::state::{
-    vesting_contracts, VestingContract, VestingContractInstantiateInfo, TMP_INSTANTIATOR_INFO,
+    VestingContract, VestingContractInstantiateInfo, TMP_INSTANTIATOR_INFO, VESTING_CONTRACTS,
     VESTING_INFO,
 };
 
@@ -63,9 +62,10 @@ pub fn execute(
             label,
         } => execute_instantiate_native_payroll_contract(deps, info, instantiate_msg, label),
         ExecuteMsg::UpdateOwnership(action) => execute_update_owner(deps, info, env, action),
-        ExecuteMsg::UpdateCodeIdAndCodeHash { vesting_code_id,vesting_code_hash } => {
-            execute_update_code_id_and_code_hash(deps, info, vesting_code_id,vesting_code_hash)
-        }
+        ExecuteMsg::UpdateCodeIdAndCodeHash {
+            vesting_code_id,
+            vesting_code_hash,
+        } => execute_update_code_id_and_code_hash(deps, info, vesting_code_id, vesting_code_hash),
     }
 }
 
@@ -85,7 +85,7 @@ pub fn execute_receive_snip20(
     }
 
     // Save instantiator info for use in reply (snip20 sender in this case)
-    let sender = deps.api.addr_validate(&receive_msg.sender)?;
+    let sender = deps.api.addr_validate(receive_msg.sender.as_ref())?;
     TMP_INSTANTIATOR_INFO.save(deps.storage, &sender)?;
 
     match msg {
@@ -99,7 +99,7 @@ pub fn execute_receive_snip20(
                     expected: instantiate_msg.total,
                 });
             }
-            instantiate_contract(deps, sender, None, instantiate_msg, label)
+            instantiate_contract(deps, sender, instantiate_msg, label)
         }
     }
 }
@@ -113,7 +113,7 @@ pub fn execute_instantiate_native_payroll_contract(
     // Save instantiator info for use in reply
     TMP_INSTANTIATOR_INFO.save(deps.storage, &info.sender)?;
 
-    instantiate_contract(deps, info.sender, Some(info.funds), instantiate_msg, label)
+    instantiate_contract(deps, info.sender, instantiate_msg, label)
 }
 
 /// `sender` here refers to the initiator of the vesting, not the
@@ -123,7 +123,6 @@ pub fn execute_instantiate_native_payroll_contract(
 pub fn instantiate_contract(
     deps: DepsMut,
     sender: Addr,
-    funds: Option<Vec<Coin>>,
     instantiate_msg: PayrollInstantiateMsg,
     label: String,
 ) -> Result<Response, ContractError> {
@@ -139,17 +138,16 @@ pub fn instantiate_contract(
 
     let vesting_contract_info = VESTING_INFO.load(deps.storage)?;
 
-    // Instantiate the specified contract with owner as the admin.
-    let instantiate = WasmMsg::Instantiate {
-        admin: instantiate_msg.owner.clone(),
-        code_id: vesting_contract_info.code_id,
-        code_hash: vesting_contract_info.code_hash,
-        msg: to_binary(&instantiate_msg)?,
-        funds: funds.unwrap_or_default(),
-        label,
-    };
-
-    let msg = SubMsg::reply_on_success(instantiate, INSTANTIATE_CONTRACT_REPLY_ID);
+    let msg = SubMsg::reply_on_success(
+        instantiate_msg.to_cosmos_msg(
+            instantiate_msg.owner.clone(),
+            label,
+            vesting_contract_info.code_id,
+            vesting_contract_info.code_hash,
+            None,
+        )?,
+        INSTANTIATE_CONTRACT_REPLY_ID,
+    );
 
     Ok(Response::default()
         .add_attribute("action", "instantiate_cw_vesting")
@@ -173,14 +171,17 @@ pub fn execute_update_code_id_and_code_hash(
     code_hash: String,
 ) -> Result<Response, ContractError> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    VESTING_INFO.save(deps.storage, &VestingContractInstantiateInfo{
-        code_id,
-        code_hash: code_hash.clone()
-    })?;
+    VESTING_INFO.save(
+        deps.storage,
+        &VestingContractInstantiateInfo {
+            code_id,
+            code_hash: code_hash.clone(),
+        },
+    )?;
     Ok(Response::default()
         .add_attribute("action", "update_code_id")
         .add_attribute("vesting_code_id", code_id.to_string())
-    .add_attribute("vesting_code_hash", code_hash))
+        .add_attribute("vesting_code_hash", code_hash))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -188,13 +189,26 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::ListVestingContracts { start_after, limit } => {
             let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-            let start = start_after.as_deref().map(Bound::exclusive);
+            let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
 
-            let res: Vec<VestingContract> = vesting_contracts()
-                .range(deps.storage, start, None, Order::Ascending)
-                .take(limit)
-                .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
-                .collect();
+            let mut res: Vec<VestingContract> = Vec::new();
+            let binding = &VESTING_CONTRACTS;
+            let iter = binding.iter(deps.storage)?;
+            for item in iter {
+                let (address, vesting_contract_info) = item?;
+                if let Some(start_after) = &start {
+                    if &address == start_after {
+                        // If we found the start point, reset it to start iterating
+                        start = None;
+                    }
+                }
+                if start.is_none() {
+                    res.push(vesting_contract_info);
+                    if res.len() >= limit {
+                        break; // Break out of loop if limit reached
+                    }
+                }
+            }
 
             Ok(to_binary(&res)?)
         }
@@ -203,14 +217,26 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             limit,
         } => {
             let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-            let start = start_before.as_deref().map(Bound::exclusive);
+            let mut start = start_before.clone(); // Clone start_before to mutate it if necessary
 
-            let res: Vec<VestingContract> = vesting_contracts()
-                .range(deps.storage, None, start, Order::Descending)
-                .take(limit)
-                .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
-                .collect();
-
+            let mut res: Vec<VestingContract> = Vec::new();
+            let binding = &VESTING_CONTRACTS;
+            let iter = binding.iter(deps.storage)?.rev(); // Reverse the iteration direction
+            for item in iter {
+                let (address, vesting_contract_info) = item?;
+                if let Some(start_before) = &start {
+                    if &address == start_before {
+                        // If we found the start point, reset it to start iterating
+                        start = None;
+                    }
+                }
+                if start.is_none() {
+                    res.push(vesting_contract_info);
+                    if res.len() >= limit {
+                        break; // Break out of loop if limit reached
+                    }
+                }
+            }
             Ok(to_binary(&res)?)
         }
         QueryMsg::ListVestingContractsByInstantiator {
@@ -218,21 +244,33 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
         } => {
-            let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-            let start = start_after.map(Bound::<String>::exclusive);
-
             // Validate owner address
             deps.api.addr_validate(&instantiator)?;
 
-            let res: Vec<VestingContract> = vesting_contracts()
-                .idx
-                .instantiator
-                .prefix(instantiator)
-                .range(deps.storage, start, None, Order::Ascending)
-                .take(limit)
-                .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
-                .collect();
+            let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+            let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
 
+            let mut res: Vec<VestingContract> = Vec::new();
+            let binding = &VESTING_CONTRACTS;
+            let iter = binding.iter(deps.storage)?;
+            for item in iter {
+                let (address, vesting_contract_info) = item?;
+                // Check if the instantiator matches the provided one
+                if vesting_contract_info.instantiator == instantiator {
+                    if let Some(start_after) = &start {
+                        if &address == start_after {
+                            // If we found the start point, reset it to start iterating
+                            start = None;
+                        }
+                    }
+                    if start.is_none() {
+                        res.push(vesting_contract_info);
+                        if res.len() >= limit {
+                            break; // Break out of loop if limit reached
+                        }
+                    }
+                }
+            }
             Ok(to_binary(&res)?)
         }
         QueryMsg::ListVestingContractsByInstantiatorReverse {
@@ -240,21 +278,33 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_before,
             limit,
         } => {
-            let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-            let start = start_before.map(Bound::<String>::exclusive);
-
             // Validate owner address
             deps.api.addr_validate(&instantiator)?;
 
-            let res: Vec<VestingContract> = vesting_contracts()
-                .idx
-                .instantiator
-                .prefix(instantiator)
-                .range(deps.storage, None, start, Order::Descending)
-                .take(limit)
-                .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
-                .collect();
+            let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+            let mut start = start_before.clone(); // Clone start_before to mutate it if necessary
 
+            let mut res: Vec<VestingContract> = Vec::new();
+            let binding = &VESTING_CONTRACTS;
+            let iter = binding.iter(deps.storage)?.rev(); // Reverse the iteration direction
+            for item in iter {
+                let (address, vesting_contract_info) = item?;
+                // Check if the instantiator matches the provided one
+                if vesting_contract_info.instantiator == instantiator {
+                    if let Some(start_at) = &start {
+                        if &address == start_at {
+                            // If we found the start point, reset it to start iterating
+                            start = None;
+                        }
+                    }
+                    if start.is_none() {
+                        res.push(vesting_contract_info);
+                        if res.len() >= limit {
+                            break; // Break out of loop if limit reached
+                        }
+                    }
+                }
+            }
             Ok(to_binary(&res)?)
         }
         QueryMsg::ListVestingContractsByRecipient {
@@ -262,20 +312,33 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
         } => {
-            let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-            let start = start_after.map(Bound::<String>::exclusive);
-
             // Validate recipient address
             deps.api.addr_validate(&recipient)?;
 
-            let res: Vec<VestingContract> = vesting_contracts()
-                .idx
-                .recipient
-                .prefix(recipient)
-                .range(deps.storage, start, None, Order::Ascending)
-                .take(limit)
-                .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
-                .collect();
+            let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+            let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
+
+            let mut res: Vec<VestingContract> = Vec::new();
+            let binding = &VESTING_CONTRACTS;
+            let iter = binding.iter(deps.storage)?;
+            for item in iter {
+                let (address, vesting_contract_info) = item?;
+                // Check if the instantiator matches the provided one
+                if vesting_contract_info.instantiator == recipient {
+                    if let Some(start_after) = &start {
+                        if &address == start_after {
+                            // If we found the start point, reset it to start iterating
+                            start = None;
+                        }
+                    }
+                    if start.is_none() {
+                        res.push(vesting_contract_info);
+                        if res.len() >= limit {
+                            break; // Break out of loop if limit reached
+                        }
+                    }
+                }
+            }
 
             Ok(to_binary(&res)?)
         }
@@ -284,20 +347,33 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_before,
             limit,
         } => {
-            let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-            let start = start_before.map(Bound::<String>::exclusive);
-
             // Validate recipient address
             deps.api.addr_validate(&recipient)?;
 
-            let res: Vec<VestingContract> = vesting_contracts()
-                .idx
-                .recipient
-                .prefix(recipient)
-                .range(deps.storage, None, start, Order::Descending)
-                .take(limit)
-                .flat_map(|vc| Ok::<VestingContract, ContractError>(vc?.1))
-                .collect();
+            let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+            let mut start = start_before.clone(); // Clone start_before to mutate it if necessary
+
+            let mut res: Vec<VestingContract> = Vec::new();
+            let binding = &VESTING_CONTRACTS;
+            let iter = binding.iter(deps.storage)?.rev(); // Reverse the iteration direction
+            for item in iter {
+                let (address, vesting_contract_info) = item?;
+                // Check if the instantiator matches the provided one
+                if vesting_contract_info.instantiator == recipient {
+                    if let Some(start_at) = &start {
+                        if &address == start_at {
+                            // If we found the start point, reset it to start iterating
+                            start = None;
+                        }
+                    }
+                    if start.is_none() {
+                        res.push(vesting_contract_info);
+                        if res.len() >= limit {
+                            break; // Break out of loop if limit reached
+                        }
+                    }
+                }
+            }
 
             Ok(to_binary(&res)?)
         }
@@ -310,57 +386,66 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
         INSTANTIATE_CONTRACT_REPLY_ID => {
-            let res = parse_reply_instantiate_data(msg)?;
-            let contract_addr = deps.api.addr_validate(&res.contract_address)?;
+            match msg.result {
+                cosmwasm_std::SubMsgResult::Ok(res) => {
+                    let res = parse_reply_event_for_contract_address(res.events)?;
+                    let contract_addr = deps.api.addr_validate(&res)?;
+                    let code_hash = VESTING_INFO.load(deps.storage)?.code_hash;
 
-            // Query new vesting payment contract for info
-            let vest: Vest = deps
-                .querier
-                .query_wasm_smart(contract_addr.clone(), &PayrollQueryMsg::Info {})?;
+                    // Query new vesting payment contract for info
+                    let vest: Vest = deps.querier.query_wasm_smart(
+                        code_hash.clone(),
+                        contract_addr.clone(),
+                        &PayrollQueryMsg::Info {},
+                    )?;
 
-            let instantiator = TMP_INSTANTIATOR_INFO.load(deps.storage)?;
+                    let instantiator = TMP_INSTANTIATOR_INFO.load(deps.storage)?;
 
-            // Save vesting contract payment info
-            vesting_contracts().save(
-                deps.storage,
-                contract_addr.as_ref(),
-                &VestingContract {
-                    instantiator: instantiator.to_string(),
-                    recipient: vest.recipient.to_string(),
-                    contract: contract_addr.to_string(),
-                },
-            )?;
+                    // Save vesting contract payment info
+                    VESTING_CONTRACTS.insert(
+                        deps.storage,
+                        &contract_addr.clone(),
+                        &VestingContract {
+                            instantiator: instantiator.to_string(),
+                            recipient: vest.recipient.to_string(),
+                            contract: contract_addr.to_string(),
+                        },
+                    )?;
 
-            // Clear tmp instatiator info
-            TMP_INSTANTIATOR_INFO.remove(deps.storage);
+                    // Clear tmp instatiator info
+                    TMP_INSTANTIATOR_INFO.remove(deps.storage);
 
-            // If cw20, fire off fund message!
-            let msgs: Vec<CosmosMsg> = match vest.denom {
-                CheckedDenom::Native(_) => vec![],
-                CheckedDenom::Cw20(ref denom, code_hash) => {
-                    // Send transaction to fund contract
-                    vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                        contract_addr: denom.to_string(),
-                        code_hash,
-                        msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Send {
-                            recipient: contract_addr.to_string(),
-                            recipient_code_hash: todo!(),
-                            amount: vest.total(),
-                            msg: Some(to_binary(&PayrollReceiveMsg::Fund {})?),
-                            amount: todo!(),
-                            memo: todo!(),
-                            decoys: todo!(),
-                            entropy: todo!(),
-                            padding: todo!(),
-                        })?,
-                        funds: vec![],
-                    })]
+                    // If cw20, fire off fund message!
+                    let msgs: Vec<CosmosMsg> = match vest.clone().denom {
+                        CheckedDenom::Native(_) => vec![],
+                        CheckedDenom::Snip20(ref denom, code_hash) => {
+                            // Send transaction to fund contract
+                            vec![CosmosMsg::Wasm(WasmMsg::Execute {
+                                contract_addr: denom.to_string(),
+                                code_hash: code_hash.clone(),
+                                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Send {
+                                    recipient: contract_addr.to_string(),
+                                    recipient_code_hash: Some(code_hash),
+                                    amount: vest.total(),
+                                    msg: Some(to_binary(&PayrollReceiveMsg::Fund {})?),
+                                    memo: None,
+                                    decoys: None,
+                                    entropy: None,
+                                    padding: None,
+                                })?,
+                                funds: vec![],
+                            })]
+                        }
+                    };
+
+                    Ok(Response::default()
+                        .add_attribute("new_payroll_contract", contract_addr)
+                        .add_messages(msgs))
                 }
-            };
-
-            Ok(Response::default()
-                .add_attribute("new_payroll_contract", contract_addr)
-                .add_messages(msgs))
+                cosmwasm_std::SubMsgResult::Err(err) => {
+                    Err(ContractError::Std(StdError::GenericErr { msg: err }))
+                }
+            }
         }
         _ => Err(ContractError::UnknownReplyId { id: msg.id }),
     }

@@ -76,7 +76,7 @@ pub fn instantiate(
                 None
             }
         }
-        CheckedDenom::Cw20(..) => {
+        CheckedDenom::Snip20(..) => {
             nonpayable(&info)?; // Funding happens in ExecuteMsg::Receive.
             None
         }

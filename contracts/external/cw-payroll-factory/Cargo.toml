@@ -29,7 +29,7 @@ secret-utils = { workspace = true }
 serde ={ workspace = true }
 schemars ={ workspace = true }
 snip20-reference-impl  = { workspace = true}
-cw-storage-plus ={ version = "2.0.0"}
+secret-toolkit ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

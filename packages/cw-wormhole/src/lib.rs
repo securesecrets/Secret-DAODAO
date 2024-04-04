@@ -88,8 +88,15 @@ where
     /// no value at that time, returns `None`. Returns `Some(value)`
     /// otherwise.
     pub fn load(&self, storage: &dyn Storage, k: K, t: u64) -> StdResult<Option<V>> {
-        let key = (k.clone(), t);
-        Ok(self.snapshots().get(storage, &key))
+        // Start with the highest possible time and iterate backwards until finding the first matching value
+        for current_time in (0..=t).rev() {
+            let key = (k.clone(), current_time);
+            if let Some(value) = self.snapshots().get(storage, &key) {
+                return Ok(Some(value));
+            }
+        }
+        // If no matching value is found, return None
+        Ok(None)
     }
 
     /// Increments the value of key `k` at time `t` by amount `i`.
@@ -141,7 +148,7 @@ where
             let key = (k.clone(), t_prime);
             match self.snapshots().get(storage, &key) {
                 Some(mut value) => {
-                    value = update(value, t);
+                    value = update(value, t_prime);
                     self.snapshots().insert(storage, &key, &value)?;
                 }
                 None => break,

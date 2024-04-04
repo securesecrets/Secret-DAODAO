@@ -596,6 +596,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-payroll-factory"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "cw-denom",
+ "cw-ownable",
+ "cw-vesting",
+ "schemars 0.8.16",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-storage-plus",
+ "secret-toolkit",
+ "secret-utils 0.13.4",
+ "serde",
+ "snip20-reference-impl",
+ "thiserror",
+ "wynd-utils",
+]
+
+[[package]]
 name = "cw-stake-tracker"
 version = "2.4.0"
 dependencies = [

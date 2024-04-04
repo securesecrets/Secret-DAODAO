@@ -582,7 +582,7 @@ pub fn query_native_entitlements(
         sender = deps.api.addr_validate(&address)?;
     }
     let relative_share = get_relative_share(&deps, auth)?;
-    let mut start = start_at.map(|h| deps.api.addr_validate(&h)).transpose()?;
+    let mut start = start_at.clone(); // Clone start_after to mutate it if necessary
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     // let natives = paginate_map(deps, &NATIVE_BALANCES, start_at, limit, Order::Descending)?;
     let mut natives: Vec<(String, Uint128)> = Vec::new();

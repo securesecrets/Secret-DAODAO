@@ -156,7 +156,7 @@ impl UncheckedDepositInfo {
                         // returned a valid token. Conversion of the unchecked
                         // denom into a checked one will do a `TokenInfo {}`
                         // query.
-                        UncheckedDenom::Cw20(token.addr.into_string(), token.code_hash)
+                        UncheckedDenom::Snip20(token.addr.into_string(), token.code_hash)
                             .into_checked(deps)
                     }
                 }
@@ -205,7 +205,7 @@ impl CheckedDepositInfo {
     ) -> StdResult<Vec<CosmosMsg>> {
         let take_deposit_msg: Vec<CosmosMsg> = if let Self {
             amount,
-            denom: CheckedDenom::Cw20(address, token_code_hash),
+            denom: CheckedDenom::Snip20(address, token_code_hash),
             ..
         } = self
         {

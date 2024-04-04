@@ -18,8 +18,8 @@ pub enum DenomError {
     #[error(transparent)]
     Std(#[from] StdError),
 
-    #[error("invalid cw20 - did not respond to `TokenInfo` query: {err}")]
-    InvalidCw20 { err: StdError },
+    #[error("invalid Snip20 - did not respond to `TokenInfo` query: {err}")]
+    InvalidSnip20 { err: StdError },
 
     #[error("invalid native denom. length must be between in [3, 128], got ({len})")]
     NativeDenomLength { len: usize },
@@ -39,7 +39,7 @@ pub enum CheckedDenom {
     /// A native (bank module) asset.
     Native(String),
     /// A cw20 asset.
-    Cw20(Addr, String),
+    Snip20(Addr, String),
 }
 
 /// A denom that has not been checked to confirm it points to a valid
@@ -49,7 +49,7 @@ pub enum UncheckedDenom {
     /// A native (bank module) asset.
     Native(String),
     /// A cw20 asset.
-    Cw20(String, String),
+    Snip20(String, String),
 }
 
 impl UncheckedDenom {
@@ -65,7 +65,7 @@ impl UncheckedDenom {
     pub fn into_checked(self, deps: Deps) -> Result<CheckedDenom, DenomError> {
         match self {
             Self::Native(denom) => validate_native_denom(denom),
-            Self::Cw20(addr, code_hash) => {
+            Self::Snip20(addr, code_hash) => {
                 let addr = deps.api.addr_validate(&addr)?;
                 let _info: secret_toolkit::snip20::TokenInfoResponse = deps
                     .querier
@@ -74,8 +74,8 @@ impl UncheckedDenom {
                         addr.clone(),
                         &secret_toolkit::snip20::QueryMsg::TokenInfo {},
                     )
-                    .map_err(|err| DenomError::InvalidCw20 { err })?;
-                Ok(CheckedDenom::Cw20(addr, code_hash))
+                    .map_err(|err| DenomError::InvalidSnip20 { err })?;
+                Ok(CheckedDenom::Snip20(addr, code_hash))
             }
         }
     }
@@ -91,13 +91,13 @@ impl CheckedDenom {
     /// use cw_denom::CheckedDenom;
     ///
     /// let cw20 = Addr::unchecked("fleesp");
-    /// assert!(CheckedDenom::Cw20(Addr::unchecked("fleesp")).is_cw20(&cw20));
+    /// assert!(CheckedDenom::Snip20(Addr::unchecked("fleesp")).is_cw20(&cw20));
     /// assert!(!CheckedDenom::Native("fleesp".to_string()).is_cw20(&cw20));
     /// ```
     pub fn is_cw20(&self, cw20: &Addr) -> bool {
         match self {
             CheckedDenom::Native(_) => false,
-            CheckedDenom::Cw20(a, _) => a == cw20,
+            CheckedDenom::Snip20(a, _) => a == cw20,
         }
     }
 
@@ -111,12 +111,12 @@ impl CheckedDenom {
     ///
     /// let coin = coin(10, "floob");
     /// assert!(CheckedDenom::Native("floob".to_string()).is_native(&coin.denom));
-    /// assert!(!CheckedDenom::Cw20(Addr::unchecked("floob")).is_native(&coin.denom));
+    /// assert!(!CheckedDenom::Snip20(Addr::unchecked("floob")).is_native(&coin.denom));
     /// ```
     pub fn is_native(&self, denom: &str) -> bool {
         match self {
             CheckedDenom::Native(n) => n == denom,
-            CheckedDenom::Cw20(..) => false,
+            CheckedDenom::Snip20(..) => false,
         }
     }
 
@@ -129,7 +129,7 @@ impl CheckedDenom {
     ) -> StdResult<Uint128> {
         match self {
             CheckedDenom::Native(denom) => Ok(querier.query_balance(who, denom)?.amount),
-            CheckedDenom::Cw20(address, code_hash) => {
+            CheckedDenom::Snip20(address, code_hash) => {
                 let balance: secret_toolkit::snip20::Balance = querier.query_wasm_smart(
                     code_hash,
                     address,
@@ -156,7 +156,7 @@ impl CheckedDenom {
                 }],
             }
             .into(),
-            CheckedDenom::Cw20(address, code_hash) => WasmMsg::Execute {
+            CheckedDenom::Snip20(address, code_hash) => WasmMsg::Execute {
                 contract_addr: address.to_string(),
                 code_hash: code_hash.to_string(),
                 msg: to_binary(&secret_toolkit::snip20::HandleMsg::Transfer {
@@ -204,7 +204,7 @@ impl fmt::Display for CheckedDenom {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Native(inner) => write!(f, "{inner}"),
-            Self::Cw20(inner, _) => write!(f, "{inner}"),
+            Self::Snip20(inner, _) => write!(f, "{inner}"),
         }
     }
 }
@@ -258,12 +258,12 @@ mod tests {
         let mut deps = mock_dependencies();
         deps.querier = querier;
 
-        let unchecked = UncheckedDenom::Cw20(CW20_ADDR.to_string(), CW20_CODE_HASH.to_string());
+        let unchecked = UncheckedDenom::Snip20(CW20_ADDR.to_string(), CW20_CODE_HASH.to_string());
         let checked = unchecked.into_checked(deps.as_ref()).unwrap();
 
         assert_eq!(
             checked,
-            CheckedDenom::Cw20(Addr::unchecked(CW20_ADDR), CW20_CODE_HASH.to_string())
+            CheckedDenom::Snip20(Addr::unchecked(CW20_ADDR), CW20_CODE_HASH.to_string())
         )
     }
 
@@ -275,11 +275,11 @@ mod tests {
         let mut deps = mock_dependencies();
         deps.querier = querier;
 
-        let unchecked = UncheckedDenom::Cw20(CW20_ADDR.to_string(), CW20_CODE_HASH.to_string());
+        let unchecked = UncheckedDenom::Snip20(CW20_ADDR.to_string(), CW20_CODE_HASH.to_string());
         let err = unchecked.into_checked(deps.as_ref()).unwrap_err();
         assert_eq!(
             err,
-            DenomError::InvalidCw20 {
+            DenomError::InvalidSnip20 {
                 err: StdError::GenericErr {
                     msg: format!("Querier system error: No such contract: {CW20_ADDR}",)
                 }
@@ -295,7 +295,7 @@ mod tests {
         let mut deps = mock_dependencies();
         deps.querier = querier;
 
-        let unchecked = UncheckedDenom::Cw20(
+        let unchecked = UncheckedDenom::Snip20(
             "HasCapitalsSoShouldNotValidate".to_string(),
             "HasCapitalsSoShouldNotValidate".to_string(),
         );
@@ -379,7 +379,7 @@ mod tests {
     fn test_display() {
         let denom = CheckedDenom::Native("hello".to_string());
         assert_eq!(denom.to_string(), "hello".to_string());
-        let denom = CheckedDenom::Cw20(Addr::unchecked("hello"), "CODE_HASH".to_string());
+        let denom = CheckedDenom::Snip20(Addr::unchecked("hello"), "CODE_HASH".to_string());
         assert_eq!(denom.to_string(), "hello".to_string());
     }
 }
