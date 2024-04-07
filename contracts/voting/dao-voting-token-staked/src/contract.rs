@@ -263,6 +263,9 @@ pub fn execute_unstake(
     }
 
     let prev_balance = StakedBalancesStore::load(deps.storage, info.sender.clone());
+    if prev_balance == Uint128::zero() || prev_balance < amount {
+        return Err(ContractError::InvalidUnstakeAmount {});
+    }
 
     StakedBalancesStore::save(
         deps.storage,
@@ -493,7 +496,7 @@ pub fn query_voting_power_at_height(
     let height = height.unwrap_or(env.block.height);
     let power = StakedBalancesStore::may_load_at_height(deps.storage, address, height)?;
     Ok(VotingPowerAtHeightResponse {
-        power: power.unwrap(),
+        power: power.unwrap_or_default(),
         height,
     })
 }

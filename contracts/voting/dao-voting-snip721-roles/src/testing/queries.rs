@@ -1,52 +1,70 @@
-use cosmwasm_std::{Addr, StdResult};
-use cw_multi_test::App;
-use dao_cw721_extensions::roles::QueryExt;
+use cosmwasm_std::{Addr, ContractInfo, StdResult};
 use dao_interface::voting::{
     InfoResponse, TotalPowerAtHeightResponse, VotingPowerAtHeightResponse,
 };
+use secret_multi_test::App;
+use shade_protocol::basic_staking::Auth;
+use snip721_reference_impl::msg::QueryAnswer;
 
 use crate::{msg::QueryMsg, state::Config};
 
-pub fn query_config(app: &App, module: &Addr) -> StdResult<Config> {
-    let config = app.wrap().query_wasm_smart(module, &QueryMsg::Config {})?;
+pub fn query_config(app: &App, module: ContractInfo) -> StdResult<Config> {
+    let config = app.wrap().query_wasm_smart(
+        module.code_hash,
+        module.address.to_string(),
+        &QueryMsg::Config {},
+    )?;
     Ok(config)
 }
 
 pub fn query_voting_power(
     app: &App,
-    module: &Addr,
-    addr: &str,
+    module: ContractInfo,
+    auth: Auth,
     height: Option<u64>,
 ) -> StdResult<VotingPowerAtHeightResponse> {
     let power = app.wrap().query_wasm_smart(
-        module,
-        &QueryMsg::VotingPowerAtHeight {
-            address: addr.to_string(),
-            height,
-        },
+        module.code_hash,
+        module.address.to_string(),
+        &QueryMsg::VotingPowerAtHeight { auth, height },
     )?;
     Ok(power)
 }
 
 pub fn query_total_power(
     app: &App,
-    module: &Addr,
+    module: ContractInfo,
     height: Option<u64>,
 ) -> StdResult<TotalPowerAtHeightResponse> {
-    let power = app
-        .wrap()
-        .query_wasm_smart(module, &QueryMsg::TotalPowerAtHeight { height })?;
+    let power = app.wrap().query_wasm_smart(
+        module.code_hash,
+        module.address.to_string(),
+        &QueryMsg::TotalPowerAtHeight { height },
+    )?;
     Ok(power)
 }
 
-pub fn query_info(app: &App, module: &Addr) -> StdResult<InfoResponse> {
-    let info = app.wrap().query_wasm_smart(module, &QueryMsg::Info {})?;
+pub fn query_info(app: &App, module: ContractInfo) -> StdResult<InfoResponse> {
+    let info = app.wrap().query_wasm_smart(
+        module.code_hash,
+        module.address.to_string(),
+        &QueryMsg::Info {},
+    )?;
     Ok(info)
 }
 
-pub fn query_minter(app: &App, nft: &Addr) -> StdResult<cw721_base::MinterResponse> {
-    let minter = app
-        .wrap()
-        .query_wasm_smart(nft, &cw721_base::QueryMsg::<QueryExt>::Minter {})?;
-    Ok(minter)
+pub fn query_minter(app: &App, nft: ContractInfo) -> StdResult<Vec<Addr>> {
+    let minters_res: snip721_reference_impl::msg::QueryAnswer = app.wrap().query_wasm_smart(
+        nft.code_hash,
+        nft.address.to_string(),
+        &snip721_reference_impl::msg::QueryMsg::Minters {},
+    )?;
+    let mut res: Vec<Addr> = Vec::new();
+    match minters_res {
+        QueryAnswer::Minters { minters } => {
+            res = minters;
+        }
+        _ => (),
+    }
+    Ok(res)
 }

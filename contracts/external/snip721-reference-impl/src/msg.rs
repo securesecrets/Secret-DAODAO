@@ -11,7 +11,7 @@ use crate::royalties::{DisplayRoyaltyInfo, RoyaltyInfo};
 use crate::token::{Extension, Metadata};
 
 /// Instantiation message
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 pub struct InstantiateMsg {
     /// name of token contract
     pub name: String,
@@ -105,7 +105,7 @@ pub struct PostInstantiateCallback {
     pub send: Vec<Coin>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     /// mint new token
@@ -413,7 +413,7 @@ pub enum ExecuteMsg {
 }
 
 /// permission access level
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum AccessLevel {
     /// approve permission only for the specified token

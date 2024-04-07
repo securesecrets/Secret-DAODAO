@@ -42,22 +42,22 @@ impl InstantiateMsg {
 pub struct InitConfig {
     /// Indicates whether the total supply is public or should be kept secret.
     /// default: False
-    public_total_supply: Option<bool>,
+    pub public_total_supply: Option<bool>,
     /// Indicates whether deposit functionality should be enabled
     /// default: False
-    enable_deposit: Option<bool>,
+    pub enable_deposit: Option<bool>,
     /// Indicates whether redeem functionality should be enabled
     /// default: False
-    enable_redeem: Option<bool>,
+    pub enable_redeem: Option<bool>,
     /// Indicates whether mint functionality should be enabled
     /// default: False
-    enable_mint: Option<bool>,
+    pub enable_mint: Option<bool>,
     /// Indicates whether burn functionality should be enabled
     /// default: False
-    enable_burn: Option<bool>,
+    pub enable_burn: Option<bool>,
     /// Indicated whether an admin can modify supported denoms
     /// default: False
-    can_modify_denoms: Option<bool>,
+    pub can_modify_denoms: Option<bool>,
 }
 
 impl InitConfig {

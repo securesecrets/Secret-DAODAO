@@ -7,7 +7,7 @@ use shade_protocol::utils::asset::RawContract;
 
 use crate::snip721::{self, Snip721ExecuteMsg, Snip721QueryMsg};
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 pub struct InstantiateMsg {
     /// Code ID for snip721 token contract.
     pub code_id: u64,
@@ -35,7 +35,7 @@ pub struct InstantiateResponse {
     pub code_hash: String,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 pub enum ExecuteMsg {
     Snip721Execute(Box<Snip721ExecuteMsg>),
     ExtensionExecute(ExecuteExt),

@@ -3,6 +3,7 @@ use dao_dao_macros::voting_module_query;
 use dao_snip721_extensions::roles::MetadataExt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use shade_protocol::utils::asset::RawContract;
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
 pub struct NftMintMsg {
@@ -50,6 +51,8 @@ pub enum NftContract {
         entropy: String,
         /// optional privacy configuration for the contract
         config: Option<crate::snip721roles::InstantiateConfig>,
+
+        query_auth: RawContract,
     },
 }
 

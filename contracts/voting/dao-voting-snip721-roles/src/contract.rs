@@ -62,6 +62,7 @@ pub fn instantiate(
             config,
             snip721_code_id,
             snip721_code_hash,
+            query_auth,
         } => {
             // Check there is at least one NFT to initialize
             if initial_nfts.is_empty() {
@@ -79,6 +80,7 @@ pub fn instantiate(
                 symbol,
                 entropy,
                 config,
+                query_auth,
             };
             // Create instantiate submessage for NFT roles contract
             let submsg = SubMsg::reply_on_success(

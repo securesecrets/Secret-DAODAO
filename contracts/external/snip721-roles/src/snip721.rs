@@ -99,7 +99,7 @@ pub struct PostInstantiateCallback {
     pub send: Vec<Coin>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum Snip721ExecuteMsg {
     /// mint new token
@@ -411,7 +411,7 @@ impl HandleCallback for Snip721ExecuteMsg {
 }
 
 /// permission access level
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum AccessLevel {
     /// approve permission only for the specified token

@@ -1,6 +1,7 @@
 use schemars::JsonSchema;
 use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
+use shade_protocol::utils::asset::RawContract;
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct Snip721RolesInstantiateMsg {
@@ -20,6 +21,8 @@ pub struct Snip721RolesInstantiateMsg {
 
     /// optional privacy configuration for the contract
     pub config: Option<InstantiateConfig>,
+
+    pub query_auth: RawContract,
 }
 
 /// This type represents optional configuration values.

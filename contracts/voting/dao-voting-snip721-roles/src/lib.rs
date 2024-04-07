@@ -6,6 +6,6 @@ pub mod msg;
 pub mod snip721roles;
 pub mod state;
 
-#[cfg(test)]
+// #[cfg(test)]
 // mod testing;
 pub use crate::error::ContractError;
