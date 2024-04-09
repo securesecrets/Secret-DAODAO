@@ -1,132 +1,637 @@
-use cosmwasm_std::{coins, Addr, Uint128};
-use cw_multi_test::{App, Executor};
+use cosmwasm_std::{from_binary, Addr, ContractInfo, CosmosMsg, MessageInfo};
+use secret_multi_test::{App, Executor};
 
-use cw_denom::CheckedDenom;
-use dao_pre_propose_multiple as cppm;
-use dao_voting::{
-    deposit::CheckedDepositInfo, multiple_choice::MultipleChoiceOptions,
-    pre_propose::ProposalCreationPolicy,
+use dao_voting::multiple_choice::{
+    MultipleChoiceOption, MultipleChoiceOptions, MultipleChoiceVote,
 };
+use secret_utils::Duration;
+use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
 
 use crate::{
     msg::{ExecuteMsg, QueryMsg},
     query::ProposalResponse,
-    testing::queries::{query_creation_policy, query_pre_proposal_multiple_config},
+    testing::queries::query_next_proposal_id,
+    ContractError,
 };
 
 // Creates a proposal then checks that the proposal was created with
 // the specified messages and returns the ID of the proposal.
-//
-// This expects that the proposer already has the needed tokens to pay
-// the deposit.
-pub fn make_proposal(
+
+pub(crate) fn make_proposal(
     app: &mut App,
     proposal_multiple: &Addr,
-    proposer: &str,
-    choices: MultipleChoiceOptions,
-) -> u64 {
-    let proposal_creation_policy = query_creation_policy(app, proposal_multiple);
-
-    // Collect the funding.
-    let funds = match proposal_creation_policy {
-        ProposalCreationPolicy::Anyone {} => vec![],
-        ProposalCreationPolicy::Module {
-            addr: ref pre_propose,
-        } => {
-            let deposit_config = query_pre_proposal_multiple_config(app, pre_propose);
-            match deposit_config.deposit_info {
-                Some(CheckedDepositInfo {
-                    denom,
-                    amount,
-                    refund_policy: _,
-                }) => match denom {
-                    CheckedDenom::Native(denom) => coins(amount.u128(), denom),
-                    CheckedDenom::Cw20(addr) => {
-                        // Give an allowance, no funds.
-                        app.execute_contract(
-                            Addr::unchecked(proposer),
-                            addr,
-                            &cw20::Cw20ExecuteMsg::IncreaseAllowance {
-                                spender: pre_propose.to_string(),
-                                amount,
-                                expires: None,
-                            },
-                            &[],
-                        )
-                        .unwrap();
-                        vec![]
-                    }
-                },
-                None => vec![],
-            }
+    proposal_multiple_code_hash: String,
+    auth: Auth,
+    msgs: Vec<CosmosMsg>,
+) {
+    let mut proposer = Addr::unchecked("");
+    match auth.clone() {
+        Auth::ViewingKey { address, .. } => {
+            proposer = Addr::unchecked(address);
         }
-    };
+        _ => (),
+    }
 
-    // Make the proposal.
-    match proposal_creation_policy {
-        ProposalCreationPolicy::Anyone {} => app
-            .execute_contract(
-                Addr::unchecked(proposer),
-                proposal_multiple.clone(),
-                &ExecuteMsg::Propose {
-                    title: "title".to_string(),
-                    description: "description".to_string(),
-                    choices,
-                    proposer: None,
-                },
-                &[],
-            )
-            .unwrap(),
-        ProposalCreationPolicy::Module { addr } => app
-            .execute_contract(
-                Addr::unchecked(proposer),
-                addr,
-                &cppm::ExecuteMsg::Propose {
-                    msg: cppm::ProposeMessage::Propose {
-                        title: "title".to_string(),
-                        description: "description".to_string(),
-                        choices,
-                    },
-                },
-                &funds,
-            )
-            .unwrap(),
-    };
+    app.execute_contract(
+        Addr::unchecked(proposer.clone()),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash.clone(),
+        },
+        &ExecuteMsg::Propose {
+            title: "title".to_string(),
+            description: "description".to_string(),
+            proposer: None,
+            choices: MultipleChoiceOptions {
+                options: vec![MultipleChoiceOption {
+                    title: "title1".to_string(),
+                    description: "description1".to_string(),
+                    msgs,
+                }],
+            },
+        },
+        &[],
+    )
+    .unwrap();
 
-    let id: u64 = app
-        .wrap()
-        .query_wasm_smart(proposal_multiple, &QueryMsg::NextProposalId {})
-        .unwrap();
+    let id = query_next_proposal_id(app, proposal_multiple, proposal_multiple_code_hash.clone());
     let id = id - 1;
 
     // Check that the proposal was created as expected.
     let proposal: ProposalResponse = app
         .wrap()
-        .query_wasm_smart(proposal_multiple, &QueryMsg::Proposal { proposal_id: id })
+        .query_wasm_smart(
+            proposal_multiple_code_hash,
+            proposal_multiple,
+            &QueryMsg::Proposal { proposal_id: id },
+        )
         .unwrap();
 
     assert_eq!(proposal.proposal.proposer, Addr::unchecked(proposer));
     assert_eq!(proposal.proposal.title, "title".to_string());
     assert_eq!(proposal.proposal.description, "description".to_string());
-
-    id
 }
 
-pub(crate) fn mint_cw20s(
+pub(crate) fn _vote_on_proposal(
     app: &mut App,
-    cw20_contract: &Addr,
-    sender: &Addr,
-    receiver: &str,
-    amount: u128,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    auth: Auth,
+    proposal_id: u64,
+    vote: MultipleChoiceVote,
 ) {
+    let mut sender = Addr::unchecked("");
+    match auth.clone() {
+        Auth::ViewingKey { address, .. } => {
+            sender = Addr::unchecked(address);
+        }
+        _ => (),
+    }
     app.execute_contract(
-        sender.clone(),
-        cw20_contract.clone(),
-        &cw20::Cw20ExecuteMsg::Mint {
-            recipient: receiver.to_string(),
-            amount: Uint128::new(amount),
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash.clone(),
+        },
+        &ExecuteMsg::Vote {
+            auth,
+            proposal_id,
+            vote,
+            rationale: None,
         },
         &[],
     )
     .unwrap();
+}
+
+pub(crate) fn vote_on_proposal_should_fail(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    auth: Auth,
+    proposal_id: u64,
+    vote: MultipleChoiceVote,
+) -> ContractError {
+    let mut sender = Addr::unchecked("");
+    match auth.clone() {
+        Auth::ViewingKey { address, .. } => {
+            sender = Addr::unchecked(address);
+        }
+        _ => (),
+    }
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::Vote {
+            auth,
+            proposal_id,
+            vote,
+            rationale: None,
+        },
+        &[],
+    )
+    .unwrap_err()
+    .downcast()
+    .unwrap()
+}
+
+pub(crate) fn execute_proposal_should_fail(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    auth: Auth,
+    proposal_id: u64,
+) -> ContractError {
+    let mut sender = Addr::unchecked("");
+    match auth.clone() {
+        Auth::ViewingKey { address, .. } => {
+            sender = Addr::unchecked(address);
+        }
+        _ => (),
+    }
+
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::Execute { auth, proposal_id },
+        &[],
+    )
+    .unwrap_err()
+    .downcast()
+    .unwrap()
+}
+
+pub(crate) fn _vote_on_proposal_with_rationale(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    auth: Auth,
+    proposal_id: u64,
+    vote: MultipleChoiceVote,
+    rationale: Option<String>,
+) {
+    let mut sender = Addr::unchecked("");
+    match auth.clone() {
+        Auth::ViewingKey { address, .. } => {
+            sender = Addr::unchecked(address);
+        }
+        _ => (),
+    }
+
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::Vote {
+            auth,
+            proposal_id,
+            vote,
+            rationale,
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn update_rationale(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    sender: &str,
+    proposal_id: u64,
+    rationale: Option<String>,
+) {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::UpdateRationale {
+            proposal_id,
+            rationale,
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn _execute_proposal(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    auth: Auth,
+    proposal_id: u64,
+) {
+    let mut sender = Addr::unchecked("");
+    match auth.clone() {
+        Auth::ViewingKey { address, .. } => {
+            sender = Addr::unchecked(address);
+        }
+        _ => (),
+    }
+
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::Execute { auth, proposal_id },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn close_proposal_should_fail(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    sender: &str,
+    proposal_id: u64,
+) -> ContractError {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::Close { proposal_id },
+        &[],
+    )
+    .unwrap_err()
+    .downcast()
+    .unwrap()
+}
+
+pub(crate) fn _close_proposal(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    sender: &str,
+    proposal_id: u64,
+) {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::Close { proposal_id },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn update_config(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    sender: &str,
+    query_auth: RawContract,
+) {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::UpdateConfig {
+            voting_strategy: dao_voting::multiple_choice::VotingStrategy::SingleChoice {
+                quorum: dao_voting::threshold::PercentageThreshold::Majority {},
+            },
+            max_voting_period: Duration::Time(604800), // One week.
+            min_voting_period: None,
+            only_members_execute: true,
+            allow_revoting: false,
+            dao: "dao_address".to_string(),
+            code_hash: "dao_code_hash".to_string(),
+            close_proposal_on_execution_failure: true,
+            veto: None,
+            query_auth,
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn update_config_should_fail(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    sender: &str,
+    query_auth: RawContract,
+) -> ContractError {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::UpdateConfig {
+            voting_strategy: dao_voting::multiple_choice::VotingStrategy::SingleChoice {
+                quorum: dao_voting::threshold::PercentageThreshold::Majority {},
+            },
+            max_voting_period: Duration::Time(604800), // One week.
+            min_voting_period: None,
+            only_members_execute: true,
+            allow_revoting: false,
+            dao: "dao_address".to_string(),
+            code_hash: "dao_code_hash".to_string(),
+            close_proposal_on_execution_failure: true,
+            veto: None,
+            query_auth,
+        },
+        &[],
+    )
+    .unwrap_err()
+    .downcast()
+    .unwrap()
+}
+
+pub(crate) fn update_pre_propose_info(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    sender: &str,
+) {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::UpdatePreProposeInfo {
+            info: dao_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn update_pre_propose_info_should_fail(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    sender: &str,
+) -> ContractError {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::UpdatePreProposeInfo {
+            info: dao_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
+        },
+        &[],
+    )
+    .unwrap_err()
+    .downcast()
+    .unwrap()
+}
+
+pub(crate) fn execute_veto_fails(
+    app: &mut App,
+    proposal_multiple: &Addr,
+    proposal_multiple_code_hash: String,
+    sender: &str,
+    proposal_id: u64,
+) -> ContractError {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_multiple.clone(),
+            code_hash: proposal_multiple_code_hash,
+        },
+        &ExecuteMsg::Veto { proposal_id },
+        &[],
+    )
+    .unwrap_err()
+    .downcast()
+    .unwrap()
+}
+
+pub(crate) fn add_proposal_hook(
+    app: &mut App,
+    proposal_module: &Addr,
+    proposal_module_code_hash: String,
+    sender: &str,
+    hook_addr: &str,
+    hook_code_hash: &str,
+) {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_module.clone(),
+            code_hash: proposal_module_code_hash,
+        },
+        &ExecuteMsg::AddProposalHook {
+            address: hook_addr.to_string(),
+            code_hash: hook_code_hash.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn add_proposal_hook_should_fail(
+    app: &mut App,
+    proposal_module: &Addr,
+    proposal_module_code_hash: String,
+    sender: &str,
+    hook_addr: &str,
+    hook_code_hash: &str,
+) -> ContractError {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_module.clone(),
+            code_hash: proposal_module_code_hash,
+        },
+        &ExecuteMsg::AddProposalHook {
+            address: hook_addr.to_string(),
+            code_hash: hook_code_hash.to_string(),
+        },
+        &[],
+    )
+    .unwrap_err()
+    .downcast()
+    .unwrap()
+}
+
+pub(crate) fn remove_proposal_hook(
+    app: &mut App,
+    proposal_module: &Addr,
+    proposal_module_code_hash: String,
+    sender: &str,
+    hook_addr: &str,
+    hook_code_hash: &str,
+) {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_module.clone(),
+            code_hash: proposal_module_code_hash,
+        },
+        &ExecuteMsg::RemoveProposalHook {
+            address: hook_addr.to_string(),
+            code_hash: hook_code_hash.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn remove_proposal_hook_should_fail(
+    app: &mut App,
+    proposal_module: &Addr,
+    proposal_module_code_hash: String,
+    sender: &str,
+    hook_addr: &str,
+    hook_code_hash: &str,
+) -> ContractError {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_module.clone(),
+            code_hash: proposal_module_code_hash,
+        },
+        &ExecuteMsg::RemoveProposalHook {
+            address: hook_addr.to_string(),
+            code_hash: hook_code_hash.to_string(),
+        },
+        &[],
+    )
+    .unwrap_err()
+    .downcast()
+    .unwrap()
+}
+
+pub(crate) fn add_vote_hook(
+    app: &mut App,
+    proposal_module: &Addr,
+    proposal_module_code_hash: String,
+    sender: &str,
+    hook_addr: &str,
+    hook_code_hash: &str,
+) {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_module.clone(),
+            code_hash: proposal_module_code_hash,
+        },
+        &ExecuteMsg::AddVoteHook {
+            address: hook_addr.to_string(),
+            code_hash: hook_code_hash.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn add_vote_hook_should_fail(
+    app: &mut App,
+    proposal_module: &Addr,
+    proposal_module_code_hash: String,
+    sender: &str,
+    hook_addr: &str,
+    hook_code_hash: &str,
+) -> ContractError {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_module.clone(),
+            code_hash: proposal_module_code_hash,
+        },
+        &ExecuteMsg::AddVoteHook {
+            address: hook_addr.to_string(),
+            code_hash: hook_code_hash.to_string(),
+        },
+        &[],
+    )
+    .unwrap_err()
+    .downcast()
+    .unwrap()
+}
+
+pub(crate) fn remove_vote_hook(
+    app: &mut App,
+    proposal_module: &Addr,
+    proposal_module_code_hash: String,
+    sender: &str,
+    hook_addr: &str,
+    hook_code_hash: &str,
+) {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_module.clone(),
+            code_hash: proposal_module_code_hash,
+        },
+        &ExecuteMsg::RemoveVoteHook {
+            address: hook_addr.to_string(),
+            code_hash: hook_code_hash.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn remove_vote_hook_should_fail(
+    app: &mut App,
+    proposal_module: &Addr,
+    proposal_module_code_hash: String,
+    sender: &str,
+    hook_addr: &str,
+    hook_code_hash: &str,
+) -> ContractError {
+    app.execute_contract(
+        Addr::unchecked(sender),
+        &ContractInfo {
+            address: proposal_module.clone(),
+            code_hash: proposal_module_code_hash,
+        },
+        &ExecuteMsg::RemoveVoteHook {
+            address: hook_addr.to_string(),
+            code_hash: hook_code_hash.to_string(),
+        },
+        &[],
+    )
+    .unwrap_err()
+    .downcast()
+    .unwrap()
+}
+
+pub(crate) fn create_viewing_key(
+    app: &mut App,
+    contract_info: ContractInfo,
+    info: MessageInfo,
+) -> String {
+    let msg = shade_protocol::contract_interfaces::query_auth::ExecuteMsg::CreateViewingKey {
+        entropy: "entropy".to_string(),
+        padding: None,
+    };
+    let res = app
+        .execute_contract(info.sender, &contract_info, &msg, &[])
+        .unwrap();
+    let mut viewing_key = String::new();
+    let data: shade_protocol::contract_interfaces::query_auth::ExecuteAnswer =
+        from_binary(&res.data.unwrap()).unwrap();
+    if let shade_protocol::contract_interfaces::query_auth::ExecuteAnswer::CreateViewingKey {
+        key,
+    } = data
+    {
+        viewing_key = key;
+    };
+    viewing_key
 }

@@ -1,12 +1,9 @@
-use cosmwasm_std::{
-    from_binary, to_binary, Addr, Coin, ContractInfo, CosmosMsg, Decimal, MessageInfo, Uint128,
-};
-use secret_multi_test::{App, BankSudo, Executor};
+use cosmwasm_std::{from_binary, Addr, ContractInfo, CosmosMsg, Decimal, MessageInfo};
+use secret_multi_test::{App, Executor};
 
 use dao_voting::voting::Vote;
 use secret_utils::Duration;
 use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
-use snip20_reference_impl::msg::InitialBalance;
 
 use crate::{
     msg::{ExecuteMsg, QueryMsg},
@@ -14,8 +11,6 @@ use crate::{
     testing::queries::query_next_proposal_id,
     ContractError,
 };
-
-use super::{contracts::snip20_base_contract, CREATOR_ADDR};
 
 // Creates a proposal then checks that the proposal was created with
 // the specified messages and returns the ID of the proposal.
@@ -421,70 +416,6 @@ pub(crate) fn execute_veto_fails(
     )
     .unwrap_err()
     .downcast()
-    .unwrap()
-}
-
-pub(crate) fn _mint_natives(app: &mut App, receiver: &str, amount: Vec<Coin>) {
-    app.sudo(secret_multi_test::SudoMsg::Bank(BankSudo::Mint {
-        to_address: receiver.to_string(),
-        amount,
-    }))
-    .unwrap();
-}
-
-pub(crate) fn _mint_snip20s(
-    app: &mut App,
-    snip20_contract: &Addr,
-    snip20_contract_code_hash: String,
-    sender: &Addr,
-    receiver: &str,
-    amount: u128,
-) {
-    app.execute_contract(
-        sender.clone(),
-        &ContractInfo {
-            address: snip20_contract.clone(),
-            code_hash: snip20_contract_code_hash,
-        },
-        &snip20_reference_impl::msg::ExecuteMsg::Mint {
-            recipient: receiver.to_string(),
-            amount: Uint128::new(amount),
-            memo: None,
-            decoys: None,
-            entropy: None,
-            padding: None,
-        },
-        &[],
-    )
-    .unwrap();
-}
-
-pub(crate) fn _instantiate_snip20_base_default(
-    app: &mut App,
-    admin: Option<String>,
-) -> ContractInfo {
-    let snip20_contract_instantiate_info = app.store_code(snip20_base_contract());
-    let snip20_instantiate = snip20_reference_impl::msg::InstantiateMsg {
-        name: "snip20 token".to_string(),
-        symbol: "cwtwenty".to_string(),
-        decimals: 6,
-        initial_balances: Some(vec![InitialBalance {
-            address: CREATOR_ADDR.to_string(),
-            amount: Uint128::new(10_000_000),
-        }]),
-        admin,
-        prng_seed: to_binary(&"prng_seed".to_string()).unwrap(),
-        config: None,
-        supported_denoms: None,
-    };
-    app.instantiate_contract(
-        snip20_contract_instantiate_info,
-        Addr::unchecked("ekez"),
-        &snip20_instantiate,
-        &[],
-        "snip20-base",
-        None,
-    )
     .unwrap()
 }
 

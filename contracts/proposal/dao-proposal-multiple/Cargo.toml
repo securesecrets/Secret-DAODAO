@@ -45,6 +45,7 @@ serde ={ workspace=true }
 schemars ={ workspace = true }
 secret-cw-controllers ={ workspace = true }
 shade-protocol ={ workspace = true }
+query_auth ={ workspace = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
@@ -55,6 +56,7 @@ dao-voting-snip20-staked = { workspace = true }
 dao-voting-token-staked = { workspace = true }
 dao-voting-snip721-staked = { workspace = true }
 cw-denom = { workspace = true }
+dao-pre-propose-multiple ={ workspace = true }
 # dao-testing = { workspace = true }
 snip20-stake = { workspace = true }
 cw4 = { workspace = true }

@@ -127,13 +127,13 @@ pub fn execute(
             proposer,
         ),
         ExecuteMsg::Vote {
-            key,
+            auth,
             proposal_id,
             vote,
             rationale,
-        } => execute_vote(deps, env, info, key, proposal_id, vote, rationale),
-        ExecuteMsg::Execute { key, proposal_id } => {
-            execute_execute(deps, env, info, key, proposal_id)
+        } => execute_vote(deps, env, info, auth, proposal_id, vote, rationale),
+        ExecuteMsg::Execute { auth, proposal_id } => {
+            execute_execute(deps, env, info, auth, proposal_id)
         }
         ExecuteMsg::Veto { proposal_id } => execute_veto(deps, env, info, proposal_id),
         ExecuteMsg::Close { proposal_id } => execute_close(deps, env, info, proposal_id),
@@ -377,16 +377,12 @@ pub fn execute_vote(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    key: String,
+    auth: Auth,
     proposal_id: u64,
     vote: MultipleChoiceVote,
     rationale: Option<String>,
 ) -> Result<Response<Empty>, ContractError> {
     let dao_info = DAO.load(deps.storage)?;
-    let auth = Auth::ViewingKey {
-        key,
-        address: info.sender.clone().to_string(),
-    };
     let mut prop = PROPOSALS
         .get(deps.storage, &proposal_id)
         .ok_or(ContractError::NoSuchProposal { id: proposal_id })?;
@@ -493,7 +489,7 @@ pub fn execute_execute(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    key: String,
+    auth: Auth,
     proposal_id: u64,
 ) -> Result<Response, ContractError> {
     let mut prop = PROPOSALS
@@ -502,10 +498,6 @@ pub fn execute_execute(
 
     let config = CONFIG.load(deps.storage)?;
     let dao_info = DAO.load(deps.storage)?;
-    let auth = Auth::ViewingKey {
-        key,
-        address: info.sender.clone().to_string(),
-    };
 
     // determine if this sender can execute
     let mut sender_can_execute = true;
