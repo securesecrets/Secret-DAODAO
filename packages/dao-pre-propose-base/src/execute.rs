@@ -98,7 +98,7 @@ where
         msg: ExecuteMsg<ProposalMessage, ExecuteExt>,
     ) -> Result<Response, PreProposeError> {
         match msg {
-            ExecuteMsg::Propose { key, msg } => self.execute_propose(deps, env, info, key, msg),
+            ExecuteMsg::Propose { auth, msg } => self.execute_propose(deps, env, info, auth, msg),
             ExecuteMsg::UpdateConfig {
                 deposit_info,
                 open_proposal_submission,
@@ -134,13 +134,9 @@ where
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
-        key: String,
+        auth: Auth,
         msg: ProposalMessage,
     ) -> Result<Response, PreProposeError> {
-        let auth = Auth::ViewingKey {
-            key,
-            address: info.sender.clone().to_string(),
-        };
         self.check_can_submit(deps.as_ref(), auth)?;
 
         let config = self.config.load(deps.storage)?;
@@ -233,7 +229,7 @@ where
         env: Env,
         info: MessageInfo,
         denom: Option<UncheckedDenom>,
-        key: String,
+        key: Option<String>,
     ) -> Result<Response, PreProposeError> {
         let dao = self.dao.load(deps.storage)?;
         if info.sender != dao.addr.clone() {
@@ -249,7 +245,8 @@ where
             match denom {
                 None => Err(PreProposeError::NoWithdrawalDenom {}),
                 Some(denom) => {
-                    let balance = denom.query_balance(&deps.querier, &env.contract.address, key)?;
+                    let balance =
+                        denom.query_balance(&deps.querier, &env.contract.address, key.unwrap())?;
                     if balance.is_zero() {
                         Err(PreProposeError::NothingToWithdraw {})
                     } else {

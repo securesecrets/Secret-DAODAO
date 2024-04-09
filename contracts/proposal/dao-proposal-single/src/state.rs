@@ -6,7 +6,7 @@ use dao_voting::{
 };
 use schemars::JsonSchema;
 use secret_cw_controllers::ReplyIds;
-use secret_storage_plus::Item;
+use secret_storage_plus::{Item, Map};
 use secret_toolkit::{serialization::Json, storage::Keymap};
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
@@ -85,3 +85,4 @@ pub const VOTE_HOOKS: Hooks = Hooks::new("vote_hooks");
 pub const CREATION_POLICY: Item<ProposalCreationPolicy> = Item::new("creation_policy");
 pub const DAO: Item<AnyContractInfo> = Item::new("dao");
 pub static REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");
+pub const DUMMY: Map<String, String> = Map::new("d");

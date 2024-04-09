@@ -101,7 +101,7 @@ dao-voting-cw4 = { path = "./contracts/voting/dao-voting-cw4", version = "2.4.0"
 dao-voting-snip721-roles = { path = "./contracts/voting/dao-voting-snip721-roles", version = "2.4.0" ,default-features = false}
 dao-voting-snip721-staked = { path = "./contracts/voting/dao-voting-snip721-staked", version = "2.4.0",default-features = false }
 dao-voting-token-staked = { path = "./contracts/voting/dao-voting-token-staked", version = "2.4.0",default-features = false }
-
+dao-testing ={ path = "./packages/dao-testing/"}
 # v1 dependencies. used for state migrations.
 cw-core-v1 = { package = "cw-core", version = "0.1.0" ,default-features = false}
 cw-proposal-single-v1 = { package = "cw-proposal-single", version = "0.1.0",default-features = false }

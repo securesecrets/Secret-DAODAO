@@ -114,14 +114,13 @@ pub fn instantiate(
                     staking_code_hash,
                     label,
                     unstaking_duration,
-                    query_auth,
                 } => {
                     let init_msg = snip20_stake_msg::InstantiateMsg {
                         owner: Some(info.sender.to_string()),
                         unstaking_duration,
                         token_address: address.to_string(),
                         token_code_hash: Some(code_hash),
-                        query_auth,
+                        query_auth: msg.query_auth.clone(),
                     };
                     let staking_contract = AnyContractInfo {
                         addr: Addr::unchecked(""),
@@ -158,7 +157,6 @@ pub fn instantiate(
             staking_code_id,
             staking_code_hash,
             unstaking_duration,
-            query_auth,
         } => {
             let initial_supply = initial_balances
                 .iter()
@@ -192,7 +190,7 @@ pub fn instantiate(
             STAKING_CONTRACT_UNSTAKING_DURATION.save(deps.storage, &unstaking_duration)?;
             STAKING_CONTRACT.save(deps.storage, &staking_contract)?;
             TOKEN_CONTRACT.save(deps.storage, &token_contract)?;
-            QUERY_AUTH.save(deps.storage, &query_auth)?;
+            QUERY_AUTH.save(deps.storage, &msg.query_auth)?;
 
             let init_msg = snip20_msg::InstantiateMsg {
                 name,

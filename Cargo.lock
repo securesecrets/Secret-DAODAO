@@ -1152,11 +1152,13 @@ dependencies = [
  "dao-interface",
  "dao-pre-propose-base",
  "dao-pre-propose-single",
+ "dao-testing",
  "dao-voting 2.4.0",
  "dao-voting-cw4",
  "dao-voting-snip20-staked",
  "dao-voting-snip721-staked",
  "dao-voting-token-staked",
+ "query_auth 0.1.0",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
  "secret-cosmwasm-storage",
@@ -1170,6 +1172,7 @@ dependencies = [
  "shade-protocol",
  "snip20-reference-impl",
  "snip20-stake",
+ "snip721-reference-impl",
  "thiserror",
 ]
 
@@ -1184,6 +1187,38 @@ dependencies = [
  "secret-cw-controllers",
  "secret-toolkit",
  "shade-protocol",
+]
+
+[[package]]
+name = "dao-testing"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "cw-hooks",
+ "cw-vesting",
+ "cw4",
+ "cw4-group",
+ "dao-dao-core",
+ "dao-interface",
+ "dao-voting 2.4.0",
+ "dao-voting-cw4",
+ "dao-voting-snip20-staked",
+ "dao-voting-snip721-roles",
+ "dao-voting-snip721-staked",
+ "dao-voting-token-staked",
+ "query_auth 0.1.0",
+ "rand",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test",
+ "secret-utils 0.13.4",
+ "serde",
+ "serde_json",
+ "shade-protocol",
+ "snip20-reference-impl",
+ "snip20-stake",
+ "snip721-reference-impl",
+ "snip721-roles",
 ]
 
 [[package]]

@@ -62,8 +62,7 @@ pub enum ExecuteMsg {
     /// Votes on a proposal. Voting power is determined by the DAO's
     /// voting power module.
     Vote {
-        /// The viewing key of the sender
-        key: String,
+        auth: Auth,
         /// The ID of the proposal to vote on.
         proposal_id: u64,
         /// The senders position on the proposal.
@@ -82,8 +81,7 @@ pub enum ExecuteMsg {
     /// Causes the messages associated with a passed proposal to be
     /// executed by the DAO.
     Execute {
-        /// The viewing  of the sender
-        key: String,
+        auth: Auth,
         /// The ID of the proposal to execute.
         proposal_id: u64,
     },

@@ -5,6 +5,7 @@ use dao_voting::{
     status::Status,
 };
 use serde::{Deserialize, Serialize};
+use shade_protocol::basic_staking::Auth;
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub struct InstantiateMsg<InstantiateExt> {
@@ -26,7 +27,7 @@ pub struct InstantiateMsg<InstantiateExt> {
 pub enum ExecuteMsg<ProposalMessage, ExecuteExt> {
     /// Creates a new proposal in the pre-propose module. MSG will be
     /// serialized and used as the proposal creation message.
-    Propose { key: String, msg: ProposalMessage },
+    Propose { auth: Auth, msg: ProposalMessage },
 
     /// Updates the configuration of this module. This will completely
     /// override the existing configuration. This new configuration
@@ -66,7 +67,8 @@ pub enum ExecuteMsg<ProposalMessage, ExecuteExt> {
         /// proposal deposits but are not longer used due to an
         /// `UpdateConfig` message being executed on the contract.
         denom: Option<UncheckedDenom>,
-        key: String,
+        /// Snip20 token vaiewing key for sender if denom is SNip20 instead of native
+        key: Option<String>,
     },
 
     /// Extension message. Contracts that extend this one should put

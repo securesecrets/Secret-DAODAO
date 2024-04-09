@@ -1,13 +1,13 @@
 use cosmwasm_std::Empty;
 
-use cw_multi_test::{Contract, ContractWrapper};
 use dao_pre_propose_single as cppbps;
+use secret_multi_test::{Contract, ContractWrapper};
 
-pub(crate) fn cw20_base_contract() -> Box<dyn Contract<Empty>> {
+pub(crate) fn snip20_base_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw20_base::contract::execute,
-        cw20_base::contract::instantiate,
-        cw20_base::contract::query,
+        snip20_reference_impl::contract::execute,
+        snip20_reference_impl::contract::instantiate,
+        snip20_reference_impl::contract::query,
     );
     Box::new(contract)
 }
@@ -21,20 +21,20 @@ pub(crate) fn cw4_group_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-pub(crate) fn cw721_base_contract() -> Box<dyn Contract<Empty>> {
+pub(crate) fn snip721_base_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw721_base::entry::execute,
-        cw721_base::entry::instantiate,
-        cw721_base::entry::query,
+        snip721_reference_impl::contract::execute,
+        snip721_reference_impl::contract::instantiate,
+        snip721_reference_impl::contract::query,
     );
     Box::new(contract)
 }
 
-pub(crate) fn cw20_stake_contract() -> Box<dyn Contract<Empty>> {
+pub(crate) fn snip20_stake_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw20_stake::contract::execute,
-        cw20_stake::contract::instantiate,
-        cw20_stake::contract::query,
+        snip20_stake::contract::execute,
+        snip20_stake::contract::instantiate,
+        snip20_stake::contract::query,
     );
     Box::new(contract)
 }
@@ -59,13 +59,13 @@ pub(crate) fn pre_propose_single_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-pub(crate) fn cw20_staked_balances_voting_contract() -> Box<dyn Contract<Empty>> {
+pub(crate) fn snip20_staked_balances_voting_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        dao_voting_cw20_staked::contract::execute,
-        dao_voting_cw20_staked::contract::instantiate,
-        dao_voting_cw20_staked::contract::query,
+        dao_voting_snip20_staked::contract::execute,
+        dao_voting_snip20_staked::contract::instantiate,
+        dao_voting_snip20_staked::contract::query,
     )
-    .with_reply(dao_voting_cw20_staked::contract::reply);
+    .with_reply(dao_voting_snip20_staked::contract::reply);
     Box::new(contract)
 }
 
@@ -78,11 +78,11 @@ pub(crate) fn native_staked_balances_voting_contract() -> Box<dyn Contract<Empty
     Box::new(contract)
 }
 
-pub(crate) fn cw721_stake_contract() -> Box<dyn Contract<Empty>> {
+pub(crate) fn snip721_stake_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        dao_voting_cw721_staked::contract::execute,
-        dao_voting_cw721_staked::contract::instantiate,
-        dao_voting_cw721_staked::contract::query,
+        dao_voting_snip721_staked::contract::execute,
+        dao_voting_snip721_staked::contract::instantiate,
+        dao_voting_snip721_staked::contract::query,
     );
     Box::new(contract)
 }
@@ -104,5 +104,14 @@ pub(crate) fn cw4_voting_contract() -> Box<dyn Contract<Empty>> {
         dao_voting_cw4::contract::query,
     )
     .with_reply(dao_voting_cw4::contract::reply);
+    Box::new(contract)
+}
+
+pub(crate) fn query_auth_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        query_auth::contract::execute,
+        query_auth::contract::instantiate,
+        query_auth::contract::query,
+    );
     Box::new(contract)
 }

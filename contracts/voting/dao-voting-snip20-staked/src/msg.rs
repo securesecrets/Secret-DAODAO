@@ -30,7 +30,6 @@ pub enum StakingInfo {
         /// instantiation. This will be used when instantiating the
         /// new staking contract.
         unstaking_duration: Option<Duration>,
-        query_auth: RawContract,
     },
 }
 
@@ -59,7 +58,6 @@ pub enum Snip20TokenInfo {
         staking_code_hash: String,
         unstaking_duration: Option<Duration>,
         initial_dao_balance: Option<Uint128>,
-        query_auth: RawContract,
     },
 }
 
@@ -70,6 +68,7 @@ pub struct InstantiateMsg {
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
     pub dao_code_hash: String,
+    pub query_auth: RawContract,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

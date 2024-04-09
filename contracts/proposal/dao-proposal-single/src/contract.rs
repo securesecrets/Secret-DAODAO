@@ -1,5 +1,6 @@
 use std::borrow::Borrow;
 
+use crate::msg::MigrateMsg;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -21,7 +22,7 @@ use dao_voting::status::Status;
 use dao_voting::threshold::Threshold;
 use dao_voting::veto::{VetoConfig, VetoError};
 use dao_voting::voting::{get_total_power, get_voting_power, validate_voting_period, Vote, Votes};
-use secret_cw2::set_contract_version;
+use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_cw_controllers::ReplyEvent;
 use secret_toolkit::utils::HandleCallback;
 use secret_utils::{parse_reply_event_for_contract_address, Duration};
@@ -34,9 +35,9 @@ use shade_protocol::Contract;
 // use crate::msg::MigrateMsg;
 use crate::proposal::{next_proposal_id, SingleChoiceProposal};
 use crate::state::{Ballot, Config, CREATION_POLICY, DAO, REPLY_IDS};
-// use crate::v1_state::{
-//     v1_duration_to_v2, v1_expiration_to_v2, v1_status_to_v2, v1_threshold_to_v2, v1_votes_to_v2,
-// };
+use crate::v1_state::{
+    v1_duration_to_v2, v1_expiration_to_v2, v1_status_to_v2, v1_threshold_to_v2, v1_votes_to_v2,
+};
 use crate::{
     error::ContractError,
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
@@ -120,17 +121,17 @@ pub fn execute(
             proposer,
         }) => execute_propose(deps, env, info.sender, title, description, msgs, proposer),
         ExecuteMsg::Vote {
-            key,
+            auth,
             proposal_id,
             vote,
             rationale,
-        } => execute_vote(deps, env, info, key, proposal_id, vote, rationale),
+        } => execute_vote(deps, env, info, auth, proposal_id, vote, rationale),
         ExecuteMsg::UpdateRationale {
             proposal_id,
             rationale,
         } => execute_update_rationale(deps, info, proposal_id, rationale),
-        ExecuteMsg::Execute { key, proposal_id } => {
-            execute_execute(deps, env, info, key, proposal_id)
+        ExecuteMsg::Execute { auth, proposal_id } => {
+            execute_execute(deps, env, info, auth, proposal_id)
         }
         ExecuteMsg::Close { proposal_id } => execute_close(deps, env, info, proposal_id),
         ExecuteMsg::UpdateConfig {
@@ -373,7 +374,7 @@ pub fn execute_execute(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    key: String,
+    auth: Auth,
     proposal_id: u64,
 ) -> Result<Response, ContractError> {
     let dao_info = DAO.load(deps.storage)?;
@@ -382,10 +383,6 @@ pub fn execute_execute(
         .ok_or(ContractError::NoSuchProposal { id: proposal_id })?;
 
     let config = CONFIG.load(deps.storage)?;
-    let auth = Auth::ViewingKey {
-        key,
-        address: info.sender.clone().to_string(),
-    };
 
     // determine if this sender can execute
     let mut sender_can_execute = true;
@@ -502,7 +499,7 @@ pub fn execute_vote(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    key: String,
+    auth: Auth,
     proposal_id: u64,
     vote: Vote,
     rationale: Option<String>,
@@ -524,10 +521,6 @@ pub fn execute_vote(
         return Err(ContractError::Expired { id: proposal_id });
     }
 
-    let auth = Auth::ViewingKey {
-        key,
-        address: info.sender.clone().to_string(),
-    };
     let vote_power = get_voting_power(
         deps.as_ref(),
         dao_info.code_hash.clone(),
@@ -1113,108 +1106,105 @@ pub fn query_info(deps: Deps) -> StdResult<Binary> {
     to_binary(&dao_interface::voting::InfoResponse { info })
 }
 
-// // #[cfg_attr(not(feature = "library"), entry_point)]
-// // pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
-// //     let ContractVersion { version, .. } = get_contract_version(deps.storage)?;
-// //     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
+    let ContractVersion { version, .. } = get_contract_version(deps.storage)?;
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-// //     match msg {
-// //         MigrateMsg::FromV1 {
-// //             close_proposal_on_execution_failure,
-// //             pre_propose_info,
-// //             veto,
-// //         } => {
-// //             // `CONTRACT_VERSION` here is from the data section of the
-// //             // blob we are migrating to. `version` is from storage. If
-// //             // the version in storage matches the version in the blob
-// //             // we are not upgrading.
-// //             if version == CONTRACT_VERSION {
-// //                 return Err(ContractError::AlreadyMigrated {});
-// //             }
+    match msg {
+        MigrateMsg::FromV1 {
+            close_proposal_on_execution_failure,
+            pre_propose_info,
+            veto,
+        } => {
+            // `CONTRACT_VERSION` here is from the data section of the
+            // blob we are migrating to. `version` is from storage. If
+            // the version in storage matches the version in the blob
+            // we are not upgrading.
+            if version == CONTRACT_VERSION {
+                return Err(ContractError::AlreadyMigrated {});
+            }
 
-// //             let current_config = v1::state::CONFIG.load(deps.storage)?;
-// //             let max_voting_period = v1_duration_to_v2(current_config.max_voting_period);
+            let current_config = crate::state::CONFIG.load(deps.storage)?;
+            let max_voting_period = v1_duration_to_v2(current_config.max_voting_period);
+            let dao = DAO.load(deps.storage)?.addr;
 
-// //             // if veto is configured, validate its fields
-// //             if let Some(veto_config) = &veto {
-// //                 veto_config.validate(&deps.as_ref(), &max_voting_period)?;
-// //             };
+            // if veto is configured, validate its fields
+            if let Some(veto_config) = &veto {
+                veto_config.validate(&deps.as_ref(), &max_voting_period)?;
+            };
 
-// //             // Update the stored config to have the new
-// //             // `close_proposal_on_execution_failure` field.
-// //             CONFIG.save(
-// //                 deps.storage,
-// //                 &Config {
-// //                     threshold: v1_threshold_to_v2(current_config.threshold),
-// //                     max_voting_period,
-// //                     min_voting_period: current_config.min_voting_period.map(v1_duration_to_v2),
-// //                     only_members_execute: current_config.only_members_execute,
-// //                     allow_revoting: current_config.allow_revoting,
-// //                     dao: current_config.dao.clone(),
-// //                     close_proposal_on_execution_failure,
-// //                     veto,
-// //                 },
-// //             )?;
+            // Update the stored config to have the new
+            // `close_proposal_on_execution_failure` field.
+            CONFIG.save(
+                deps.storage,
+                &Config {
+                    threshold: v1_threshold_to_v2(current_config.threshold),
+                    max_voting_period,
+                    min_voting_period: current_config.min_voting_period.map(v1_duration_to_v2),
+                    only_members_execute: current_config.only_members_execute,
+                    allow_revoting: current_config.allow_revoting,
+                    close_proposal_on_execution_failure,
+                    veto,
+                    query_auth: current_config.query_auth,
+                },
+            )?;
 
-// //             let (initial_policy, pre_propose_messages) =
-// //                 pre_propose_info.into_initial_policy_and_messages(current_config.dao)?;
-// //             CREATION_POLICY.save(deps.storage, &initial_policy)?;
+            let (initial_policy, pre_propose_messages) =
+                pre_propose_info.into_initial_policy_and_messages(deps.storage, dao, &REPLY_IDS)?;
+            CREATION_POLICY.save(deps.storage, &initial_policy)?;
 
-// //             // Update the module's proposals to v2.
+            // Update the module's proposals to v2.
 
-// //             let current_proposals = v1::state::PROPOSALS
-// //                 .range(deps.storage, None, None, Order::Ascending)
-// //                 .collect::<StdResult<Vec<(u64, v1::proposal::Proposal)>>>()?;
+            let current_proposals = crate::state::PROPOSALS
+                .iter(deps.storage)?
+                .collect::<StdResult<Vec<(u64, crate::proposal::SingleChoiceProposal)>>>()?;
 
-// //             // Based on gas usage testing, we estimate that we will be
-// //             // able to migrate ~4200 proposals at a time before
-// //             // reaching the block max_gas limit.
-// //             current_proposals
-// //                 .into_iter()
-// //                 .try_for_each::<_, Result<_, ContractError>>(|(id, prop)| {
-// //                     if prop
-// //                         .deposit_info
-// //                         .map(|info| !info.deposit.is_zero())
-// //                         .unwrap_or(false)
-// //                         && prop.status != voting_v1::Status::Closed
-// //                         && prop.status != voting_v1::Status::Executed
-// //                     {
-// //                         // No migration path for outstanding
-// //                         // deposits.
-// //                         return Err(ContractError::PendingProposals {});
-// //                     }
+            // Based on gas usage testing, we estimate that we will be
+            // able to migrate ~4200 proposals at a time before
+            // reaching the block max_gas limit.
+            current_proposals
+                .into_iter()
+                .try_for_each::<_, Result<_, ContractError>>(|(id, prop)| {
+                    if prop.status != dao_voting::status::Status::Closed
+                        && prop.status != dao_voting::status::Status::Executed
+                    {
+                        // No migration path for outstanding
+                        // deposits.
+                        return Err(ContractError::PendingProposals {});
+                    }
 
-// //                     let migrated_proposal = SingleChoiceProposal {
-// //                         title: prop.title,
-// //                         description: prop.description,
-// //                         proposer: prop.proposer,
-// //                         start_height: prop.start_height,
-// //                         min_voting_period: prop.min_voting_period.map(v1_expiration_to_v2),
-// //                         expiration: v1_expiration_to_v2(prop.expiration),
-// //                         threshold: v1_threshold_to_v2(prop.threshold),
-// //                         total_power: prop.total_power,
-// //                         msgs: prop.msgs,
-// //                         status: v1_status_to_v2(prop.status),
-// //                         votes: v1_votes_to_v2(prop.votes),
-// //                         allow_revoting: prop.allow_revoting,
-// //                         veto: None,
-// //                     };
+                    let migrated_proposal = SingleChoiceProposal {
+                        title: prop.title,
+                        description: prop.description,
+                        proposer: prop.proposer,
+                        start_height: prop.start_height,
+                        min_voting_period: prop.min_voting_period.map(v1_expiration_to_v2),
+                        expiration: v1_expiration_to_v2(prop.expiration),
+                        threshold: v1_threshold_to_v2(prop.threshold),
+                        total_power: prop.total_power,
+                        msgs: prop.msgs,
+                        status: v1_status_to_v2(prop.status),
+                        votes: v1_votes_to_v2(prop.votes),
+                        allow_revoting: prop.allow_revoting,
+                        veto: None,
+                    };
 
-// //                     PROPOSALS
-// //                         .save(deps.storage, id, &migrated_proposal)
-// //                         .map_err(|e| e.into())
-// //                 })?;
+                    PROPOSALS
+                        .insert(deps.storage, &id, &migrated_proposal)
+                        .map_err(|e| e.into())
+                })?;
 
-// //             Ok(Response::default()
-// //                 .add_attribute("action", "migrate")
-// //                 .add_attribute("from", "v1")
-// //                 .add_submessages(pre_propose_messages))
-// //         }
-// //         MigrateMsg::FromCompatible {} => Ok(Response::default()
-// //             .add_attribute("action", "migrate")
-// //             .add_attribute("from", "compatible")),
-// //     }
-// // }
+            Ok(Response::default()
+                .add_attribute("action", "migrate")
+                .add_attribute("from", "v1")
+                .add_submessages(pre_propose_messages))
+        }
+        MigrateMsg::FromCompatible {} => Ok(Response::default()
+            .add_attribute("action", "migrate")
+            .add_attribute("from", "compatible")),
+    }
+}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {

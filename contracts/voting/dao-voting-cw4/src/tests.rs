@@ -132,12 +132,12 @@ fn _setup_test_case(app: &mut App) -> ContractInfo {
                 cw4_group_code_id: cw4_instantiate_info.code_id,
                 cw4_group_code_hash: cw4_instantiate_info.code_hash,
                 initial_members: members,
-                query_auth: RawContract {
-                    address: query_auth.address.to_string(),
-                    code_hash: query_auth.code_hash,
-                },
             },
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     )
 }
@@ -157,12 +157,12 @@ fn test_instantiate() {
             cw4_group_code_id: cw4_instantiate_info.clone().code_id,
             cw4_group_code_hash: cw4_instantiate_info.clone().code_hash,
             initial_members: [].into(),
-            query_auth: RawContract {
-                address: query_auth.clone().address.to_string(),
-                code_hash: query_auth.clone().code_hash,
-            },
         },
         dao_code_hash: "dao_code_Hash".to_string(),
+        query_auth: RawContract {
+            address: query_auth.clone().address.to_string(),
+            code_hash: query_auth.clone().code_hash,
+        },
     };
     let _err = app
         .instantiate_contract(
@@ -194,12 +194,12 @@ fn test_instantiate() {
                     weight: 0,
                 },
             ],
-            query_auth: RawContract {
-                address: query_auth.address.to_string(),
-                code_hash: query_auth.code_hash,
-            },
         },
         dao_code_hash: "dao_code_hash".to_string(),
+        query_auth: RawContract {
+            address: query_auth.address.to_string(),
+            code_hash: query_auth.code_hash,
+        },
     };
     let _err = app
         .instantiate_contract(
@@ -259,6 +259,10 @@ fn test_contract_info() {
             code_hash: cw4_info_with_member.clone().code_hash,
         },
         dao_code_hash: "dao_code_hash".to_string(),
+        query_auth: RawContract {
+            address: query_auth.address.to_string(),
+            code_hash: query_auth.code_hash,
+        },
     };
     let voting_info = app
         .instantiate_contract(

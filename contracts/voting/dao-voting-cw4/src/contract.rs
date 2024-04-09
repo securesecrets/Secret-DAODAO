@@ -42,7 +42,6 @@ pub fn instantiate(
         GroupContract::New {
             cw4_group_code_id,
             cw4_group_code_hash,
-            query_auth,
             initial_members,
         } => {
             println!("here");
@@ -83,7 +82,7 @@ pub fn instantiate(
             let msg = cw4_group_msg::Cw4GroupInstantiateMsg {
                 admin: Some(info.sender.to_string()),
                 members: initial_members,
-                query_auth,
+                query_auth: msg.query_auth,
             };
             let sub_msg = SubMsg::reply_always(
                 msg.to_cosmos_msg(

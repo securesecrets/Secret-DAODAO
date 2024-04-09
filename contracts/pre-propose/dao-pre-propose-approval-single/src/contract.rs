@@ -49,7 +49,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, PreProposeError> {
     match msg {
-        ExecuteMsg::Propose { msg, key } => execute_propose(deps, env, info, msg, key),
+        ExecuteMsg::Propose { msg, auth } => execute_propose(deps, env, info, msg, auth),
 
         ExecuteMsg::AddProposalSubmittedHook { address, code_hash } => {
             execute_add_approver_hook(deps, info, address, code_hash)
@@ -73,17 +73,12 @@ pub fn execute_propose(
     env: Env,
     info: MessageInfo,
     msg: ProposeMessage,
-    key: String,
+    auth: Auth,
 ) -> Result<Response, PreProposeError> {
     let pre_propose_base = PrePropose::default();
     let config = pre_propose_base.config.load(deps.storage)?;
 
-    let auth = Auth::ViewingKey {
-        key: key.clone(),
-        address: info.sender.clone().to_string(),
-    };
-
-    pre_propose_base.check_can_submit(deps.as_ref(), auth)?;
+    pre_propose_base.check_can_submit(deps.as_ref(), auth.clone())?;
 
     // Take deposit, if configured.
     let deposit_messages = if let Some(ref deposit_info) = config.deposit_info {
@@ -123,7 +118,7 @@ pub fn execute_propose(
                             description: propose_msg_internal.description.clone(),
                             approval_id,
                         },
-                        key: key.clone(),
+                        auth: auth.clone(),
                     })?,
                     funds: vec![],
                 };

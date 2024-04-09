@@ -12,7 +12,6 @@ pub enum GroupContract {
         cw4_group_code_id: u64,
         cw4_group_code_hash: String,
         initial_members: Vec<cw4::Member>,
-        query_auth: RawContract,
     },
 }
 
@@ -20,6 +19,7 @@ pub enum GroupContract {
 pub struct InstantiateMsg {
     pub group_contract: GroupContract,
     pub dao_code_hash: String,
+    pub query_auth: RawContract,
 }
 
 #[cw_serde]

@@ -276,13 +276,13 @@ fn test_instantiate_zero_supply() {
                 staking_code_id: staking_instantiate_info.code_id,
                 staking_code_hash: staking_instantiate_info.code_hash,
                 initial_dao_balance: Some(Uint128::zero()),
-                query_auth: RawContract {
-                    address: query_auth.address.to_string(),
-                    code_hash: query_auth.code_hash,
-                },
             },
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 }
@@ -311,13 +311,13 @@ fn test_instantiate_no_balances() {
                 staking_code_id: staking_instantiate_info.code_id,
                 staking_code_hash: staking_instantiate_info.code_hash,
                 initial_dao_balance: Some(Uint128::zero()),
-                query_auth: RawContract {
-                    address: query_auth.address.to_string(),
-                    code_hash: query_auth.code_hash,
-                },
             },
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 }
@@ -360,6 +360,10 @@ fn test_instantiate_zero_active_threshold_count() {
                 count: Uint128::new(0),
             }),
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 }
@@ -399,6 +403,10 @@ fn test_contract_info() {
             },
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 
@@ -478,6 +486,10 @@ fn test_existing_snip20() {
             },
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.clone().address.to_string(),
+                code_hash: query_auth.clone().code_hash,
+            },
         },
     );
 
@@ -626,6 +638,10 @@ fn test_existing_cw20_existing_staking() {
             },
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.clone().address.to_string(),
+                code_hash: query_auth.clone().code_hash,
+            },
         },
     );
 
@@ -749,6 +765,10 @@ fn test_existing_cw20_existing_staking() {
             },
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
         &[],
         "voting module",
@@ -799,6 +819,10 @@ fn test_different_heights() {
             },
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.clone().address.to_string(),
+                code_hash: query_auth.clone().code_hash,
+            },
         },
     );
 
@@ -1031,6 +1055,10 @@ fn test_active_threshold_absolute_count() {
                 count: Uint128::new(100),
             }),
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 
@@ -1122,6 +1150,10 @@ fn test_active_threshold_percent() {
                 percent: Decimal::percent(20),
             }),
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 
@@ -1212,6 +1244,10 @@ fn test_active_threshold_percent_rounds_up() {
                 percent: Decimal::percent(50),
             }),
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 
@@ -1321,6 +1357,10 @@ fn test_active_threshold_none() {
             },
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 
@@ -1388,6 +1428,10 @@ fn test_update_active_threshold() {
             },
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 
@@ -1491,6 +1535,10 @@ fn test_active_threshold_percentage_gt_100() {
                 percent: Decimal::percent(120),
             }),
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 }
@@ -1550,6 +1598,10 @@ fn test_active_threshold_percentage_lte_0() {
                 percent: Decimal::percent(0),
             }),
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 }
@@ -1609,6 +1661,10 @@ fn test_active_threshold_absolute_count_invalid() {
                 count: Uint128::new(10000),
             }),
             dao_code_hash: "dao_code_hash".to_string(),
+            query_auth: RawContract {
+                address: query_auth.address.to_string(),
+                code_hash: query_auth.code_hash,
+            },
         },
     );
 }

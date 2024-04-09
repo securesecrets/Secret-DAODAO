@@ -74,7 +74,7 @@ pub fn execute(
                     description,
                     choices,
                 },
-            key,
+            auth,
         } => ExecuteInternal::Propose {
             msg: ProposeMessageInternal::Propose {
                 proposer: Some(info.sender.to_string()),
@@ -82,7 +82,7 @@ pub fn execute(
                 description,
                 choices,
             },
-            key,
+            auth,
         },
         ExecuteMsg::Extension { msg } => ExecuteInternal::Extension { msg },
         ExecuteMsg::Withdraw { denom, key } => ExecuteInternal::Withdraw { denom, key },
