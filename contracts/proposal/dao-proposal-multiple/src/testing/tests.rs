@@ -23,6 +23,12 @@ use super::{
     CREATOR_ADDR, DAO_ADDR,
 };
 
+// The testcases fails for success a we need whole dao dao flow for this
+// and due to different implementations for submsg on scrt network ... we had
+// to manually add a function called parse_reply_event_for_address to get deployed
+// contract addresses from events which is not working in testcases ...
+// So only testcases for failure is covered.
+
 struct CommonTest {
     app: App,
     proposal_multiple_contract_info: ContractInfo,

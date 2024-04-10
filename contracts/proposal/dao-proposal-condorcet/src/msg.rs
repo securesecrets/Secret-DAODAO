@@ -2,6 +2,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{CosmosMsg, Empty};
 
 use dao_dao_macros::proposal_module_query;
+use shade_protocol::basic_staking::Auth;
 
 use crate::config::UncheckedConfig;
 
@@ -15,17 +16,17 @@ pub struct Choice {
 #[cw_serde]
 pub enum ExecuteMsg {
     Propose {
+        auth: Auth,
         choices: Vec<Choice>,
-        key: String,
     },
     Vote {
+        auth: Auth,
         proposal_id: u32,
         vote: Vec<u32>,
-        key: String,
     },
     Execute {
+        auth: Auth,
         proposal_id: u32,
-        key: String,
     },
     Close {
         proposal_id: u32,

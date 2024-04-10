@@ -97,14 +97,14 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Propose { choices, key } => execute_propose(deps, env, info, choices, key),
+        ExecuteMsg::Propose { auth, choices } => execute_propose(deps, env, info, choices, auth),
         ExecuteMsg::Vote {
             proposal_id,
             vote,
-            key,
-        } => execute_vote(deps, env, info, proposal_id, vote, key),
-        ExecuteMsg::Execute { proposal_id, key } => {
-            execute_execute(deps, env, info, proposal_id, key)
+            auth,
+        } => execute_vote(deps, env, info, proposal_id, vote, auth),
+        ExecuteMsg::Execute { proposal_id, auth } => {
+            execute_execute(deps, env, info, proposal_id, auth)
         }
         ExecuteMsg::Close { proposal_id } => execute_close(deps, env, info, proposal_id),
 
@@ -117,14 +117,13 @@ fn execute_propose(
     env: Env,
     info: MessageInfo,
     choices: Vec<Choice>,
-    key: String,
+    auth: Auth,
 ) -> Result<Response, ContractError> {
     let dao = DAO.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
-    let auth = Auth::ViewingKey {
-        key,
-        address: info.sender.clone().to_string(),
-    };
+    if choices.is_empty() {
+        return Err(ContractError::ZeroChoices {});
+    }
     let sender_voting_power = get_voting_power(
         deps.as_ref(),
         dao.code_hash.clone(),
@@ -138,10 +137,6 @@ fn execute_propose(
 
     let id = next_proposal_id(deps.storage)?;
     let total_power = get_total_power(deps.as_ref(), dao.code_hash.clone(), &dao.addr, None)?;
-
-    if choices.is_empty() {
-        return Err(ContractError::ZeroChoices {});
-    }
 
     let none_of_the_above = Choice { msgs: vec![] };
     let mut choices = choices;
@@ -171,13 +166,9 @@ fn execute_vote(
     info: MessageInfo,
     proposal_id: u32,
     vote: Vec<u32>,
-    key: String,
+    auth: Auth,
 ) -> Result<Response, ContractError> {
     let tally = TALLY.get(deps.storage, &proposal_id);
-    let auth = Auth::ViewingKey {
-        key,
-        address: info.sender.clone().to_string(),
-    };
     let sender_power = get_voting_power(
         deps.as_ref(),
         DAO.load(deps.storage)?.code_hash.clone(),
@@ -211,14 +202,10 @@ fn execute_execute(
     env: Env,
     info: MessageInfo,
     proposal_id: u32,
-    key: String,
+    auth: Auth,
 ) -> Result<Response, ContractError> {
     let tally = TALLY.get(deps.storage, &proposal_id);
     let dao = DAO.load(deps.storage)?;
-    let auth = Auth::ViewingKey {
-        key,
-        address: info.sender.clone().to_string(),
-    };
     let sender_power = get_voting_power(
         deps.as_ref(),
         dao.code_hash.clone(),

@@ -1,5 +1,5 @@
 use cosmwasm_std::Uint128;
-use cw_utils::Expiration;
+use secret_utils::Expiration;
 
 use crate::{
     tally::{Tally, Winner},

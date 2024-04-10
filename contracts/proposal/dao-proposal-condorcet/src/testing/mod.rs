@@ -1,3 +1,4 @@
+mod contracts;
 mod instantiation;
 mod proposals;
 mod suite;
