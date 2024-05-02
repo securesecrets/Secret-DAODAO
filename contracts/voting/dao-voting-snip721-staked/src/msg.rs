@@ -2,40 +2,8 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary};
 use dao_dao_macros::{active_query, voting_module_query};
 use dao_voting::threshold::ActiveThreshold;
-use schemars::JsonSchema;
 use secret_utils::Duration;
-use serde::{Deserialize, Serialize};
 use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
-pub enum Snip721ReceiveMsg {
-    /// ReceiveNft may be a HandleMsg variant of any contract that wants to implement a receiver
-    /// interface.  BatchReceiveNft, which is more informative and more efficient, is preferred over
-    /// ReceiveNft.  Please read above regarding why ReceiveNft, which follows CW-721 standard has an
-    /// inaccurately named `sender` field
-    ReceiveNft {
-        /// previous owner of sent token
-        sender: Addr,
-        /// token that was sent
-        token_id: String,
-        /// optional message to control receiving logic
-        msg: Option<Binary>,
-    },
-    /// BatchReceiveNft may be a HandleMsg variant of any contract that wants to implement a receiver
-    /// interface.  BatchReceiveNft, which is more informative and more efficient, is preferred over
-    /// ReceiveNft.
-    BatchReceiveNft {
-        /// address that sent the tokens.  There is no ReceiveNft field equivalent to this
-        sender: Addr,
-        /// previous owner of sent tokens.  This is equivalent to the ReceiveNft `sender` field
-        from: Addr,
-        /// tokens that were sent
-        token_ids: Vec<String>,
-        /// optional message to control receiving logic
-        msg: Option<Binary>,
-    },
-}
 
 #[cw_serde]
 #[allow(clippy::large_enum_variant)]
@@ -89,7 +57,14 @@ pub enum ExecuteMsg {
     /// Used to stake NFTs. To stake a NFT send a snip721 send message
     /// to this contract with the NFT you would like to stake. The
     /// `msg` field is ignored.
-    ReceiveNft(Snip721ReceiveMsg),
+    ReceiveNft {
+        /// previous owner of sent token
+        sender: Addr,
+        /// token that was sent
+        token_id: String,
+        /// optional message to control receiving logic
+        msg: Option<Binary>,
+    },
     /// Unstakes the specified token_ids on behalf of the
     /// sender. token_ids must have unique values and have non-zero
     /// length.

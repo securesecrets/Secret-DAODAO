@@ -1,18 +1,20 @@
 #![allow(clippy::large_enum_variant)]
 
-use std::fmt;
-
-use cosmwasm_std::{Addr, Api, Binary, BlockInfo, CanonicalAddr, Coin, StdResult};
+use cosmwasm_schema::QueryResponses;
+use cosmwasm_std::{Addr, Binary, Coin};
 use schemars::JsonSchema;
-use secret_toolkit::{
-    permit::Permit,
-    utils::{HandleCallback, InitCallback},
-};
+use secret_toolkit::permit::Permit;
 use serde::{Deserialize, Serialize};
+use shade_protocol::utils::asset::RawContract;
+
+use crate::expiration::Expiration;
+use crate::mint_run::{MintRunInfo, SerialNumber};
+use crate::royalties::{DisplayRoyaltyInfo, RoyaltyInfo};
+use crate::token::{Extension, Metadata};
 
 /// Instantiation message
-#[derive(Serialize, Deserialize, JsonSchema)]
-pub struct Snip721InstantiateMsg {
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
+pub struct InstantiateMsg {
     /// name of token contract
     pub name: String,
     /// token contract symbol
@@ -31,6 +33,13 @@ pub struct Snip721InstantiateMsg {
     /// contract that instantiated it, but it could be used to execute any
     /// contract
     pub post_init_callback: Option<PostInstantiateCallback>,
+    pub query_auth: RawContract,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+pub struct InstantiateResponse {
+    pub contract_address: Addr,
+    pub code_hash: String,
 }
 
 /// This type represents optional configuration values.
@@ -101,7 +110,7 @@ pub struct PostInstantiateCallback {
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
-pub enum Snip721ExecuteMsg {
+pub enum ExecuteMsg<MetadataExt, ExecuteExt> {
     /// mint new token
     MintNft {
         /// optional token id. if omitted, use current token index
@@ -123,11 +132,13 @@ pub enum Snip721ExecuteMsg {
         memo: Option<String>,
         /// optional message length padding
         padding: Option<String>,
+        /// Any custom extension used by this contract
+        extension: MetadataExt,
     },
     /// Mint multiple tokens
     BatchMintNft {
         /// list of mint operations to perform
-        mints: Vec<Mint>,
+        mints: Vec<Mint<MetadataExt>>,
         /// optional message length padding
         padding: Option<String>,
     },
@@ -157,6 +168,8 @@ pub enum Snip721ExecuteMsg {
         memo: Option<String>,
         /// optional message length padding
         padding: Option<String>,
+        /// Any custom extension used by this contract
+        extension: MetadataExt,
     },
     /// set the public and/or private metadata.  This can be called by either the token owner or
     /// a valid minter if they have been given this power by the appropriate config values
@@ -404,10 +417,8 @@ pub enum Snip721ExecuteMsg {
         /// optional message length padding
         padding: Option<String>,
     },
-}
-
-impl HandleCallback for Snip721ExecuteMsg {
-    const BLOCK_SIZE: usize = 256;
+    /// Extension msg
+    Extension { msg: ExecuteExt },
 }
 
 /// permission access level
@@ -426,7 +437,7 @@ pub enum AccessLevel {
 
 /// token mint info used when doing a BatchMint
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
-pub struct Mint {
+pub struct Mint<MetadataExt> {
     /// optional token id, if omitted, use current token index
     pub token_id: Option<String>,
     /// optional owner address, owned by the minter otherwise
@@ -444,6 +455,8 @@ pub struct Mint {
     pub transferable: Option<bool>,
     /// optional memo for the tx
     pub memo: Option<String>,
+    /// You can add any custom metadata here when you extend snip721-roles-base
+    pub extension: MetadataExt,
 }
 
 /// token burn info used when doing a BatchBurnNft
@@ -483,7 +496,7 @@ pub struct Send {
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
-pub enum Snip721ExecuteAnswer {
+pub enum ExecuteAnswer {
     /// MintNft will also display the minted token's ID in the log attributes under the
     /// key `minted` in case minting was done as a callback message
     MintNft {
@@ -647,15 +660,24 @@ pub struct Tx {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum Snip721QueryMsg {
+#[derive(QueryResponses)]
+
+pub enum QueryMsg<QueryExt>
+where
+    QueryExt: JsonSchema,
+{
     /// display the contract's name and symbol
+    #[returns(QueryAnswer)]
     ContractInfo {},
     /// display the contract's configuration
+    #[returns(QueryAnswer)]
     ContractConfig {},
     /// display the list of authorized minters
+    #[returns(QueryAnswer)]
     Minters {},
     /// display the number of tokens controlled by the contract.  The token supply must
     /// either be public, or the querier must be an authenticated minter
+    #[returns(QueryAnswer)]
     NumTokens {
         /// optional address and key requesting to view the number of tokens
         viewer: Option<ViewerInfo>,
@@ -663,6 +685,7 @@ pub enum Snip721QueryMsg {
     /// display an optionally paginated list of all the tokens controlled by the contract.
     /// The token supply must either be public, or the querier must be an authenticated
     /// minter
+    #[returns(QueryAnswer)]
     AllTokens {
         /// optional address and key requesting to view the list of tokens
         viewer: Option<ViewerInfo>,
@@ -675,6 +698,7 @@ pub enum Snip721QueryMsg {
     /// is also the token's owner, the response will also include a list of any addresses
     /// that can transfer this token.  The transfer approval list is for CW721 compliance,
     /// but the NftDossier query will be more complete by showing viewing approvals as well
+    #[returns(QueryAnswer)]
     OwnerOf {
         token_id: String,
         /// optional address and key requesting to view the token owner
@@ -684,8 +708,10 @@ pub enum Snip721QueryMsg {
         include_expired: Option<bool>,
     },
     /// displays the public metadata of a token
+    #[returns(QueryAnswer)]
     NftInfo { token_id: String },
     /// displays all the information contained in the OwnerOf and NftInfo queries
+    #[returns(QueryAnswer)]
     AllNftInfo {
         token_id: String,
         /// optional address and key requesting to view the token owner
@@ -695,6 +721,7 @@ pub enum Snip721QueryMsg {
         include_expired: Option<bool>,
     },
     /// displays the private metadata if permitted to view it
+    #[returns(QueryAnswer)]
     PrivateMetadata {
         token_id: String,
         /// optional address and key requesting to view the private metadata
@@ -704,6 +731,7 @@ pub enum Snip721QueryMsg {
     /// see.  This may include the owner, the public metadata, the private metadata, royalty
     /// information, mint run information, whether the token is unwrapped, whether the token is
     /// transferable, and the token and inventory approvals
+    #[returns(QueryAnswer)]
     NftDossier {
         token_id: String,
         /// optional address and key requesting to view the token information
@@ -716,6 +744,7 @@ pub enum Snip721QueryMsg {
     /// see.  This may include the owner, the public metadata, the private metadata, royalty
     /// information, mint run information, whether the token is unwrapped, whether the token is
     /// transferable, and the token and inventory approvals
+    #[returns(QueryAnswer)]
     BatchNftDossier {
         token_ids: Vec<String>,
         /// optional address and key requesting to view the token information
@@ -726,6 +755,7 @@ pub enum Snip721QueryMsg {
     },
     /// list all the approvals in place for a specified token if given the owner's viewing
     /// key
+    #[returns(QueryAnswer)]
     TokenApprovals {
         token_id: String,
         /// the token owner's viewing key
@@ -736,6 +766,7 @@ pub enum Snip721QueryMsg {
     },
     /// list all the inventory-wide approvals in place for the specified address if given the
     /// the correct viewing key for the address
+    #[returns(QueryAnswer)]
     InventoryApprovals {
         address: String,
         /// the viewing key
@@ -748,6 +779,7 @@ pub enum Snip721QueryMsg {
     /// approval to transfer all of the owner's tokens).  This query is provided to maintain
     /// CW721 compliance, however, approvals are private on secret network, so only the
     /// owner's viewing key will authorize the ability to see the list of operators
+    #[returns(QueryAnswer)]
     ApprovedForAll {
         owner: String,
         /// optional viewing key to authenticate this query.  It is "optional" only in the
@@ -760,6 +792,7 @@ pub enum Snip721QueryMsg {
     },
     /// displays a list of all the tokens belonging to the input owner in which the viewer
     /// has view_owner permission
+    #[returns(QueryAnswer)]
     Tokens {
         owner: String,
         /// optional address of the querier if different from the owner
@@ -773,6 +806,7 @@ pub enum Snip721QueryMsg {
     },
     /// displays the number of tokens that the querier has permission to see the owner and that
     /// belong to the specified address
+    #[returns(QueryAnswer)]
     NumTokensOfOwner {
         owner: String,
         /// optional address of the querier if different from the owner
@@ -781,15 +815,20 @@ pub enum Snip721QueryMsg {
         viewing_key: Option<String>,
     },
     /// display if a token is unwrapped
+    #[returns(QueryAnswer)]
     IsUnwrapped { token_id: String },
     /// display if a token is transferable
+    #[returns(QueryAnswer)]
     IsTransferable { token_id: String },
     /// display that this contract implements non-transferable tokens
+    #[returns(QueryAnswer)]
     ImplementsNonTransferableTokens {},
     /// display that this contract implements the use of the `token_subtype` metadata extension field
+    #[returns(QueryAnswer)]
     ImplementsTokenSubtype {},
     /// verify that the specified address has approval to transfer every listed token.
     /// A token will count as unapproved if it is non-transferable
+    #[returns(QueryAnswer)]
     VerifyTransferApproval {
         /// list of tokens to verify approval for
         token_ids: Vec<String>,
@@ -800,6 +839,7 @@ pub enum Snip721QueryMsg {
     },
     /// display the transaction history for the specified address in reverse
     /// chronological order
+    #[returns(QueryAnswer)]
     TransactionHistory {
         address: String,
         /// viewing key
@@ -811,12 +851,14 @@ pub enum Snip721QueryMsg {
     },
     /// display the code hash a contract has registered with the token contract and whether
     /// the contract implements BatchReceivenft
+    #[returns(QueryAnswer)]
     RegisteredCodeHash {
         /// the contract whose receive registration info you want to view
         contract: String,
     },
     /// display the royalty information of a token if a token ID is specified, or display the
     /// contract's default royalty information in no token ID is provided
+    #[returns(QueryAnswer)]
     RoyaltyInfo {
         /// optional ID of the token whose royalty information should be displayed.  If not
         /// provided, display the contract's default royalty information
@@ -825,14 +867,20 @@ pub enum Snip721QueryMsg {
         viewer: Option<ViewerInfo>,
     },
     /// display the contract's creator
+    #[returns(QueryAnswer)]
     ContractCreator {},
     /// perform queries by passing permits instead of viewing keys
+    #[returns(QueryAnswer)]
     WithPermit {
         /// permit used to verify querier identity
         permit: Permit,
         /// query to perform
         query: QueryWithPermit,
     },
+    /// Extension for queries. The default implementation will do
+    /// nothing if queried for will return `Binary::default()`.
+    #[returns(QueryAnswer)]
+    QueryExtension { msg: QueryExt },
 }
 
 /// SNIP721 Approval
@@ -889,8 +937,32 @@ pub struct BatchNftDossierElement {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct Minters {
+    pub minters: Vec<Addr>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct NftInfo<MetadataExt> {
+    pub token_uri: Option<String>,
+    pub extension: Option<Extension>,
+    pub metadata_extension: MetadataExt,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct OwnerOf {
+    pub owner: Addr,
+    pub approvals: Vec<Cw721Approval>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct ContractInfo {
+    pub name: String,
+    pub symbol: String,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
-pub enum Snip721QueryAnswer {
+pub enum QueryAnswer {
     ContractInfo {
         name: String,
         symbol: String,
@@ -997,6 +1069,9 @@ pub enum Snip721QueryAnswer {
     },
     ContractCreator {
         creator: Option<Addr>,
+    },
+    QueryExtension {
+        res: Binary,
     },
 }
 
@@ -1140,346 +1215,4 @@ pub enum QueryWithPermit {
     /// displays the number of tokens that the querier has permission to see the owner and that
     /// belong to the specified address
     NumTokensOfOwner { owner: String },
-}
-
-/// information about the minting of the NFT
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct MintRunInfo {
-    /// optional address of the SNIP-721 contract creator
-    pub collection_creator: Option<Addr>,
-    /// optional address of this NFT's creator
-    pub token_creator: Option<Addr>,
-    /// optional time of minting (in seconds since 01/01/1970)
-    pub time_of_minting: Option<u64>,
-    /// optional number of the mint run this token was minted in.  A mint run represents a
-    /// batch of NFTs released at the same time.  So if a creator decided to make 100 copies
-    /// of an NFT, they would all be part of mint run number 1.  If they sold quickly, and
-    /// the creator wanted to rerelease that NFT, he could make 100 more copies which would all
-    /// be part of mint run number 2.
-    pub mint_run: Option<u32>,
-    /// optional serial number in this mint run.  This is used to serialize
-    /// identical NFTs
-    pub serial_number: Option<u32>,
-    /// optional total number of NFTs minted on this run.  This is used to
-    /// represent that this token is number m of n
-    pub quantity_minted_this_run: Option<u32>,
-}
-
-/// Serial number to give an NFT when minting
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct SerialNumber {
-    /// optional number of the mint run this token will be minted in.  A mint run represents a
-    /// batch of NFTs released at the same time.  So if a creator decided to make 100 copies
-    /// of an NFT, they would all be part of mint run number 1.  If they sold quickly, and
-    /// the creator wanted to rerelease that NFT, he could make 100 more copies which would all
-    /// be part of mint run number 2.
-    pub mint_run: Option<u32>,
-    /// serial number (in this mint run).  This is used to serialize
-    /// identical NFTs
-    pub serial_number: u32,
-    /// optional total number of NFTs minted on this run.  This is used to
-    /// represent that this token is number m of n
-    pub quantity_minted_this_run: Option<u32>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
-/// at the given point in time and after, Expiration will be considered expired
-pub enum Expiration {
-    /// expires at this block height
-    AtHeight(u64),
-    /// expires at the time in seconds since 01/01/1970
-    AtTime(u64),
-    /// never expires
-    Never,
-}
-
-impl fmt::Display for Expiration {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Expiration::AtHeight(height) => write!(f, "expiration height: {}", height),
-            Expiration::AtTime(time) => write!(f, "expiration time: {}", time),
-            Expiration::Never => write!(f, "expiration: never"),
-        }
-    }
-}
-
-/// default is Never
-impl Default for Expiration {
-    fn default() -> Self {
-        Expiration::Never
-    }
-}
-
-impl Expiration {
-    /// Returns bool, true if Expiration has expired
-    ///
-    /// # Arguments
-    ///
-    /// * `block` - a reference to the BlockInfo containing the time to compare the Expiration to
-    pub fn is_expired(&self, block: &BlockInfo) -> bool {
-        match self {
-            Expiration::AtHeight(height) => block.height >= *height,
-            Expiration::AtTime(time) => block.time.seconds() >= *time,
-            Expiration::Never => false,
-        }
-    }
-}
-
-/// data for a single royalty
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct Royalty {
-    /// address to send royalties to
-    pub recipient: String,
-    /// royalty rate
-    pub rate: u16,
-}
-
-impl Royalty {
-    /// Returns StdResult<StoredRoyalty> from creating a StoredRoyalty from a Royalty
-    ///
-    /// # Arguments
-    ///
-    /// * `api` - a reference to the Api used to convert human and canonical addresses
-    pub fn to_stored(&self, api: &dyn Api) -> StdResult<StoredRoyalty> {
-        Ok(StoredRoyalty {
-            recipient: api.addr_canonicalize(api.addr_validate(&self.recipient)?.as_str())?,
-            rate: self.rate,
-        })
-    }
-}
-
-/// all royalty information
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct RoyaltyInfo {
-    /// decimal places in royalty rates
-    pub decimal_places_in_rates: u8,
-    /// list of royalties
-    pub royalties: Vec<Royalty>,
-}
-
-impl RoyaltyInfo {
-    /// Returns StdResult<StoredRoyaltyInfo> from creating a StoredRoyaltyInfo from a RoyaltyInfo
-    ///
-    /// # Arguments
-    ///
-    /// * `api` - a reference to the Api used to convert human and canonical addresses
-    pub fn to_stored(&self, api: &dyn Api) -> StdResult<StoredRoyaltyInfo> {
-        Ok(StoredRoyaltyInfo {
-            decimal_places_in_rates: self.decimal_places_in_rates,
-            royalties: self
-                .royalties
-                .iter()
-                .map(|r| r.to_stored(api))
-                .collect::<StdResult<Vec<StoredRoyalty>>>()?,
-        })
-    }
-}
-
-/// display for a single royalty
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct DisplayRoyalty {
-    /// address to send royalties to.  Can be None to keep addresses private
-    pub recipient: Option<Addr>,
-    /// royalty rate
-    pub rate: u16,
-}
-
-/// display all royalty information
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct DisplayRoyaltyInfo {
-    /// decimal places in royalty rates
-    pub decimal_places_in_rates: u8,
-    /// list of royalties
-    pub royalties: Vec<DisplayRoyalty>,
-}
-
-/// data for storing a single royalty
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct StoredRoyalty {
-    /// address to send royalties to
-    pub recipient: CanonicalAddr,
-    /// royalty rate
-    pub rate: u16,
-}
-
-impl StoredRoyalty {
-    /// Returns StdResult<DisplayRoyalty> from creating a DisplayRoyalty from a StoredRoyalty
-    ///
-    /// # Arguments
-    ///
-    /// * `api` - a reference to the Api used to convert human and canonical addresses
-    /// * `hide_addr` - true if the address should be kept hidden
-    pub fn to_human(&self, api: &dyn Api, hide_addr: bool) -> StdResult<DisplayRoyalty> {
-        let recipient = if hide_addr {
-            None
-        } else {
-            Some(api.addr_humanize(&self.recipient)?)
-        };
-        Ok(DisplayRoyalty {
-            recipient,
-            rate: self.rate,
-        })
-    }
-}
-
-/// all stored royalty information
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-pub struct StoredRoyaltyInfo {
-    /// decimal places in royalty rates
-    pub decimal_places_in_rates: u8,
-    /// list of royalties
-    pub royalties: Vec<StoredRoyalty>,
-}
-
-impl StoredRoyaltyInfo {
-    /// Returns StdResult<DisplayRoyaltyInfo> from creating a DisplayRoyaltyInfo from a StoredRoyaltyInfo
-    ///
-    /// # Arguments
-    ///
-    /// * `api` - a reference to the Api used to convert human and canonical addresses
-    /// * `hide_addr` - true if the address should be kept hidden
-    pub fn to_human(&self, api: &dyn Api, hide_addr: bool) -> StdResult<DisplayRoyaltyInfo> {
-        Ok(DisplayRoyaltyInfo {
-            decimal_places_in_rates: self.decimal_places_in_rates,
-            royalties: self
-                .royalties
-                .iter()
-                .map(|r| r.to_human(api, hide_addr))
-                .collect::<StdResult<Vec<DisplayRoyalty>>>()?,
-        })
-    }
-}
-
-/// token
-#[derive(Serialize, Deserialize)]
-pub struct Token {
-    /// owner
-    pub owner: CanonicalAddr,
-    /// permissions granted for this token
-    pub permissions: Vec<Permission>,
-    /// true if this token has been unwrapped.  If sealed metadata is not enabled, all
-    /// tokens are considered unwrapped
-    pub unwrapped: bool,
-    /// true if this token is transferable
-    pub transferable: bool,
-}
-
-/// token metadata
-#[derive(Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Debug, Default)]
-pub struct Metadata {
-    /// optional uri for off-chain metadata.  This should be prefixed with `http://`, `https://`, `ipfs://`, or
-    /// `ar://`.  Only use this if you are not using `extension`
-    pub token_uri: Option<String>,
-    /// optional on-chain metadata.  Only use this if you are not using `token_uri`
-    pub extension: Option<Extension>,
-}
-
-/// metadata extension
-/// You can add any metadata fields you need here.  These fields are based on
-/// https://docs.opensea.io/docs/metadata-standards and are the metadata fields that
-/// Stashh uses for robust NFT display.  Urls should be prefixed with `http://`, `https://`, `ipfs://`, or
-/// `ar://`
-#[derive(Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Debug, Default)]
-pub struct Extension {
-    /// url to the image
-    pub image: Option<String>,
-    /// raw SVG image data (not recommended). Only use this if you're not including the image parameter
-    pub image_data: Option<String>,
-    /// url to allow users to view the item on your site
-    pub external_url: Option<String>,
-    /// item description
-    pub description: Option<String>,
-    /// name of the item
-    pub name: Option<String>,
-    /// item attributes
-    pub attributes: Option<Vec<Trait>>,
-    /// background color represented as a six-character hexadecimal without a pre-pended #
-    pub background_color: Option<String>,
-    /// url to a multimedia attachment
-    pub animation_url: Option<String>,
-    /// url to a YouTube video
-    pub youtube_url: Option<String>,
-    /// media files as specified on Stashh that allows for basic authenticatiion and decryption keys.
-    /// Most of the above is used for bridging public eth NFT metadata easily, whereas `media` will be used
-    /// when minting NFTs on Stashh
-    pub media: Option<Vec<MediaFile>>,
-    /// a select list of trait_types that are in the private metadata.  This will only ever be used
-    /// in public metadata
-    pub protected_attributes: Option<Vec<String>>,
-    /// token subtypes used by Stashh for display groupings (primarily used for badges, which are specified
-    /// by using "badge" as the token_subtype)
-    pub token_subtype: Option<String>,
-
-    /// Optional on-chain role for this member, can be used by other contracts to enforce permissions
-    pub role: Option<String>,
-    /// The voting weight of this role
-    pub weight: u64,
-}
-
-/// attribute trait
-#[derive(Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Debug, Default)]
-pub struct Trait {
-    /// indicates how a trait should be displayed
-    pub display_type: Option<String>,
-    /// name of the trait
-    pub trait_type: Option<String>,
-    /// trait value
-    pub value: String,
-    /// optional max value for numerical traits
-    pub max_value: Option<String>,
-}
-
-/// media file
-#[derive(Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Debug, Default)]
-pub struct MediaFile {
-    /// file type
-    /// Stashh currently uses: "image", "video", "audio", "text", "font", "application"
-    pub file_type: Option<String>,
-    /// file extension
-    pub extension: Option<String>,
-    /// authentication information
-    pub authentication: Option<Authentication>,
-    /// url to the file.  Urls should be prefixed with `http://`, `https://`, `ipfs://`, or `ar://`
-    pub url: String,
-}
-
-/// media file authentication
-#[derive(Serialize, Deserialize, JsonSchema, Clone, PartialEq, Eq, Debug, Default)]
-pub struct Authentication {
-    /// either a decryption key for encrypted files or a password for basic authentication
-    pub key: Option<String>,
-    /// username used in basic authentication
-    pub user: Option<String>,
-}
-
-/// permission to view token info/transfer tokens
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
-pub struct Permission {
-    /// permitted address
-    pub address: CanonicalAddr,
-    /// list of permission expirations for this address
-    pub expirations: [Option<Expiration>; 3],
-}
-
-impl InitCallback for Snip721InstantiateMsg {
-    const BLOCK_SIZE: usize = 256;
-}
-
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
-pub struct NftInfo {
-    pub token_uri: Option<String>,
-    pub extension: Option<Extension>,
-}
-
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
-pub struct OwnerOf {
-    pub owner: Addr,
-    pub approvals: Vec<Cw721Approval>,
-}
-
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
-pub struct InstantiateResponse {
-    pub contract_address: Addr,
-    pub code_hash: String,
 }

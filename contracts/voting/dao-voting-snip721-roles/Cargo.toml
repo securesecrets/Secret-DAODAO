@@ -30,7 +30,7 @@ secret-utils = { workspace = true }
 secret-cw2 = { workspace = true }
 cw4 = { workspace = true }
 thiserror = { workspace = true }
-snip721-reference-impl ={ workspace=true }
+snip721-roles-impl ={ workspace=true }
 schemars ={ workspace = true }
 secret-toolkit ={ workspace = true }
 serde ={ workspace = true }

@@ -7,7 +7,7 @@ use cosmwasm_std::{
 use cw4::{MemberResponse, TotalWeightResponse};
 
 use dao_interface::state::AnyContractInfo;
-use dao_snip721_extensions::roles::QueryExt;
+use dao_snip721_extensions::roles::{ExecuteExt, MetadataExt, QueryExt};
 use secret_cw2::set_contract_version;
 use secret_utils::parse_reply_event_for_contract_address;
 use shade_protocol::basic_staking::Auth;
@@ -25,7 +25,7 @@ const INSTANTIATE_NFT_CONTRACT_REPLY_ID: u64 = 0;
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response<Empty>, ContractError> {
@@ -54,15 +54,15 @@ pub fn instantiate(
         NftContract::New {
             snip721_roles_code_id,
             snip721_roles_code_hash,
-            label,
             name,
             symbol,
-            initial_nfts,
             entropy,
             config,
-            snip721_code_id,
-            snip721_code_hash,
             query_auth,
+            admin,
+            royalty_info,
+            post_init_callback,
+            initial_nfts,
         } => {
             // Check there is at least one NFT to initialize
             if initial_nfts.is_empty() {
@@ -73,20 +73,20 @@ pub fn instantiate(
             INITIAL_NFTS.save(deps.storage, &initial_nfts)?;
 
             let init_msg = snip721roles::Snip721RolesInstantiateMsg {
-                code_id: snip721_code_id,
-                code_hash: snip721_code_hash.clone(),
-                label: label.clone(),
                 name,
                 symbol,
                 entropy,
                 config,
                 query_auth,
+                admin,
+                royalty_info,
+                post_init_callback,
             };
             // Create instantiate submessage for NFT roles contract
             let submsg = SubMsg::reply_on_success(
                 init_msg.to_cosmos_msg(
                     Some(info.sender.to_string()),
-                    label.clone(),
+                    env.contract.address.to_string(),
                     snip721_roles_code_id,
                     snip721_roles_code_hash.clone(),
                     None,
@@ -137,7 +137,9 @@ pub fn query_voting_power_at_height(
     let member: MemberResponse = deps.querier.query_wasm_smart(
         config.nft_code_hash,
         config.nft_address,
-        &snip721_roles::msg::QueryMsg::ExtensionQuery(QueryExt::Member { auth, at_height }),
+        &snip721_roles_impl::msg::QueryMsg::<QueryExt>::QueryExtension {
+            msg: QueryExt::Member { auth, at_height },
+        },
     )?;
 
     to_binary(&dao_interface::voting::VotingPowerAtHeightResponse {
@@ -155,7 +157,9 @@ pub fn query_total_power_at_height(
     let total: TotalWeightResponse = deps.querier.query_wasm_smart(
         config.nft_code_hash,
         config.nft_address,
-        &snip721_roles::msg::QueryMsg::ExtensionQuery(QueryExt::TotalWeight { at_height }),
+        &snip721_roles_impl::msg::QueryMsg::<QueryExt>::QueryExtension {
+            msg: QueryExt::TotalWeight { at_height },
+        },
     )?;
 
     to_binary(&dao_interface::voting::TotalPowerAtHeightResponse {
@@ -198,47 +202,34 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     let initial_nfts = INITIAL_NFTS.load(deps.storage)?;
 
                     // Add mint submessages
-                    let mint_submessages: Vec<SubMsg> = initial_nfts
+                    let mint_messages: Vec<WasmMsg> = initial_nfts
                         .iter()
-                        .flat_map(|nft| -> Result<SubMsg, ContractError> {
-                            Ok(SubMsg::new(WasmMsg::Execute {
+                        .flat_map(|nft| -> Result<WasmMsg, ContractError> {
+                            Ok(WasmMsg::Execute {
                                 contract_addr: nft_roles_contract_address.clone(),
                                 code_hash: config.nft_code_hash.clone(),
+                                msg: to_binary(&snip721_roles_impl::msg::ExecuteMsg::<
+                                    MetadataExt,
+                                    ExecuteExt,
+                                >::MintNft {
+                                    token_id: Some(nft.token_id.clone()),
+                                    owner: Some(nft.owner.clone()),
+                                    public_metadata: None,
+                                    private_metadata: None,
+                                    serial_number: None,
+                                    royalty_info: None,
+                                    transferable: None,
+                                    memo: None,
+                                    padding: None,
+                                    extension: MetadataExt {
+                                        role: nft.clone().extension.role,
+                                        weight: nft.extension.weight,
+                                    },
+                                })?,
                                 funds: vec![],
-                                msg: to_binary(&snip721_roles::msg::ExecuteMsg::Snip721Execute(
-                                    Box::new(snip721_roles::snip721::Snip721ExecuteMsg::MintNft {
-                                        token_id: Some(nft.token_id.clone()),
-                                        owner: Some(nft.owner.clone()),
-                                        public_metadata: Some(snip721_roles::snip721::Metadata {
-                                            token_uri: Some(nft.token_uri.clone().unwrap()),
-                                            extension: Some(snip721_roles::snip721::Extension {
-                                                image: None,
-                                                image_data: None,
-                                                external_url: None,
-                                                description: None,
-                                                name: None,
-                                                attributes: None,
-                                                background_color: None,
-                                                animation_url: None,
-                                                youtube_url: None,
-                                                media: None,
-                                                protected_attributes: None,
-                                                token_subtype: None,
-                                                role: Some(nft.extension.role.clone().unwrap()),
-                                                weight: nft.extension.weight,
-                                            }),
-                                        }),
-                                        private_metadata: None,
-                                        serial_number: None,
-                                        royalty_info: None,
-                                        transferable: None,
-                                        memo: None,
-                                        padding: None,
-                                    }),
-                                ))?,
-                            }))
+                            })
                         })
-                        .collect::<Vec<SubMsg>>();
+                        .collect::<Vec<WasmMsg>>();
 
                     // Clear space
                     INITIAL_NFTS.remove(deps.storage);
@@ -247,12 +238,13 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     let update_minter_msg = WasmMsg::Execute {
                         contract_addr: nft_roles_contract_address.clone(),
                         code_hash: config.nft_code_hash.clone(),
-                        msg: to_binary(&snip721_roles::msg::ExecuteMsg::Snip721Execute(Box::new(
-                            snip721_roles::snip721::Snip721ExecuteMsg::ChangeAdmin {
-                                address: dao.addr.to_string(),
-                                padding: None,
-                            },
-                        )))?,
+                        msg: to_binary(&snip721_roles_impl::msg::ExecuteMsg::<
+                            MetadataExt,
+                            ExecuteExt,
+                        >::ChangeAdmin {
+                            address: dao.addr.to_string(),
+                            padding: None,
+                        })?,
                         funds: vec![],
                     };
 
@@ -262,7 +254,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                         .add_attribute("method", "instantiate")
                         .add_attribute("nft_contract", nft_roles_contract_address.clone())
                         .add_message(update_minter_msg)
-                        .add_submessages(mint_submessages))
+                        .add_messages(mint_messages))
                 }
                 SubMsgResult::Err(_) => Err(ContractError::NftInstantiateError {}),
             }

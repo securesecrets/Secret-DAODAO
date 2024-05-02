@@ -6,6 +6,7 @@ members = [
   "./contracts/external/snip20-reference-impl",
   "./contracts/external/snip721-reference-impl",
   "./contracts/external/snip721-roles/",
+  "./contracts/external/snip721-roles-impl/",
   "./contracts/external/cw-fund-distributor/",
   "./contracts/external/cw-vesting/",
   "./contracts/external/cw-token-swap/",
@@ -145,6 +146,7 @@ thiserror = { version = "1.0.21" ,default-features = false}
 cosmwasm-schema = { git = "https://github.com/scrtlabs/cosmwasm/", branch = "secret",default-features = false }
 snip20-reference-impl = { path = "./contracts/external/snip20-reference-impl/",default-features = false }
 snip721-reference-impl = { path = "./contracts/external/snip721-reference-impl/" ,default-features = false}
+snip721-roles-impl = { path = "./contracts/external/snip721-roles-impl/" ,default-features = false}
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
 shade-protocol = { git = "https://github.com/securesecrets/shade", rev = "lend-v1",features = [
   "query_auth_impl",

@@ -28,9 +28,7 @@ use shade_protocol::query_auth::helpers::{
 use shade_protocol::Contract;
 
 use crate::error::ContractError;
-use crate::msg::{
-    ExecuteMsg, InstantiateMsg, MigrateMsg, NftContract, QueryMsg, Snip721ReceiveMsg,
-};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, NftContract, QueryMsg};
 use crate::snip721;
 use crate::state::{
     register_staked_nft, register_unstaked_nfts, Config, NftBalancesStore, StakedNftsTotalStore,
@@ -244,7 +242,9 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response<Empty>, ContractError> {
     match msg {
-        ExecuteMsg::ReceiveNft(msg) => execute_stake(deps, env, info, msg),
+        ExecuteMsg::ReceiveNft {
+            sender, token_id, ..
+        } => execute_stake(deps, env, info, sender, token_id),
         ExecuteMsg::Unstake { token_ids } => execute_unstake(deps, env, info, token_ids),
         ExecuteMsg::ClaimNfts {} => execute_claim_nfts(deps, env, info),
         ExecuteMsg::UpdateConfig { duration } => execute_update_config(info, deps, duration),
@@ -262,7 +262,8 @@ pub fn execute_stake(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    wrapper: Snip721ReceiveMsg,
+    sender: Addr,
+    token_id: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     if info.sender != config.nft_address {
@@ -271,28 +272,20 @@ pub fn execute_stake(
             expected: config.nft_address,
         });
     }
-    match wrapper {
-        Snip721ReceiveMsg::ReceiveNft {
-            sender,
-            token_id,
-            msg: _,
-        } => {
-            register_staked_nft(
-                deps.storage,
-                env.block.height,
-                sender.clone(),
-                token_id.clone(),
-            )?;
-            let hook_msgs =
-                stake_nft_hook_msgs(HOOKS, deps.storage, sender.clone(), token_id.clone())?;
-            Ok(Response::default()
-                .add_submessages(hook_msgs)
-                .add_attribute("action", "stake")
-                .add_attribute("from", sender)
-                .add_attribute("token_id", token_id))
-        }
-        _ => Ok(Response::default()),
-    }
+    register_staked_nft(
+        deps.storage,
+        env.block.height,
+        sender.clone(),
+        token_id.clone(),
+    )?;
+    let hook_msgs = stake_nft_hook_msgs(HOOKS, deps.storage, sender.clone(), token_id.clone())?;
+    Ok(Response::default()
+        .add_submessages(hook_msgs)
+        .add_attribute("action", "stake")
+        .add_attribute("from", sender)
+        .add_attribute("token_id", token_id))
+
+    // Ok(Response::default())
 }
 
 pub fn execute_unstake(

@@ -1328,8 +1328,8 @@ dependencies = [
  "serde",
  "shade-protocol",
  "snip721-controllers",
- "snip721-reference-impl",
  "snip721-roles",
+ "snip721-roles-impl",
  "thiserror",
 ]
 
@@ -2741,8 +2741,25 @@ dependencies = [
  "secret-utils 0.13.4",
  "serde",
  "shade-protocol",
- "snip721-reference-impl",
+ "snip721-roles-impl",
  "thiserror",
+]
+
+[[package]]
+name = "snip721-roles-impl"
+version = "2.4.0"
+dependencies = [
+ "base64 0.21.5",
+ "bincode2",
+ "cosmwasm-schema 1.1.11",
+ "dao-snip721-extensions",
+ "primitive-types",
+ "schemars 0.8.16",
+ "secret-cosmwasm-std",
+ "secret-cosmwasm-storage",
+ "secret-toolkit",
+ "serde",
+ "shade-protocol",
 ]
 
 [[package]]

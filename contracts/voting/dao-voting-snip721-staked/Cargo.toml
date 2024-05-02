@@ -1,7 +1,7 @@
 [package]
 name = "dao-voting-snip721-staked"
 authors = ["CypherApe cypherape@protonmail.com", "Jake Hartnell", "ekez"]
-description = "A DAO DAO voting module based on staked cw721 tokens."
+description = "A DAO DAO voting module based on staked snip721 tokens."
 edition = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }

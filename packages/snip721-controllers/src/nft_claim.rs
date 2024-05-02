@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, BlockInfo, CustomQuery, Deps, StdError, StdResult, Storage};
-use secret_toolkit::storage::Keymap;
+use secret_toolkit::{serialization::Json, storage::Keymap};
 use secret_utils::Expiration;
 
 #[cw_serde]
@@ -24,7 +24,7 @@ impl NftClaim {
     }
 }
 
-pub struct NftClaims<'a>(Keymap<'a, Addr, Vec<NftClaim>>);
+pub struct NftClaims<'a>(Keymap<'a, Addr, Vec<NftClaim>, Json>);
 
 impl<'a> NftClaims<'a> {
     pub const fn new(storage_key: &'a [u8]) -> Self {

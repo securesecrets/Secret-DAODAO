@@ -1,0 +1,34 @@
+[package]
+name = "snip721-roles-impl"
+version       = { workspace = true }
+edition       = { workspace = true }
+repository    = { workspace = true }
+license       = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for quicker tests, cargo test --lib
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+
+[dependencies]
+cosmwasm-std = {workspace=true }
+secret-toolkit = {workspace=true }
+cosmwasm-storage = {workspace=true }
+schemars = {workspace=true }
+serde = {workspace=true }
+bincode2 = "2.0.1"
+base64 = "0.21.2"
+primitive-types = { version = "0.12.2", default-features = false }
+dao-snip721-extensions ={ workspace = true }
+shade-protocol ={ workspace = true }
+cosmwasm-schema ={ workspace = true }
+
+[dev-dependencies]
+cosmwasm-schema = { workspace = true }

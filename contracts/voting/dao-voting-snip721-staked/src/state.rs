@@ -178,7 +178,7 @@ pub fn register_staked_nft(
         height,
         staker,
         value
-            .unwrap()
+            .unwrap_or_default()
             .checked_add(Uint128::new(1))
             .map_err(StdError::overflow)?,
     )?;
@@ -187,7 +187,7 @@ pub fn register_staked_nft(
     StakedNftsTotalStore::save(
         storage,
         height,
-        res.unwrap()
+        res.unwrap_or_default()
             .checked_add(Uint128::new(1))
             .map_err(StdError::overflow)?,
     )?;
