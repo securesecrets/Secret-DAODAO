@@ -45,22 +45,22 @@ treasury.
 If `automatically_add_[cw20s|cw721s]` is set to true in the [DAO's
 config](https://github.com/DA0-DA0/dao-contracts/blob/74bd3881fdd86829e5e8b132b9952dd64f2d0737/contracts/dao-dao/src/state.rs#L16-L21),
 the DAO will add the token to the treasury upon receiving the token
-via cw20's `Send` method and cw721's `SendNft` method.
+via snip20's `Send` method and snip721's `SendNft` method.
 
-```
+<!-- ```
 pub enum ExecuteMsg {
     /// Executed when the contract receives a cw20 token. Depending on
     /// the contract's configuration the contract will automatically
     /// add the token to its treasury.
     #[cfg(feature = "cw20")]
-    Receive(cw20::Cw20ReceiveMsg),
+    Receive(Snip20ReceiveMsg),
     /// Executed when the contract receives a cw721 token. Depending
     /// on the contract's configuration the contract will
     /// automatically add the token to its treasury.
-    ReceiveNft(cw721::Cw721ReceiveMsg),
+    ReceiveNft(snip721_reference_impl::receiver::Snip721ReceiveMsg),
 	// ...
 }
-```
+``` -->
 
 The DAO may always add or remove non-native tokens via the
 `UpdateCw20List` and `UpdateCw721List` methods:

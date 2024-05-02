@@ -3,6 +3,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
+use dao_interface::state::AnyContractInfo;
 use secret_cw2::set_contract_version;
 use secret_storage_plus::Item;
 use secret_utils::must_pay;
@@ -19,7 +20,7 @@ pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
@@ -37,6 +38,10 @@ pub fn instantiate(
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
+        .set_data(to_binary(&AnyContractInfo {
+            addr: env.contract.address,
+            code_hash: env.contract.code_hash,
+        })?)
         .add_attribute("counterparty_one", counterparty_one.address)
         .add_attribute("counterparty_two", counterparty_two.address))
 }

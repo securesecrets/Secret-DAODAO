@@ -1,8 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cw4::Member;
-use schemars::JsonSchema;
-use secret_toolkit::utils::{HandleCallback, InitCallback};
-use serde::{Deserialize, Serialize};
+use secret_toolkit::utils::InitCallback;
 use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
 
 #[cw_serde]
@@ -22,32 +20,13 @@ pub struct InstantiateMsgResponse {
     pub code_hash: String,
 }
 
-#[cw_serde]
-pub enum Cw4GroupExecuteMsg {
-    CreateViewingKey {
-        entropy: String,
-        padding: Option<String>,
-    },
-}
-
 impl InitCallback for Cw4GroupInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
-}
-
-impl HandleCallback for Cw4GroupExecuteMsg {
-    const BLOCK_SIZE: usize = 256;
-}
-
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
-pub struct CreateViewingKeyResponse {
-    pub key: String,
 }
 
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum Cw4GroupQueryMsg {
-    #[returns(secret_cw_controllers::AdminResponse)]
-    Admin {},
     #[returns(cw4::TotalWeightResponse)]
     TotalWeight { at_height: Option<u64> },
     #[returns(cw4::MemberListResponse)]
@@ -57,7 +36,4 @@ pub enum Cw4GroupQueryMsg {
     },
     #[returns(cw4::MemberResponse)]
     Member { auth: Auth, at_height: Option<u64> },
-    /// Shows all registered hooks.
-    #[returns(secret_cw_controllers::HooksResponse)]
-    Hooks {},
 }

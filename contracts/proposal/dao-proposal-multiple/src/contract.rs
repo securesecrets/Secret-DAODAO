@@ -3,8 +3,8 @@ use std::borrow::Borrow;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdError,
-    StdResult, Storage, SubMsg, SubMsgResult,
+    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
+    StdError, StdResult, Storage, SubMsg, SubMsgResult,
 };
 
 use cw_hooks::{HookItem, Hooks};
@@ -27,7 +27,7 @@ use dao_voting::{
 use secret_cw2::set_contract_version;
 use secret_cw_controllers::ReplyEvent;
 use secret_toolkit::utils::HandleCallback;
-use secret_utils::{parse_reply_event_for_contract_address, Duration};
+use secret_utils::Duration;
 use shade_protocol::basic_staking::{Auth, AuthPermit};
 use shade_protocol::query_auth::helpers::{
     authenticate_permit, authenticate_vk, PermitAuthentication,
@@ -1169,17 +1169,17 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     .add_attribute("removed_vote_hook", format!("{0}:{idx}", hook_item.addr)))
             }
         },
-        ReplyEvent::PreProposalModuleInstantiate { code_hash } => match msg.result {
+        ReplyEvent::PreProposalModuleInstantiate {} => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
-                let contract_address = parse_reply_event_for_contract_address(res.events)?;
+                let pre_propose_module_info: AnyContractInfo =
+                    from_binary(&res.data.clone().unwrap_or_default())?;
 
-                let module_addr = deps.api.addr_validate(&contract_address)?;
                 CREATION_POLICY.save(
                     deps.storage,
                     &ProposalCreationPolicy::Module {
-                        addr: module_addr.clone(),
-                        code_hash,
+                        addr: pre_propose_module_info.addr.clone(),
+                        code_hash: pre_propose_module_info.code_hash,
                     },
                 )?;
 
@@ -1190,10 +1190,15 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 // <https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply>
                 match res.data {
                     Some(data) => Ok(Response::new()
-                        .add_attribute("update_pre_propose_module", module_addr.clone().to_string())
+                        .add_attribute(
+                            "update_pre_propose_module",
+                            pre_propose_module_info.addr.clone().to_string(),
+                        )
                         .set_data(data)),
-                    None => Ok(Response::new()
-                        .add_attribute("update_pre_propose_module", module_addr.to_string())),
+                    None => Ok(Response::new().add_attribute(
+                        "update_pre_propose_module",
+                        pre_propose_module_info.addr.to_string(),
+                    )),
                 }
             }
         },

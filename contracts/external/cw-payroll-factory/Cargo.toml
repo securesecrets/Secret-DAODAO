@@ -30,6 +30,7 @@ serde ={ workspace = true }
 schemars ={ workspace = true }
 snip20-reference-impl  = { workspace = true}
 secret-toolkit ={ workspace = true }
+dao-interface ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

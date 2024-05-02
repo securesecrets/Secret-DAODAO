@@ -34,6 +34,7 @@ secret-toolkit ={ workspace = true}
 snip721-roles-impl ={ workspace = true }
 schemars ={ workspace=true }
 shade-protocol ={ workspace = true }
+dao-interface ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test   = { workspace = true }

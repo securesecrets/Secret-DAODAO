@@ -1,12 +1,11 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdError, StdResult, SubMsg,
-    SubMsgResult, WasmMsg,
+    from_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdError, StdResult,
+    SubMsg, SubMsgResult, WasmMsg,
 };
-use dao_interface::state::ModuleInstantiateInfo;
+use dao_interface::state::{AnyContractInfo, ModuleInstantiateInfo};
 use secret_cw2::set_contract_version;
-use secret_utils::parse_reply_event_for_contract_address;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
@@ -62,12 +61,12 @@ pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+pub fn reply(_deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
         INSTANTIATE_CONTRACT_REPLY_ID => match msg.result {
             cosmwasm_std::SubMsgResult::Ok(res) => {
-                let address = parse_reply_event_for_contract_address(res.events)?;
-                let contract_addr = deps.api.addr_validate(&address)?;
+                let contract_info: AnyContractInfo = from_binary(&res.data.unwrap_or_default())?;
+                let contract_addr = contract_info.addr;
                 // Make the contract its own admin.
                 let msg = WasmMsg::UpdateAdmin {
                     contract_addr: contract_addr.to_string(),

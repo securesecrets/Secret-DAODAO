@@ -116,7 +116,10 @@ pub fn instantiate(
                 .add_attribute("action", "instantiate")
                 .add_attribute("token", "existing_token")
                 .add_attribute("denom", denom)
-                .set_data(to_binary(&(env.contract.address, env.contract.code_hash))?))
+                .set_data(to_binary(&AnyContractInfo {
+                    addr: env.contract.address,
+                    code_hash: env.contract.code_hash,
+                })?))
         } // TokenInfo::New(ref token) => {
           //     let NewTokenInfo {
           //         subdenom,

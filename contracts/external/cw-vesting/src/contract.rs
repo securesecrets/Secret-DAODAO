@@ -7,6 +7,7 @@ use cosmwasm_std::{
 };
 use cw_denom::CheckedDenom;
 use cw_ownable::OwnershipError;
+use dao_interface::state::AnyContractInfo;
 use secret_cw2::set_contract_version;
 use secret_utils::{must_pay, nonpayable};
 
@@ -85,6 +86,10 @@ pub fn instantiate(
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("owner", msg.owner.unwrap_or_else(|| "None".to_string()))
+        .set_data(to_binary(&AnyContractInfo {
+            addr: env.contract.address,
+            code_hash: env.contract.code_hash,
+        })?)
         .add_messages(resp))
 }
 

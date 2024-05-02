@@ -25,7 +25,7 @@ pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
@@ -42,6 +42,10 @@ pub fn instantiate(
 
     Ok(Response::default()
         .add_attribute("method", "instantiate")
+        .set_data(to_binary(&AnyContractInfo {
+            addr: env.contract.address,
+            code_hash: env.contract.code_hash,
+        })?)
         .add_attribute("creator", info.sender))
 }
 

@@ -4,18 +4,14 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply,
     Response, StdError, StdResult, SubMsg, SubMsgResult,
 };
-// use cw_paginate_storage::{paginate_map, paginate_map_keys, paginate_map_values};
 use dao_interface::{
-    msg::{
-        ExecuteMsg, InitialItem, InstantiateMsg, MigrateMsg, QueryMsg, Snip20ReceiveMsg,
-        Snip721ReceiveMsg,
-    },
+    msg::{ExecuteMsg, InitialItem, InstantiateMsg, MigrateMsg, QueryMsg, Snip20ReceiveMsg},
     query::{
         AdminNominationResponse, DaoURIResponse, DumpStateResponse, GetItemResponse,
         PauseInfoResponse, ProposalModuleCountResponse, Snip20BalanceResponse, SubDao,
     },
     state::{
-        Config, ModuleInstantiateCallback, ModuleInstantiateInfo, ProposalModule,
+        AnyContractInfo, Config, ModuleInstantiateCallback, ModuleInstantiateInfo, ProposalModule,
         ProposalModuleStatus, VotingModuleInfo,
     },
     voting,
@@ -64,19 +60,11 @@ pub fn instantiate(
         .unwrap_or_else(|| env.contract.address.clone());
     ADMIN.save(deps.storage, &admin)?;
 
-    // Adding code hash here only as we don't know what voting module we are using as we are providing it in binary
-    let voting_code_hash = msg.clone().voting_module_instantiate_info.code_hash;
-
     let vote_module_msg = msg
         .clone()
         .voting_module_instantiate_info
         .to_cosmos_msg(env.contract.address.clone());
-    let reply_id = REPLY_IDS.add_event(
-        deps.storage,
-        ReplyEvent::VotingModuleInstantiate {
-            code_hash: voting_code_hash,
-        },
-    )?;
+    let reply_id = REPLY_IDS.add_event(deps.storage, ReplyEvent::VotingModuleInstantiate {})?;
     let vote_module_msg: SubMsg<Empty> = SubMsg::reply_on_success(vote_module_msg, reply_id);
 
     let proposal_module_msgs: Vec<SubMsg<Empty>> = msg
@@ -85,12 +73,7 @@ pub fn instantiate(
         .map(|info| {
             let wasm = info.clone().to_cosmos_msg(env.contract.address.clone());
             let reply_id = REPLY_IDS
-                .add_event(
-                    deps.storage,
-                    ReplyEvent::ProposalModuleInstantiate {
-                        code_hash: info.code_hash,
-                    },
-                )
+                .add_event(deps.storage, ReplyEvent::ProposalModuleInstantiate {})
                 .unwrap();
             SubMsg::reply_on_success(wasm, reply_id)
         })
@@ -120,6 +103,10 @@ pub fn instantiate(
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("sender", info.sender)
+        .set_data(to_binary(&AnyContractInfo {
+            addr: env.contract.address,
+            code_hash: env.contract.code_hash,
+        })?)
         .add_submessage(vote_module_msg)
         .add_submessages(proposal_module_msgs))
 }
@@ -147,7 +134,7 @@ pub fn execute(
         }
         ExecuteMsg::Pause { duration } => execute_pause(deps, env, info.sender, duration),
         ExecuteMsg::Receive(msg) => execute_receive_snip20(deps, info.sender, msg),
-        ExecuteMsg::ReceiveNft(msg) => execute_receive_snip721(deps, info.sender, msg),
+        ExecuteMsg::ReceiveNft { sender, .. } => execute_receive_snip721(deps, sender),
         ExecuteMsg::RemoveItem { key } => execute_remove_item(deps, env, info.sender, key),
         ExecuteMsg::SetItem { key, value } => execute_set_item(deps, env, info.sender, key, value),
         ExecuteMsg::UpdateConfig { config } => {
@@ -347,12 +334,7 @@ pub fn execute_update_voting_module(
     }
 
     let wasm = module.clone().to_cosmos_msg(env.contract.address);
-    let reply_id = REPLY_IDS.add_event(
-        deps.storage,
-        ReplyEvent::VotingModuleInstantiate {
-            code_hash: module.code_hash,
-        },
-    )?;
+    let reply_id = REPLY_IDS.add_event(deps.storage, ReplyEvent::VotingModuleInstantiate {})?;
     let submessage = SubMsg::reply_on_success(wasm, reply_id);
 
     Ok(Response::default()
@@ -405,12 +387,7 @@ pub fn execute_update_proposal_modules(
         .map(|info| {
             let wasm = info.clone().into_wasm_msg(env.contract.address.clone());
             let reply_id = REPLY_IDS
-                .add_event(
-                    deps.storage,
-                    ReplyEvent::ProposalModuleInstantiate {
-                        code_hash: info.code_hash,
-                    },
-                )
+                .add_event(deps.storage, ReplyEvent::ProposalModuleInstantiate {})
                 .unwrap();
             SubMsg::reply_on_success(wasm, reply_id)
         })
@@ -610,23 +587,12 @@ pub fn execute_receive_snip20(
     }
 }
 
-pub fn execute_receive_snip721(
-    deps: DepsMut,
-    sender: Addr,
-    wrapper: Snip721ReceiveMsg,
-) -> Result<Response, ContractError> {
+pub fn execute_receive_snip721(deps: DepsMut, sender: Addr) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     if !config.automatically_add_snip721s {
         Ok(Response::new())
     } else {
-        if let Snip721ReceiveMsg::ReceiveNft {
-            sender,
-            token_id: _,
-            msg: _,
-        } = wrapper
-        {
-            SNIP721_LIST.insert(deps.storage, &(sender.clone()), &Empty {})?;
-        }
+        SNIP721_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
         Ok(Response::new()
             .add_attribute("action", "receive_cw721")
             .add_attribute("token", sender))
@@ -813,7 +779,8 @@ pub fn query_dump_state(deps: Deps, env: Env) -> StdResult<Binary> {
         version,
         pause_info,
         proposal_modules: proposal_module_res,
-        voting_module,
+        voting_module_address: voting_module.addr,
+        voting_module_code_hash: voting_module.code_hash,
         active_proposal_module_count,
         total_proposal_module_count,
     })
@@ -1071,22 +1038,22 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     let reply_event = REPLY_IDS.get_event(deps.storage, msg.id)?;
     match reply_event {
-        ReplyEvent::ProposalModuleInstantiate { code_hash } => match msg.result {
+        ReplyEvent::ProposalModuleInstantiate {} => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
-                let module_address = parse_reply_event_for_contract_address(res.events)?;
-                let prop_module_addr = deps.api.addr_validate(&module_address)?;
+                let module_info: AnyContractInfo =
+                    from_binary(&res.data.clone().unwrap_or_default())?;
                 let total_module_count = TOTAL_PROPOSAL_MODULE_COUNT.load(deps.storage)?;
 
                 let prefix = derive_proposal_module_prefix(total_module_count as usize)?;
                 let prop_module = ProposalModule {
-                    address: prop_module_addr.clone(),
+                    address: module_info.addr.clone(),
                     status: ProposalModuleStatus::Enabled,
                     prefix,
-                    code_hash,
+                    code_hash: module_info.code_hash,
                 };
 
-                PROPOSAL_MODULES.insert(deps.storage, &prop_module_addr, &prop_module)?;
+                PROPOSAL_MODULES.insert(deps.storage, &module_info.addr.clone(), &prop_module)?;
 
                 // Save active and total proposal module counts.
                 ACTIVE_PROPOSAL_MODULE_COUNT
@@ -1102,19 +1069,19 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 };
 
                 Ok(Response::default()
-                    .add_attribute("prop_module".to_string(), module_address)
+                    .add_attribute("prop_module".to_string(), module_info.addr)
                     .add_messages(callback_msgs))
             }
         },
-        ReplyEvent::VotingModuleInstantiate { code_hash } => match msg.result {
+        ReplyEvent::VotingModuleInstantiate {} => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
-                let contract_address = parse_reply_event_for_contract_address(res.events)?;
-                let vote_module_addr = deps.api.addr_validate(&contract_address)?;
+                let module_info: AnyContractInfo =
+                    from_binary(&res.data.clone().unwrap_or_default())?;
 
                 let voting_module = VotingModuleInfo {
-                    code_hash,
-                    addr: vote_module_addr.clone(),
+                    code_hash: module_info.code_hash,
+                    addr: module_info.addr.clone(),
                 };
 
                 VOTING_MODULE.save(deps.storage, &voting_module)?;
@@ -1128,14 +1095,13 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 };
 
                 Ok(Response::default()
-                    .add_attribute("voting_module", vote_module_addr)
+                    .add_attribute("voting_module", module_info.addr)
                     .add_messages(callback_msgs))
             }
         },
         ReplyEvent::Snip20ModuleCreateViewingKey {} => {
             match msg.result {
                 SubMsgResult::Ok(res) => {
-                    // let mut token_viewing_key=TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
                     let addr = parse_reply_event_for_contract_address(res.events)?;
                     let token_addr = deps.api.addr_validate(&addr)?;
                     let data: snip20_reference_impl::msg::ExecuteAnswer =

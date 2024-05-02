@@ -8,8 +8,8 @@ use crate::{snip20_msg, snip20_stake_msg};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
-    SubMsg, SubMsgResult, Uint128, Uint256,
+    from_binary, to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply,
+    Response, StdResult, SubMsg, SubMsgResult, Uint128, Uint256,
 };
 use dao_interface::state::AnyContractInfo;
 use dao_interface::voting::IsActiveResponse;
@@ -17,7 +17,6 @@ use dao_voting::threshold::ActiveThreshold;
 use dao_voting::threshold::ActiveThresholdResponse;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
-use secret_utils::parse_reply_event_for_contract_address;
 use shade_protocol::basic_staking::Auth;
 use snip20_reference_impl::msg::QueryAnswer;
 use std::convert::TryInto;
@@ -107,6 +106,10 @@ pub fn instantiate(
                         .add_attribute("action", "instantiate")
                         .add_attribute("token", "existing_token")
                         .add_attribute("token_address", address)
+                        .set_data(to_binary(&AnyContractInfo {
+                            addr: env.contract.address,
+                            code_hash: env.contract.code_hash,
+                        })?)
                         .add_attribute("staking_contract", staking_contract_address))
                 }
                 StakingInfo::New {
@@ -142,6 +145,10 @@ pub fn instantiate(
                         .add_attribute("action", "instantiate")
                         .add_attribute("token", "existing_token")
                         .add_attribute("token_address", address)
+                        .set_data(to_binary(&AnyContractInfo {
+                            addr: env.contract.address,
+                            code_hash: env.contract.code_hash,
+                        })?)
                         .add_submessage(msg))
                 }
             }
@@ -216,6 +223,10 @@ pub fn instantiate(
             Ok(Response::default()
                 .add_attribute("action", "instantiate")
                 .add_attribute("token", "new_token")
+                .set_data(to_binary(&AnyContractInfo {
+                    addr: env.contract.address,
+                    code_hash: env.contract.code_hash,
+                })?)
                 .add_submessage(msg))
         }
     }
@@ -465,14 +476,14 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                 let mut token_contract = TOKEN_CONTRACT.load(deps.storage).unwrap();
                 // let token_init_response: snip20_reference_impl::msg::InitResponse =
                 //     from_binary(&res.data.unwrap())?;
-                let token_address = parse_reply_event_for_contract_address(res.events)?;
-                token_contract.addr = deps.api.addr_validate(&token_address.clone())?;
+                let token_info: AnyContractInfo = from_binary(&res.data.unwrap())?;
+                token_contract.addr = token_info.addr.clone();
 
                 let active_threshold = ACTIVE_THRESHOLD.may_load(deps.storage)?;
                 if let Some(ActiveThreshold::AbsoluteCount { count }) = active_threshold {
                     assert_valid_absolute_count_threshold(
                         deps.as_ref(),
-                        &deps.api.addr_validate(&token_address.clone())?,
+                        &token_info.addr.clone(),
                         token_contract.code_hash.clone(),
                         count,
                     )?;
@@ -486,7 +497,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                 let init_msg = snip20_stake_msg::InstantiateMsg {
                     owner: Some(dao_info.addr.clone().to_string()),
                     unstaking_duration,
-                    token_address: token_address.clone(),
+                    token_address: token_contract.addr.clone().to_string(),
                     token_code_hash: Some(token_contract.code_hash.clone()),
                     query_auth,
                 };
@@ -502,7 +513,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                 );
                 TOKEN_CONTRACT.save(deps.storage, &token_contract)?;
                 Ok(Response::default()
-                    .add_attribute("token_address", "token_address")
+                    .add_attribute("token_address", token_info.addr)
                     .add_submessage(msg))
             }
             SubMsgResult::Err(_) => Err(ContractError::TokenInstantiateError {}),
@@ -510,13 +521,15 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
         INSTANTIATE_STAKING_REPLY_ID => match msg.result {
             SubMsgResult::Ok(resp) => {
                 let mut staking_contract = STAKING_CONTRACT.load(deps.storage).unwrap();
-                let staking_address = parse_reply_event_for_contract_address(resp.events)?;
+                let staking_contract_info: AnyContractInfo =
+                    from_binary(&resp.data.unwrap_or_default())?;
 
-                staking_contract.addr = deps.api.addr_validate(&staking_address.clone())?;
+                staking_contract.addr = staking_contract_info.addr.clone();
 
                 STAKING_CONTRACT.save(deps.storage, &staking_contract)?;
 
-                Ok(Response::new().add_attribute("staking contract address ", staking_address))
+                Ok(Response::new()
+                    .add_attribute("staking contract address ", staking_contract_info.addr))
             }
             SubMsgResult::Err(_) => Err(ContractError::StakingInstantiateError {}),
         },

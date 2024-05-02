@@ -12,6 +12,7 @@ use crate::ContractError::{
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use dao_interface::state::AnyContractInfo;
 use shade_protocol::basic_staking::Auth;
 
 use crate::msg::Snip20ReceiveMsg;
@@ -33,7 +34,7 @@ pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response<Empty>, ContractError> {
@@ -74,6 +75,10 @@ pub fn instantiate(
 
     Ok(Response::new()
         .add_attribute("owner", msg.owner.unwrap_or_else(|| "None".to_string()))
+        .set_data(to_binary(&AnyContractInfo {
+            addr: env.contract.address,
+            code_hash: env.contract.code_hash,
+        })?)
         .add_attribute("staking_contract", config.staking_contract)
         .add_attribute(
             "reward_token",

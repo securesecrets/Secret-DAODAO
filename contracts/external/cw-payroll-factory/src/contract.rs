@@ -5,6 +5,7 @@ use cosmwasm_std::{
     from_binary, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Reply, Response,
     StdError, StdResult, SubMsg, WasmMsg,
 };
+use dao_interface::state::AnyContractInfo;
 
 use crate::cw_vesting::PayrollInstantiateMsg;
 use cw_denom::CheckedDenom;
@@ -12,7 +13,7 @@ use cw_vesting::msg::{QueryMsg as PayrollQueryMsg, ReceiveMsg as PayrollReceiveM
 use cw_vesting::vesting::Vest;
 use secret_cw2::set_contract_version;
 use secret_toolkit::utils::InitCallback;
-use secret_utils::{nonpayable, parse_reply_event_for_contract_address};
+use secret_utils::nonpayable;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg, Snip20ReceiveMsg};
@@ -388,8 +389,9 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
         INSTANTIATE_CONTRACT_REPLY_ID => {
             match msg.result {
                 cosmwasm_std::SubMsgResult::Ok(res) => {
-                    let res = parse_reply_event_for_contract_address(res.events)?;
-                    let contract_addr = deps.api.addr_validate(&res)?;
+                    let contract_info: AnyContractInfo =
+                        from_binary(&res.data.unwrap_or_default())?;
+                    let contract_addr = contract_info.addr;
                     let code_hash = VESTING_INFO.load(deps.storage)?.code_hash;
 
                     // Query new vesting payment contract for info

@@ -35,6 +35,7 @@ snip20-reference-impl ={ workspace=true }
 schemars={ workspace=true }
 shade-protocol = { workspace = true}
 query_auth ={ workspace = true }
+dao-interface = {workspace = true}
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

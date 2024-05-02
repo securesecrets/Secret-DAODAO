@@ -1,15 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult,
-    SubMsg, SubMsgResult, WasmMsg,
+    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
+    StdResult, SubMsg, SubMsgResult, WasmMsg,
 };
 use cw4::{MemberResponse, TotalWeightResponse};
 
 use dao_interface::state::AnyContractInfo;
 use dao_snip721_extensions::roles::{ExecuteExt, MetadataExt, QueryExt};
 use secret_cw2::set_contract_version;
-use secret_utils::parse_reply_event_for_contract_address;
 use shade_protocol::basic_staking::Auth;
 
 use crate::msg::{ExecuteMsg, InstantiateMsg, NftContract, QueryMsg};
@@ -49,6 +48,10 @@ pub fn instantiate(
 
             Ok(Response::default()
                 .add_attribute("method", "instantiate")
+                .set_data(to_binary(&AnyContractInfo {
+                    addr: env.contract.address,
+                    code_hash: env.contract.code_hash,
+                })?)
                 .add_attribute("nft_contract", address))
         }
         NftContract::New {
@@ -99,7 +102,12 @@ pub fn instantiate(
             };
             CONFIG.save(deps.storage, &config)?;
 
-            Ok(Response::default().add_submessage(submsg))
+            Ok(Response::default()
+                .set_data(to_binary(&AnyContractInfo {
+                    addr: env.contract.address,
+                    code_hash: env.contract.code_hash,
+                })?)
+                .add_submessage(submsg))
         }
     }
 }
@@ -191,13 +199,11 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 SubMsgResult::Ok(res) => {
                     let dao = DAO.load(deps.storage)?;
                     let mut config = CONFIG.load(deps.storage)?;
-                    let nft_roles_contract_address =
-                        parse_reply_event_for_contract_address(res.events)?;
+                    let nft_roles_info: AnyContractInfo =
+                        from_binary(&res.data.clone().unwrap_or_default())?;
 
                     // Save config
-                    config.nft_address = deps
-                        .api
-                        .addr_validate(&nft_roles_contract_address.clone())?;
+                    config.nft_address = nft_roles_info.addr.clone();
 
                     let initial_nfts = INITIAL_NFTS.load(deps.storage)?;
 
@@ -206,7 +212,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                         .iter()
                         .flat_map(|nft| -> Result<WasmMsg, ContractError> {
                             Ok(WasmMsg::Execute {
-                                contract_addr: nft_roles_contract_address.clone(),
+                                contract_addr: nft_roles_info.addr.clone().to_string(),
                                 code_hash: config.nft_code_hash.clone(),
                                 msg: to_binary(&snip721_roles_impl::msg::ExecuteMsg::<
                                     MetadataExt,
@@ -236,7 +242,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
 
                     // Update minter message
                     let update_minter_msg = WasmMsg::Execute {
-                        contract_addr: nft_roles_contract_address.clone(),
+                        contract_addr: nft_roles_info.addr.clone().to_string(),
                         code_hash: config.nft_code_hash.clone(),
                         msg: to_binary(&snip721_roles_impl::msg::ExecuteMsg::<
                             MetadataExt,
@@ -252,7 +258,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
 
                     Ok(Response::default()
                         .add_attribute("method", "instantiate")
-                        .add_attribute("nft_contract", nft_roles_contract_address.clone())
+                        .add_attribute("nft_contract", nft_roles_info.addr)
                         .add_message(update_minter_msg)
                         .add_messages(mint_messages))
                 }

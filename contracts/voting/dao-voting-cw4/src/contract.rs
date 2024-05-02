@@ -98,6 +98,10 @@ pub fn instantiate(
 
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
+                .set_data(to_binary(&AnyContractInfo {
+                    addr: env.contract.address,
+                    code_hash: env.contract.code_hash,
+                })?)
                 .add_submessage(sub_msg))
         }
         GroupContract::Existing { address, code_hash } => {
@@ -126,6 +130,10 @@ pub fn instantiate(
 
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
+                .set_data(to_binary(&AnyContractInfo {
+                    addr: env.contract.address,
+                    code_hash: env.contract.code_hash,
+                })?)
                 .add_attribute("group_contract", group_contract.to_string()))
         }
     }

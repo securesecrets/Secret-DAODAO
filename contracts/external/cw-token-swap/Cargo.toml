@@ -26,6 +26,7 @@ snip20-reference-impl = { workspace = true }
 thiserror = { workspace = true }
 serde ={ workspace = true }
 schemars ={ workspace = true }
+dao-interface = {workspace = true}
 
 [dev-dependencies]
 cosmwasm-schema = { workspace = true }

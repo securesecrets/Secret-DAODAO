@@ -4,6 +4,7 @@ use cosmwasm_std::{
     entry_point, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env,
     MessageInfo, Response, StdError, StdResult, Storage, Uint128,
 };
+use dao_interface::state::AnyContractInfo;
 use rand::RngCore;
 use secret_toolkit::permit::{Permit, RevokedPermits, TokenPermissions};
 use secret_toolkit::utils::{pad_handle_result, pad_query_result};
@@ -118,7 +119,7 @@ pub fn instantiate(
             redeem_is_enabled: init_config.redeem_enabled(),
             mint_is_enabled: init_config.mint_enabled(),
             burn_is_enabled: init_config.burn_enabled(),
-            contract_address: env.contract.address,
+            contract_address: env.contract.address.clone(),
             supported_denoms,
             can_modify_denoms: init_config.can_modify_denoms(),
         },
@@ -134,7 +135,10 @@ pub fn instantiate(
 
     ViewingKey::set_seed(deps.storage, &prng_seed_hashed);
 
-    Ok(Response::default())
+    Ok(Response::default().set_data(to_binary(&AnyContractInfo {
+        addr: env.contract.address,
+        code_hash: env.contract.code_hash,
+    })?))
 }
 
 fn get_address_position(

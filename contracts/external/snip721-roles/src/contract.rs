@@ -8,6 +8,7 @@ use cw4::{
     Member, MemberChangedHookMsg, MemberDiff, MemberListResponse, MemberResponse,
     TotalWeightResponse,
 };
+use dao_interface::state::AnyContractInfo;
 use dao_snip721_extensions::roles::{ExecuteExt, MetadataExt, QueryExt};
 use secret_cw_controllers::HookItem;
 use shade_protocol::basic_staking::{Auth, AuthPermit};
@@ -15,7 +16,7 @@ use shade_protocol::query_auth::helpers::{
     authenticate_permit, authenticate_vk, PermitAuthentication,
 };
 use shade_protocol::Contract;
-use snip721_roles_impl::msg::{NftInfo, OwnerOf};
+use snip721_roles_impl::msg::NftInfo;
 use snip721_roles_impl::{
     msg::InstantiateMsg as Snip721BaseInstantiateMsg, state::Snip721Contract,
 };
@@ -42,15 +43,21 @@ pub fn instantiate(
     info: MessageInfo,
     msg: Snip721BaseInstantiateMsg,
 ) -> Result<Response, ContractError> {
-    Snip721roles::default().instantiate(deps.branch(), env.clone(), info, msg)?;
+    Snip721roles::default().instantiate(deps.branch(), env.clone(), info.clone(), msg)?;
 
     // Initialize total weight to zero
     TotalStore::save(deps.storage, env.block.height, 0)?;
+
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(&info.sender.to_string()))?;
 
     secret_cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::default()
         .add_attribute("contract_name", CONTRACT_NAME)
+        .set_data(to_binary(&AnyContractInfo {
+            addr: env.contract.address,
+            code_hash: env.contract.code_hash,
+        })?)
         .add_attribute("contract_version", CONTRACT_VERSION))
 }
 
@@ -155,6 +162,7 @@ pub fn execute(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(unused_assignments)]
 pub fn execute_mint(
     deps: DepsMut,
     env: Env,
@@ -171,24 +179,32 @@ pub fn execute_mint(
     extension: MetadataExt,
 ) -> Result<Response, ContractError> {
     let mut total = Uint64::from(TotalStore::load(deps.storage));
-    let mut diff = MemberDiff::new(owner.clone().unwrap(), None, None);
-
-    let _ = diff; // reading the value in diff so we don't get warning
+    let mut diff = MemberDiff::new(
+        owner.clone().unwrap_or(info.sender.clone().to_string()),
+        None,
+        None,
+    );
     let old = MembersStore::load(
         deps.storage,
-        deps.api.addr_validate(&owner.clone().unwrap())?,
+        deps.api
+            .addr_validate(&owner.clone().unwrap_or(info.sender.clone().to_string()))?,
     );
-    // Increment the total weight by the weight of the new token
+    // // Increment the total weight by the weight of the new token
     total = total.checked_add(Uint64::from(extension.weight))?;
-    // Add the new NFT weight to the old weight for the owner
+    // // Add the new NFT weight to the old weight for the owner
     let new_weight = old + extension.weight;
-    // Set the diff for use in hooks
-    diff = MemberDiff::new(owner.clone().unwrap(), Some(old), Some(new_weight));
+    // // Set the diff for use in hooks
+    diff = MemberDiff::new(
+        owner.clone().unwrap_or(info.sender.clone().to_string()),
+        Some(old),
+        Some(new_weight),
+    );
 
     MembersStore::save(
         deps.storage,
         env.block.height,
-        deps.api.addr_validate(&owner.clone().unwrap())?,
+        deps.api
+            .addr_validate(&owner.clone().unwrap_or(info.sender.clone().to_string()))?,
         new_weight,
     )?;
     TotalStore::save(deps.storage, env.block.height, total.u64())?;
@@ -232,16 +248,16 @@ pub fn execute_burn(
     memo: Option<String>,
     padding: Option<String>,
 ) -> Result<Response, ContractError> {
-    // Lookup the owner of the NFT
-    let owner: OwnerOf = from_binary(&Snip721roles::default().query(
-        deps.as_ref(),
-        env.clone(),
-        QueryMsg::OwnerOf {
-            token_id: token_id.clone(),
-            include_expired: None,
-            viewer: None,
-        },
-    )?)?;
+    // // Lookup the owner of the NFT
+    // let owner: OwnerOf = from_binary(&Snip721roles::default().query(
+    //     deps.as_ref(),
+    //     env.clone(),
+    //     QueryMsg::OwnerOf {
+    //         token_id: token_id.clone(),
+    //         include_expired: None,
+    //         viewer: None,
+    //     },
+    // )?)?;
 
     // Get the weight of the token
     let nft_info: NftInfo<MetadataExt> = from_binary(&Snip721roles::default().query(
@@ -253,11 +269,11 @@ pub fn execute_burn(
     )?)?;
 
     let mut total = Uint64::from(TotalStore::load(deps.storage));
-    let mut diff = MemberDiff::new(owner.owner.clone(), None, None);
+    let mut diff = MemberDiff::new(info.sender.clone(), None, None);
     let _ = diff; // reading the value in diff so we don't get warning
 
     // Update member weights and total
-    let old_weight = MembersStore::load(deps.storage, owner.owner.clone());
+    let old_weight = MembersStore::load(deps.storage, info.sender.clone());
 
     // Subtract the nft weight from the member's old weight
     let new_weight = old_weight
@@ -270,16 +286,16 @@ pub fn execute_burn(
     // Check if the new weight is now zero
     if new_weight == 0 {
         // New weight is now None
-        diff = MemberDiff::new(owner.owner.clone(), Some(old_weight), None);
+        diff = MemberDiff::new(info.sender.clone(), Some(old_weight), None);
         // Remove owner from list of members
-        MembersStore::remove(deps.storage, owner.owner.clone())?;
+        MembersStore::remove(deps.storage, info.sender.clone())?;
     } else {
-        let old = MembersStore::load(deps.storage, owner.owner.clone());
-        diff = MemberDiff::new(owner.owner.clone(), Some(old), Some(new_weight));
+        let old = MembersStore::load(deps.storage, info.sender.clone());
+        diff = MemberDiff::new(info.sender.clone(), Some(old), Some(new_weight));
         MembersStore::save(
             deps.storage,
             env.block.height,
-            owner.owner.clone(),
+            info.sender.clone(),
             new_weight,
         )?;
     }
@@ -498,22 +514,22 @@ pub fn execute_update_token_weight(
         return Err(ContractError::NftDoesNotExist {});
     }
 
-    // Lookup the owner of the NFT
-    let owner: OwnerOf = from_binary(&contract.query(
-        deps.as_ref(),
-        env.clone(),
-        snip721_roles_impl::msg::QueryMsg::OwnerOf {
-            token_id: token_id.clone(),
-            viewer: None,
-            include_expired: None,
-        },
-    )?)?;
+    // // Lookup the owner of the NFT
+    // let owner: OwnerOf = from_binary(&contract.query(
+    //     deps.as_ref(),
+    //     env.clone(),
+    //     snip721_roles_impl::msg::QueryMsg::OwnerOf {
+    //         token_id: token_id.clone(),
+    //         viewer: None,
+    //         include_expired: None,
+    //     },
+    // )?)?;
 
     let mut total = Uint64::from(TotalStore::load(deps.storage));
-    let mut diff = MemberDiff::new(owner.owner.clone(), None, None);
+    let mut diff = MemberDiff::new(info.sender.clone(), None, None);
 
     // Update member weights and total
-    let old = MembersStore::load(deps.storage, owner.owner.clone());
+    let old = MembersStore::load(deps.storage, info.sender.clone());
     let new_total_weight;
     let old_total_weight = old;
 
@@ -529,7 +545,7 @@ pub fn execute_update_token_weight(
             // Add the new NFT weight to the old weight for the owner
             new_total_weight = old_total_weight + weight_difference;
             // Set the diff for use in hooks
-            diff = MemberDiff::new(owner.owner.clone(), Some(old), Some(new_total_weight));
+            diff = MemberDiff::new(info.sender.clone(), Some(old), Some(new_total_weight));
         }
         Ordering::Less => {
             // Subtract the new token weight from the old token weight
@@ -553,7 +569,7 @@ pub fn execute_update_token_weight(
     MembersStore::save(
         deps.storage,
         env.block.height,
-        owner.owner.clone(),
+        info.sender.clone(),
         new_total_weight,
     )?;
 

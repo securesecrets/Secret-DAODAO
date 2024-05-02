@@ -18,7 +18,6 @@ use dao_voting::threshold::{
 use schemars::JsonSchema;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::{HandleCallback, InitCallback};
-use secret_utils::parse_reply_event_for_contract_address;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
 use shade_protocol::basic_staking::{Auth, AuthPermit};
@@ -26,6 +25,7 @@ use shade_protocol::query_auth::helpers::{
     authenticate_permit, authenticate_vk, PermitAuthentication,
 };
 use shade_protocol::Contract;
+use snip721_reference_impl::msg::InstantiateResponse;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, NftContract, QueryMsg};
@@ -148,6 +148,10 @@ pub fn instantiate(
 
             Ok(Response::default()
                 .add_attribute("method", "instantiate")
+                .set_data(to_binary(&AnyContractInfo {
+                    addr: env.contract.address,
+                    code_hash: env.contract.code_hash,
+                })?)
                 .add_attribute("nft_contract", address))
         }
         NftContract::New {
@@ -195,6 +199,10 @@ pub fn instantiate(
 
             Ok(Response::default()
                 .add_attribute("method", "instantiate")
+                .set_data(to_binary(&AnyContractInfo {
+                    addr: env.contract.address,
+                    code_hash: env.contract.code_hash,
+                })?)
                 .add_submessage(instantiate_msg))
         }
         // This is unimplemented as submsg implementation works differently in secret network
@@ -219,6 +227,10 @@ pub fn instantiate(
                 // setup will happen in the factory.
                 Ok(Response::new()
                     .add_attribute("action", "intantiate")
+                    .set_data(to_binary(&AnyContractInfo {
+                        addr: env.contract.address,
+                        code_hash: env.contract.code_hash,
+                    })?)
                     .add_submessage(SubMsg::reply_on_success(
                         WasmMsg::Execute {
                             contract_addr,
@@ -760,11 +772,12 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             match msg.result {
                 SubMsgResult::Ok(res) => {
                     let dao = DAO.load(deps.storage)?;
-                    let nft_contract_address = parse_reply_event_for_contract_address(res.events)?;
+                    let nft_contract_info: InstantiateResponse =
+                        from_binary(&res.data.unwrap_or_default())?;
 
                     // Save NFT contract to config
                     let mut config = CONFIG.load(deps.storage)?;
-                    config.nft_address = deps.api.addr_validate(&nft_contract_address.clone())?;
+                    config.nft_address = nft_contract_info.contract_address.clone();
                     CONFIG.save(deps.storage, &config)?;
 
                     let initial_nfts = INITIAL_NFTS.load(deps.storage)?;
@@ -774,7 +787,10 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                         .iter()
                         .flat_map(|nft| -> Result<SubMsg, ContractError> {
                             Ok(SubMsg::new(WasmMsg::Execute {
-                                contract_addr: nft_contract_address.clone(),
+                                contract_addr: nft_contract_info
+                                    .contract_address
+                                    .clone()
+                                    .to_string(),
                                 funds: vec![],
                                 msg: nft.clone(),
                                 code_hash: config.nft_code_hash.clone(),
@@ -794,14 +810,14 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     submessages.push(SubMsg::reply_on_success(
                         exec_msg.to_cosmos_msg(
                             config.nft_code_hash.clone(),
-                            nft_contract_address.clone(),
+                            nft_contract_info.contract_address.clone().to_string(),
                             None,
                         )?,
                         VALIDATE_SUPPLY_REPLY_ID,
                     ));
 
                     Ok(Response::default()
-                        .add_attribute("nft_contract", nft_contract_address.clone())
+                        .add_attribute("nft_contract", nft_contract_info.contract_address)
                         .add_submessages(submessages))
                 }
                 SubMsgResult::Err(_) => Err(ContractError::NftInstantiateError {}),
