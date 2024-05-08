@@ -34,7 +34,7 @@ where
     pub fn instantiate(
         &self,
         deps: DepsMut,
-        _env: Env,
+        env: Env,
         info: MessageInfo,
         msg: InstantiateMsg<InstantiateExt>,
     ) -> Result<Response, PreProposeError> {
@@ -87,6 +87,10 @@ where
                 "open_proposal_submission",
                 config.open_proposal_submission.to_string(),
             )
+            .set_data(to_binary(&AnyContractInfo {
+                addr: env.contract.address,
+                code_hash: env.contract.code_hash,
+            })?)
             .add_attribute("dao", dao_info.addr.to_string()))
     }
 

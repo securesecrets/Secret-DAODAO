@@ -4,7 +4,7 @@ use secret_cw2::ContractVersion;
 use secret_utils::Expiration;
 use serde::{Deserialize, Serialize};
 
-use crate::state::{Config, ProposalModule, VotingModuleInfo};
+use crate::state::{Config, ProposalModule};
 
 /// Relevant state for the governance module. Returned by the
 /// `DumpState` query.
@@ -22,8 +22,10 @@ pub struct DumpStateResponse {
     /// The governance modules associated with the governance
     /// contract.
     pub proposal_modules: Vec<ProposalModule>,
-    /// The voting module associated with the governance contract.
-    pub voting_module: VotingModuleInfo,
+    /// The voting module address associated with the governance contract.
+    pub voting_module_address: Addr,
+    /// The voting module code hash associated with the governance contract.
+    pub voting_module_code_hash: String,
     /// The number of active proposal modules.
     pub active_proposal_module_count: u32,
     /// The total number of proposal modules.

@@ -73,36 +73,6 @@ pub struct Snip20ReceiveMsg {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
-pub enum Snip721ReceiveMsg {
-    /// ReceiveNft may be a HandleMsg variant of any contract that wants to implement a receiver
-    /// interface.  BatchReceiveNft, which is more informative and more efficient, is preferred over
-    /// ReceiveNft.  Please read above regarding why ReceiveNft, which follows CW-721 standard has an
-    /// inaccurately named `sender` field
-    ReceiveNft {
-        /// previous owner of sent token
-        sender: Addr,
-        /// token that was sent
-        token_id: String,
-        /// optional message to control receiving logic
-        msg: Option<Binary>,
-    },
-    /// BatchReceiveNft may be a HandleMsg variant of any contract that wants to implement a receiver
-    /// interface.  BatchReceiveNft, which is more informative and more efficient, is preferred over
-    /// ReceiveNft.
-    BatchReceiveNft {
-        /// address that sent the tokens.  There is no ReceiveNft field equivalent to this
-        sender: Addr,
-        /// previous owner of sent tokens.  This is equivalent to the ReceiveNft `sender` field
-        from: Addr,
-        /// tokens that were sent
-        token_ids: Vec<String>,
-        /// optional message to control receiving logic
-        msg: Option<Binary>,
-    },
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     /// Callable by the Admin, if one is configured.
     /// Executes messages in order.
@@ -120,7 +90,14 @@ pub enum ExecuteMsg {
     /// Executed when the contract receives a cw721 token. Depending
     /// on the contract's configuration the contract will
     /// automatically add the token to its treasury.
-    ReceiveNft(Snip721ReceiveMsg),
+    ReceiveNft {
+        /// previous owner of sent token
+        sender: Addr,
+        /// token that was sent
+        token_id: String,
+        /// optional message to control receiving logic
+        msg: Option<Binary>,
+    },
     /// Removes an item from the governance contract's item map.
     RemoveItem { key: String },
     /// Adds an item to the governance contract's item map. If the

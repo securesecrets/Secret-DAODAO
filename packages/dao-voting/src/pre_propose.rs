@@ -49,12 +49,8 @@ impl PreProposeInfo {
         Ok(match self {
             Self::AnyoneMayPropose {} => (ProposalCreationPolicy::Anyone {}, vec![]),
             Self::ModuleMayPropose { info } => {
-                let reply_id = reply_id.add_event(
-                    store,
-                    ReplyEvent::PreProposalModuleInstantiate {
-                        code_hash: info.clone().code_hash,
-                    },
-                );
+                let reply_id =
+                    reply_id.add_event(store, ReplyEvent::PreProposalModuleInstantiate {});
                 (
                     // Anyone can propose will be set until instantiation succeeds, then
                     // `ModuleMayPropose` will be set. This ensures that we fail open

@@ -19,10 +19,10 @@ pub enum ReplyError {
 
 #[cw_serde]
 pub enum ReplyEvent {
-    VotingModuleInstantiate { code_hash: String },
-    ProposalModuleInstantiate { code_hash: String },
-    PreProposalModuleInstantiate { code_hash: String },
-    Snip20ModuleInstantiate { code_hash: String },
+    VotingModuleInstantiate {},
+    ProposalModuleInstantiate {},
+    PreProposalModuleInstantiate {},
+    Snip20ModuleInstantiate {},
     Snip20ModuleCreateViewingKey {},
     FailedPreProposeModuleHook {},
     FailedVoteHook { idx: u64 },

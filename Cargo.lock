@@ -603,6 +603,7 @@ dependencies = [
  "cw-denom",
  "cw-ownable",
  "cw-vesting",
+ "dao-interface",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
  "secret-cw2",
@@ -652,6 +653,7 @@ name = "cw-token-swap"
 version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
+ "dao-interface",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
  "secret-cw2",
@@ -701,6 +703,7 @@ dependencies = [
  "cw-paginate-storage 2.4.0",
  "cw-stake-tracker",
  "cw-wormhole",
+ "dao-interface",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
  "secret-cw2",
@@ -2600,6 +2603,7 @@ version = "1.0.0"
 dependencies = [
  "base64 0.21.5",
  "cosmwasm-schema 1.1.11",
+ "dao-interface",
  "getrandom",
  "rand",
  "schemars 0.8.16",
@@ -2624,6 +2628,7 @@ dependencies = [
  "cw-utils 0.13.4",
  "cw20-stake",
  "dao-hooks",
+ "dao-interface",
  "dao-voting 2.4.0",
  "hex",
  "query_auth 0.1.0",
@@ -2654,6 +2659,7 @@ dependencies = [
  "cw-ownable",
  "cw20 0.13.4",
  "dao-hooks",
+ "dao-interface",
  "query_auth 0.1.0",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
@@ -2678,6 +2684,7 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-ownable",
+ "dao-interface",
  "query_auth 0.1.0",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
@@ -2729,6 +2736,7 @@ dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-ownable",
  "cw4",
+ "dao-interface",
  "dao-snip721-extensions",
  "dao-voting-snip721-staked",
  "schemars 0.8.16",
