@@ -2,13 +2,13 @@ use crate::proposal::MultipleChoiceProposal;
 use cosmwasm_std::{Addr, Uint128};
 use cw_hooks::Hooks;
 use dao_interface::state::AnyContractInfo;
+use dao_interface::ReplyIds;
 use dao_voting::{
     multiple_choice::{MultipleChoiceVote, VotingStrategy},
     pre_propose::ProposalCreationPolicy,
     veto::VetoConfig,
 };
 use schemars::JsonSchema;
-use secret_cw_controllers::ReplyIds;
 use secret_storage_plus::Item;
 use secret_toolkit::{serialization::Json, storage::Keymap};
 use secret_utils::Duration;

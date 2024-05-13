@@ -3,8 +3,8 @@
 
 use cosmwasm_std::{Addr, Empty, StdResult, Storage, SubMsg};
 use dao_interface::state::ModuleInstantiateInfo;
+use dao_interface::{ReplyEvent, ReplyIds};
 use schemars::JsonSchema;
-use secret_cw_controllers::{ReplyEvent, ReplyIds};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

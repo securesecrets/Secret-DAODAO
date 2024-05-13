@@ -4,6 +4,7 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply,
     Response, StdError, StdResult, SubMsg, SubMsgResult,
 };
+use dao_interface::ReplyEvent;
 use dao_interface::{
     msg::{ExecuteMsg, InitialItem, InstantiateMsg, MigrateMsg, QueryMsg, Snip20ReceiveMsg},
     query::{
@@ -17,9 +18,8 @@ use dao_interface::{
     voting,
 };
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
-use secret_cw_controllers::ReplyEvent;
 use secret_toolkit::{serialization::Json, storage::Keymap, utils::HandleCallback};
-use secret_utils::{parse_reply_event_for_contract_address, Duration};
+use secret_utils::Duration;
 use shade_protocol::basic_staking::Auth;
 use snip20_reference_impl::msg::ExecuteAnswer;
 
@@ -563,8 +563,12 @@ pub fn execute_receive_snip20(
                 entropy: "entropy".to_string(),
                 padding: None,
             };
-            let reply_id =
-                REPLY_IDS.add_event(deps.storage, ReplyEvent::Snip20ModuleCreateViewingKey {})?;
+            let reply_id = REPLY_IDS.add_event(
+                deps.storage,
+                ReplyEvent::Snip20ModuleCreateViewingKey {
+                    contract_address: sender.clone().to_string(),
+                },
+            )?;
             let submsg = SubMsg::reply_always(
                 gen_viewing_key_msg.to_cosmos_msg(
                     snip20_code_hash.clone(),
@@ -1099,23 +1103,20 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     .add_messages(callback_msgs))
             }
         },
-        ReplyEvent::Snip20ModuleCreateViewingKey {} => {
-            match msg.result {
-                SubMsgResult::Ok(res) => {
-                    let addr = parse_reply_event_for_contract_address(res.events)?;
-                    let token_addr = deps.api.addr_validate(&addr)?;
-                    let data: snip20_reference_impl::msg::ExecuteAnswer =
-                        from_binary(&res.data.unwrap())?;
-                    let mut viewing_key = String::new();
-                    if let ExecuteAnswer::CreateViewingKey { key } = data {
-                        viewing_key = key;
-                    }
-                    TOKEN_VIEWING_KEY.insert(deps.storage, &token_addr, &viewing_key)?;
-                    Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
+        ReplyEvent::Snip20ModuleCreateViewingKey { contract_address } => match msg.result {
+            SubMsgResult::Ok(res) => {
+                let token_addr = deps.api.addr_validate(&contract_address)?;
+                let data: snip20_reference_impl::msg::ExecuteAnswer =
+                    from_binary(&res.data.unwrap())?;
+                let mut viewing_key = String::new();
+                if let ExecuteAnswer::CreateViewingKey { key } = data {
+                    viewing_key = key;
                 }
-                SubMsgResult::Err(_) => Err(ContractError::TokenExecuteError {}),
+                TOKEN_VIEWING_KEY.insert(deps.storage, &token_addr, &viewing_key)?;
+                Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
             }
-        }
+            SubMsgResult::Err(_) => Err(ContractError::TokenExecuteError {}),
+        },
         _ => Err(ContractError::UnknownReplyID {}),
     }
 }

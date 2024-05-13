@@ -6,9 +6,9 @@ use cosmwasm_std::{
 };
 
 use dao_interface::state::AnyContractInfo;
+use dao_interface::ReplyEvent;
 use dao_voting::voting::{get_total_power, get_voting_power};
 use secret_cw2::set_contract_version;
-use secret_cw_controllers::ReplyEvent;
 use shade_protocol::basic_staking::Auth;
 
 use crate::config::UncheckedConfig;

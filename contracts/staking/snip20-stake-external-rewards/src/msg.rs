@@ -43,6 +43,10 @@ pub enum ExecuteMsg {
     Receive(Snip20ReceiveMsg),
     Fund { auth: Auth },
     UpdateRewardDuration { new_duration: u64 },
+    // User viewing key for snip20 token.
+    // user need to create viewing key for snip20 token in token
+    // contract and set that viewing key here for further use
+    // like checking user token balance etc.
     SetViewingKey { key: String },
 }
 

@@ -1,6 +1,6 @@
 use cosmwasm_std::StdError;
+use dao_interface::ReplyError;
 use dao_voting::{error::VotingError, reply::error::TagError, threshold::ThresholdError};
-use secret_cw_controllers::ReplyError;
 use secret_utils::ParseReplyError;
 use thiserror::Error;
 

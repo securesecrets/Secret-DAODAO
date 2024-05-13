@@ -12,6 +12,7 @@ members = [
   "./contracts/external/cw-token-swap/",
   "./contracts/external/dao-migrator/",
   "./contracts/external/cw-payroll-factory/",
+  "./contracts/external/cw4-group/",
   "./contracts/proposal/*",
   "./contracts/pre-propose/*",
   "./contracts/staking/*",
@@ -46,7 +47,7 @@ cosm-orc = { version = "4.0",default-features = false }
 cosm-tome = {version = "0.2",default-features = false}
 cw3 = {version = "1.1",default-features = false}
 cw4 = { path = "./packages/cw4-1.1.2/" ,default-features = false}
-cw4-group = { path = "./packages/cw4-group-1.1.2/" ,default-features = false}
+cw4-group = { path = "./contracts/external/cw4-group/" ,default-features = false}
 env_logger = {version = "0.10",default-features = false}
 once_cell = {version = "1.18",default-features = false}
 
@@ -126,11 +127,11 @@ secret-toolkit = { version = "0.10.0", default-features = false, features = [
   "snip721",
 ] }
 
-secret-utils = { path = "./packages/utils/",default-features = false }
 secret-cw-controllers = { path = "./packages/controllers/",default-features = false }
-secret-storage-plus = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4" }
-secret-multi-test = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4" }
-secret-cw2 = { git = "https://github.com/securesecrets/secret-plus-utils" }
+secret-storage-plus = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4", branch = "main"}
+secret-multi-test = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4", branch = "main"}
+secret-utils = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4", branch = "main" }
+secret-cw2 = { git = "https://github.com/securesecrets/secret-plus-utils", version = "1.0.1", branch = "main"}
 
 cosmwasm-std = { package = "secret-cosmwasm-std", version = "1.1.11", features = [
   "stargate",

@@ -14,6 +14,7 @@ use dao_hooks::proposal::{
 use dao_hooks::vote::new_vote_hooks;
 use dao_interface::state::{AnyContractInfo, VotingModuleInfo};
 use dao_interface::voting::IsActiveResponse;
+use dao_interface::ReplyEvent;
 use dao_voting::veto::{VetoConfig, VetoError};
 use dao_voting::{
     multiple_choice::{
@@ -25,7 +26,6 @@ use dao_voting::{
     voting::{get_total_power, get_voting_power, validate_voting_period},
 };
 use secret_cw2::set_contract_version;
-use secret_cw_controllers::ReplyEvent;
 use secret_toolkit::utils::HandleCallback;
 use secret_utils::Duration;
 use shade_protocol::basic_staking::{Auth, AuthPermit};

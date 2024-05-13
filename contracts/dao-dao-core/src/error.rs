@@ -1,5 +1,5 @@
 use cosmwasm_std::{Addr, StdError};
-use secret_cw_controllers::ReplyError;
+use dao_interface::ReplyError;
 use secret_utils::ParseReplyError;
 use thiserror::Error;
 

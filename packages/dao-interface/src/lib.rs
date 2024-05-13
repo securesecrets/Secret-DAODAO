@@ -5,6 +5,9 @@ pub mod msg;
 pub mod nft;
 pub mod proposal;
 pub mod query;
+pub mod replies;
 pub mod state;
 // pub mod token;
 pub mod voting;
+
+pub use replies::{ReplyError, ReplyEvent, ReplyIds};

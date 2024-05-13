@@ -19,6 +19,8 @@ secret-utils = { workspace = true }
 serde ={ workspace = true }
 schemars = {workspace = true}
 shade-protocol ={ workspace = true }
+thiserror = { workspace = true }
+
 
 [dev-dependencies]
 cosmwasm-schema = { workspace = true }

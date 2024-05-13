@@ -1,9 +1,9 @@
 use cosmwasm_std::{Addr, Empty};
+use dao_interface::ReplyIds;
 use dao_interface::{
     query::SubDao,
     state::{Config, ProposalModule, VotingModuleInfo},
 };
-use secret_cw_controllers::ReplyIds;
 use secret_storage_plus::Item;
 use secret_toolkit::{serialization::Json, storage::Keymap};
 use secret_utils::Expiration;

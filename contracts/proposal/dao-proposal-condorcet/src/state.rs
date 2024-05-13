@@ -1,6 +1,6 @@
 use cosmwasm_std::{Addr, StdResult, Storage};
 use dao_interface::state::AnyContractInfo;
-use secret_cw_controllers::ReplyIds;
+use dao_interface::ReplyIds;
 use secret_storage_plus::Item;
 use secret_toolkit::{serialization::Json, storage::Keymap};
 

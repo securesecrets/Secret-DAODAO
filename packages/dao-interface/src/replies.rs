@@ -23,7 +23,7 @@ pub enum ReplyEvent {
     ProposalModuleInstantiate {},
     PreProposalModuleInstantiate {},
     Snip20ModuleInstantiate {},
-    Snip20ModuleCreateViewingKey {},
+    Snip20ModuleCreateViewingKey { contract_address: String },
     FailedPreProposeModuleHook {},
     FailedVoteHook { idx: u64 },
     FailedProposalHook { idx: u64 },

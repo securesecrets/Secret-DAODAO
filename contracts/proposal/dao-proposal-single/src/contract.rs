@@ -14,6 +14,7 @@ use dao_hooks::proposal::{
 use dao_hooks::vote::new_vote_hooks;
 use dao_interface::state::{AnyContractInfo, VotingModuleInfo};
 use dao_interface::voting::IsActiveResponse;
+use dao_interface::ReplyEvent;
 use dao_voting::pre_propose::{PreProposeInfo, ProposalCreationPolicy};
 use dao_voting::proposal::{
     SingleChoiceProposeMsg as ProposeMsg, DEFAULT_LIMIT, MAX_PROPOSAL_SIZE,
@@ -23,7 +24,6 @@ use dao_voting::threshold::Threshold;
 use dao_voting::veto::{VetoConfig, VetoError};
 use dao_voting::voting::{get_total_power, get_voting_power, validate_voting_period, Vote, Votes};
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
-use secret_cw_controllers::ReplyEvent;
 use secret_toolkit::utils::HandleCallback;
 use secret_utils::Duration;
 use shade_protocol::basic_staking::{Auth, AuthPermit};

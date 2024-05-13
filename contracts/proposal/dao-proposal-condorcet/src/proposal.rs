@@ -1,7 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, BlockInfo, StdResult, Storage, SubMsg, Uint128};
+use dao_interface::ReplyEvent;
 use dao_voting::{threshold::PercentageThreshold, voting::does_vote_count_pass};
-use secret_cw_controllers::ReplyEvent;
 use secret_toolkit::utils::HandleCallback;
 use secret_utils::Expiration;
 
