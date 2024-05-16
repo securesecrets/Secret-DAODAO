@@ -37,6 +37,7 @@ schemars = { workspace = true }
 serde = { workspace = true }
 secret-toolkit = { workspace = true }
 thiserror = { workspace = true }
+dao-interface ={ workspace = true }
 shade-protocol ={ workspace = true }
 
 [features]

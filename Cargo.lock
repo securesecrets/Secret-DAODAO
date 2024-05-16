@@ -440,6 +440,7 @@ dependencies = [
  "secret-multi-test 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
  "secret-storage-plus 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
  "secret-utils 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
+ "snip20-reference-impl",
  "thiserror",
 ]
 
@@ -847,6 +848,7 @@ version = "1.1.2"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw4",
+ "dao-interface",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
  "secret-cw-controllers",

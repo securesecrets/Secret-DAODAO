@@ -25,6 +25,7 @@ secret-cw2 = { workspace = true }
 thiserror = { workspace = true }
 secret-utils = { workspace = true }
 dao-interface ={ workspace = true }
+snip20-reference-impl ={ workspace = true }
 
 [dev-dependencies]
 cosmwasm-schema = { workspace = true }

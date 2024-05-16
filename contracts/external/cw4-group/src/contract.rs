@@ -8,6 +8,7 @@ use cw4::{
     Member, MemberChangedHookMsg, MemberDiff, MemberListResponse, MemberResponse,
     TotalWeightResponse,
 };
+use dao_interface::state::AnyContractInfo;
 use secret_cw2::set_contract_version;
 use shade_protocol::basic_staking::{Auth, AuthPermit};
 use shade_protocol::query_auth::helpers::{
@@ -19,7 +20,7 @@ use shade_protocol::Contract;
 
 use crate::error::ContractError;
 use crate::helpers::validate_unique_members;
-use crate::msg::{ExecuteMsg, InstantiateMsg, InstantiateMsgResponse, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{MembersStore, TotalStore, ADMIN, HOOKS, MEMBERS_PRIMARY, OWNER, QUERY_AUTH};
 
 // version info for migration info
@@ -41,12 +42,10 @@ pub fn instantiate(
     QUERY_AUTH.save(deps.storage, &msg.query_auth.into_valid(deps.api)?)?;
     OWNER.save(deps.storage, &info.sender)?;
     create(deps, msg.admin, msg.members, env.block.height)?;
-    Ok(
-        Response::default().set_data(to_binary(&InstantiateMsgResponse {
-            address: env.contract.address.to_string(),
-            code_hash: env.contract.code_hash,
-        })?),
-    )
+    Ok(Response::default().set_data(to_binary(&AnyContractInfo {
+        addr: env.contract.address,
+        code_hash: env.contract.code_hash,
+    })?))
 }
 
 // create is the instantiation logic with set_contract_version removed so it can more

@@ -13,14 +13,6 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
-pub struct InstantiateMsgResponse {
-    /// The admin is the only account that can update the group state.
-    /// Omit it to make the group immutable.
-    pub address: String,
-    pub code_hash: String,
-}
-
-#[cw_serde]
 pub enum ExecuteMsg {
     /// Change the admin
     UpdateAdmin {
