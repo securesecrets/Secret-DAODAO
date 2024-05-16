@@ -26,6 +26,7 @@ impl InitCallback for Cw4GroupInstantiateMsg {
 
 #[cw_serde]
 #[derive(QueryResponses)]
+#[allow(clippy::large_enum_variant)]
 pub enum Cw4GroupQueryMsg {
     #[returns(cw4::TotalWeightResponse)]
     TotalWeight { at_height: Option<u64> },

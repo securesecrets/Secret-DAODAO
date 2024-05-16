@@ -32,14 +32,6 @@ pub struct InstantiateMsg {
     pub description: String,
     /// An image URL to describe the core module contract.
     pub image_url: Option<String>,
-
-    /// If true the contract will automatically add received snip20
-    /// tokens to its treasury.
-    pub automatically_add_snip20s: bool,
-    /// If true the contract will automatically add received snip721
-    /// tokens to its treasury.
-    pub automatically_add_snip721s: bool,
-
     /// Instantiate information for the core contract's voting
     /// power module.
     pub voting_module_instantiate_info: ModuleInstantiateInfo,
@@ -165,6 +157,7 @@ impl HandleCallback for ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 #[derive(QueryResponses)]
+#[allow(clippy::large_enum_variant)]
 pub enum QueryMsg {
     /// Get's the DAO's admin. Returns `Addr`.
     #[returns(cosmwasm_std::Addr)]
@@ -177,7 +170,7 @@ pub enum QueryMsg {
     Config {},
     /// Gets the token balance for each cw20 registered with the
     /// contract.
-    #[returns(crate::query::Snip20BalanceResponse)]
+    #[returns(Vec<crate::query::Snip20BalanceResponse>)]
     Cw20Balances {
         start_after: Option<String>,
         limit: Option<u32>,
@@ -208,7 +201,7 @@ pub enum QueryMsg {
     /// example, given the items `{ "group": "foo", "subdao": "bar"}`
     /// this query would return `[("group", "foo"), ("subdao",
     /// "bar")]`.
-    #[returns(Vec<String>)]
+    #[returns(Vec<Vec<(String,String)>>)]
     ListItems {
         start_after: Option<String>,
         limit: Option<u32>,
@@ -238,7 +231,7 @@ pub enum QueryMsg {
     #[returns(crate::query::PauseInfoResponse)]
     PauseInfo {},
     /// Gets the contract's voting module.
-    #[returns(crate::state::AnyContractInfo)]
+    #[returns(crate::state::VotingModuleInfo)]
     VotingModule {},
     /// Returns all SubDAOs with their charters in a vec.
     /// start_after is bound exclusive and asks for a string address.

@@ -207,18 +207,12 @@ fn update_config_works() {
         proposal_single_contract_info,
     } = setup_test(DAO_ADDR);
 
-    let query_auth = instantiate_query_auth(&mut app);
-
     // update config
     update_config(
         &mut app,
         &proposal_single_contract_info.address,
         proposal_single_contract_info.code_hash,
         DAO_ADDR,
-        RawContract {
-            address: query_auth.address.to_string(),
-            code_hash: query_auth.code_hash,
-        },
     );
 }
 
@@ -229,18 +223,12 @@ fn update_config_fails_for_invalid_sender() {
         proposal_single_contract_info,
     } = setup_test(DAO_ADDR);
 
-    let query_auth = instantiate_query_auth(&mut app);
-
     // update config fails
     update_config_should_fail(
         &mut app,
         &proposal_single_contract_info.address,
         proposal_single_contract_info.code_hash,
         CREATOR_ADDR,
-        RawContract {
-            address: query_auth.address.to_string(),
-            code_hash: query_auth.code_hash,
-        },
     );
 }
 

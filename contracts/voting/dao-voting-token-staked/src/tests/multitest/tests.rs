@@ -47,13 +47,11 @@ fn create_viewing_key(app: &mut App, contract_info: ContractInfo, info: MessageI
     let mut viewing_key = String::new();
     let data: shade_protocol::contract_interfaces::query_auth::ExecuteAnswer =
         from_binary(&res.data.unwrap()).unwrap();
-    match data {
-        shade_protocol::contract_interfaces::query_auth::ExecuteAnswer::CreateViewingKey {
-            key,
-        } => {
-            viewing_key = key;
-        }
-        _ => (),
+    if let shade_protocol::contract_interfaces::query_auth::ExecuteAnswer::CreateViewingKey {
+        key,
+    } = data
+    {
+        viewing_key = key;
     };
     viewing_key
 }
@@ -210,15 +208,11 @@ fn update_config(
     staking_info: ContractInfo,
     sender: &str,
     duration: Option<Duration>,
-    query_auth: RawContract,
 ) -> anyhow::Result<AppResponse> {
     app.execute_contract(
         Addr::unchecked(sender),
         &staking_info,
-        &ExecuteMsg::UpdateConfig {
-            duration,
-            query_auth,
-        },
+        &ExecuteMsg::UpdateConfig { duration },
         &[],
     )
 }
@@ -786,14 +780,7 @@ fn test_update_config_invalid_sender() {
     );
 
     // From ADDR2, so not owner or manager
-    update_config(
-        &mut app,
-        staking_info,
-        ADDR2,
-        Some(Duration::Height(10)),
-        query_auth.into(),
-    )
-    .unwrap();
+    update_config(&mut app, staking_info, ADDR2, Some(Duration::Height(10))).unwrap();
 }
 
 #[test]
@@ -826,7 +813,6 @@ fn test_update_config_as_owner() {
         staking_info.clone(),
         DAO_ADDR,
         Some(Duration::Height(10)),
-        query_auth.clone().into(),
     )
     .unwrap();
 
@@ -866,14 +852,7 @@ fn test_update_config_invalid_duration() {
     );
 
     // Change duration and manager as manager cannot change owner
-    update_config(
-        &mut app,
-        staking_info,
-        DAO_ADDR,
-        Some(Duration::Height(0)),
-        query_auth.into(),
-    )
-    .unwrap();
+    update_config(&mut app, staking_info, DAO_ADDR, Some(Duration::Height(0))).unwrap();
 }
 
 #[test]

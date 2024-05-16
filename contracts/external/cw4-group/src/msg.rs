@@ -15,9 +15,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Change the admin
-    UpdateAdmin {
-        admin: Option<String>,
-    },
+    UpdateAdmin { admin: Option<String> },
     /// apply a diff to the existing members.
     /// remove is applied after add, so if an address is in both, it is removed
     UpdateMembers {
@@ -25,20 +23,14 @@ pub enum ExecuteMsg {
         add: Vec<Member>,
     },
     /// Add a new hook to be informed of all membership changes. Must be called by Admin
-    AddHook {
-        hook: HookItem,
-    },
+    AddHook { hook: HookItem },
     /// Remove a hook. Must be called by Admin
-    RemoveHook {
-        hook: HookItem,
-    },
-    UpdateQueryAuth {
-        query_auth: RawContract,
-    },
+    RemoveHook { hook: HookItem },
 }
 
 #[cw_serde]
 #[derive(QueryResponses)]
+#[allow(clippy::large_enum_variant)]
 pub enum QueryMsg {
     #[returns(secret_cw_controllers::AdminResponse)]
     Admin {},

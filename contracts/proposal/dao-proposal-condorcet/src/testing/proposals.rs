@@ -132,7 +132,7 @@ fn test_make_proposal_fails() {
     let viewing_key_sender = create_viewing_key(
         &mut app,
         query_auth,
-        mock_info(&suite.sender().to_string(), &[]),
+        mock_info(suite.sender().as_ref(), &[]),
     );
     suite
         .propose(
@@ -154,7 +154,7 @@ fn test_proposal_zero_choices() {
     let viewing_key_sender = create_viewing_key(
         &mut app,
         query_auth,
-        mock_info(&suite.sender().to_string(), &[]),
+        mock_info(suite.sender().as_ref(), &[]),
     );
     let err = suite.propose(
         suite.sender(),

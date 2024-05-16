@@ -25,8 +25,8 @@ use snip20_reference_impl::msg::ExecuteAnswer;
 
 use crate::state::{
     ACTIVE_PROPOSAL_MODULE_COUNT, ADMIN, CONFIG, ITEMS, NOMINATED_ADMIN, PAUSED, PROPOSAL_MODULES,
-    REPLY_IDS, SNIP20_CODE_HASH, SNIP20_LIST, SNIP721_CODE_HASH, SNIP721_LIST, SUBDAO_LIST,
-    TOKEN_VIEWING_KEY, TOTAL_PROPOSAL_MODULE_COUNT, VOTING_MODULE,
+    REPLY_IDS, SNIP20_LIST, SNIP721_LIST, SUBDAO_LIST, TOKEN_VIEWING_KEY,
+    TOTAL_PROPOSAL_MODULE_COUNT, VOTING_MODULE,
 };
 use crate::{error::ContractError, snip20_msg};
 
@@ -45,8 +45,8 @@ pub fn instantiate(
         name: msg.clone().name,
         description: msg.clone().description,
         image_url: msg.clone().image_url,
-        automatically_add_snip20s: msg.clone().automatically_add_snip20s,
-        automatically_add_snip721s: msg.clone().automatically_add_snip721s,
+        snip20_code_hash: msg.clone().snip20_code_hash,
+        snip721_code_hash: msg.clone().snip721_code_hash,
         dao_uri: msg.clone().dao_uri,
     };
     CONFIG.save(deps.storage, &config)?;
@@ -96,9 +96,6 @@ pub fn instantiate(
 
     TOTAL_PROPOSAL_MODULE_COUNT.save(deps.storage, &0)?;
     ACTIVE_PROPOSAL_MODULE_COUNT.save(deps.storage, &0)?;
-
-    SNIP20_CODE_HASH.save(deps.storage, &msg.snip20_code_hash)?;
-    SNIP721_CODE_HASH.save(deps.storage, &msg.snip721_code_hash)?;
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
@@ -444,7 +441,7 @@ pub fn execute_update_snip20_list(
         let viewing_key = TOKEN_VIEWING_KEY
             .get(deps.storage, addr)
             .unwrap_or_default();
-        let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
+        let snip20_code_hash = CONFIG.load(deps.storage)?.snip20_code_hash;
         let _info: secret_toolkit::snip20::query::Balance = deps.querier.query_wasm_smart(
             snip20_code_hash,
             addr,
@@ -469,7 +466,7 @@ pub fn execute_update_snip721_list(
         return Err(ContractError::Unauthorized {});
     }
     do_update_addr_list(deps, &SNIP721_LIST, to_add, to_remove, |addr, deps| {
-        let snip721_code_hash = SNIP721_CODE_HASH.load(deps.storage)?;
+        let snip721_code_hash = CONFIG.load(deps.storage)?.snip721_code_hash;
         let _info: secret_toolkit::snip721::query::ContractInfo = deps.querier.query_wasm_smart(
             snip721_code_hash,
             addr,
@@ -550,57 +547,47 @@ pub fn execute_receive_snip20(
     _wrapper: Snip20ReceiveMsg,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    if !config.automatically_add_snip20s {
-        Ok(Response::new())
+    let viewing_key = TOKEN_VIEWING_KEY
+        .get(deps.storage, &sender)
+        .unwrap_or_default();
+    if viewing_key.is_empty() {
+        // Create Snip20 Token viewing key
+        let gen_viewing_key_msg = snip20_msg::Snip20ExecuteMsg::CreateViewingKey {
+            entropy: "entropy".to_string(),
+            padding: None,
+        };
+        let reply_id = REPLY_IDS.add_event(
+            deps.storage,
+            ReplyEvent::Snip20ModuleCreateViewingKey {
+                contract_address: sender.clone().to_string(),
+            },
+        )?;
+        let submsg = SubMsg::reply_always(
+            gen_viewing_key_msg.to_cosmos_msg(
+                config.snip20_code_hash.clone(),
+                sender.clone().to_string(),
+                None,
+            )?,
+            reply_id,
+        );
+        SNIP20_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
+        Ok(Response::new()
+            .add_attribute("action", "receive_snip20")
+            .add_attribute("token", sender)
+            .add_submessage(submsg))
     } else {
-        let viewing_key = TOKEN_VIEWING_KEY
-            .get(deps.storage, &sender)
-            .unwrap_or_default();
-        if viewing_key.is_empty() {
-            let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
-            // Create Snip20 Token viewing key
-            let gen_viewing_key_msg = snip20_msg::Snip20ExecuteMsg::CreateViewingKey {
-                entropy: "entropy".to_string(),
-                padding: None,
-            };
-            let reply_id = REPLY_IDS.add_event(
-                deps.storage,
-                ReplyEvent::Snip20ModuleCreateViewingKey {
-                    contract_address: sender.clone().to_string(),
-                },
-            )?;
-            let submsg = SubMsg::reply_always(
-                gen_viewing_key_msg.to_cosmos_msg(
-                    snip20_code_hash.clone(),
-                    sender.clone().to_string(),
-                    None,
-                )?,
-                reply_id,
-            );
-            SNIP20_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
-            Ok(Response::new()
-                .add_attribute("action", "receive_snip20")
-                .add_attribute("token", sender)
-                .add_submessage(submsg))
-        } else {
-            SNIP20_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
-            Ok(Response::new()
-                .add_attribute("action", "receive_snip20")
-                .add_attribute("token", sender))
-        }
+        SNIP20_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
+        Ok(Response::new()
+            .add_attribute("action", "receive_snip20")
+            .add_attribute("token", sender))
     }
 }
 
 pub fn execute_receive_snip721(deps: DepsMut, sender: Addr) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if !config.automatically_add_snip721s {
-        Ok(Response::new())
-    } else {
-        SNIP721_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
-        Ok(Response::new()
-            .add_attribute("action", "receive_cw721")
-            .add_attribute("token", sender))
-    }
+    SNIP721_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
+    Ok(Response::new()
+        .add_attribute("action", "receive_cw721")
+        .add_attribute("token", sender))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -829,7 +816,7 @@ pub fn query_list_items(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    let mut res: Vec<(String, String)> = Vec::new(); // Vector to hold key-value pairs
+    let mut res: Vec<Vec<(String, String)>> = Vec::new(); // Vector to hold key-value pairs
     let mut start = start_after.clone();
     let binding = &ITEMS;
     let iter = binding.iter(deps.storage)?;
@@ -843,7 +830,7 @@ pub fn query_list_items(
             }
         }
         if start.is_none() {
-            res.push((key.clone(), value.clone())); // Collect the key-value pair
+            res.push(vec![(key.clone(), value.clone())]); // Collect the key-value pair
             if res.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }
@@ -857,14 +844,7 @@ pub fn query_cw20_list(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    // to_binary(&paginate_map_keys(
-    //     deps,
-    //     &SNIP20_LIST,
-    //     0,
-    //     SNIP20_LIST.get_len(deps.storage).unwrap_or_default(),
-    // )?)
-
-    let mut res: Vec<String> = Vec::new();
+    let mut res: Vec<Addr> = Vec::new();
     let mut start = start_after.clone();
     let binding = &SNIP20_LIST;
     let iter = binding.iter(deps.storage)?;
@@ -877,7 +857,7 @@ pub fn query_cw20_list(
             }
         }
         if start.is_none() {
-            res.push(addr.to_string());
+            res.push(addr);
             if res.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }
@@ -891,14 +871,7 @@ pub fn query_cw721_list(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    // to_binary(&paginate_map_keys(
-    //     deps,
-    //     &SNIP721_LIST,
-    //     0,
-    //     SNIP721_LIST.get_len(deps.storage).unwrap_or_default(),
-    // )?)
-
-    let mut res: Vec<String> = Vec::new();
+    let mut res: Vec<Addr> = Vec::new();
     let mut start = start_after.clone();
     let binding = &SNIP721_LIST;
     let iter = binding.iter(deps.storage)?;
@@ -911,7 +884,7 @@ pub fn query_cw721_list(
             }
         }
         if start.is_none() {
-            res.push(addr.to_string());
+            res.push(addr);
             if res.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }
@@ -945,7 +918,7 @@ pub fn query_cw20_balances(
             }
         }
     }
-    let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
+    let snip20_code_hash = CONFIG.load(deps.storage)?.snip20_code_hash;
     let balances = res
         .into_iter()
         .map(|addr| {

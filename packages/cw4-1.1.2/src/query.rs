@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use shade_protocol::basic_staking::Auth;
 
 #[cw_serde]
-
+#[allow(clippy::large_enum_variant)]
 pub enum Cw4QueryMsg {
     /// Return AdminResponse
     Admin {},

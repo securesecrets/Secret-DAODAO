@@ -109,13 +109,6 @@ pub fn execute(
             api.addr_validate(hook.addr.as_str())?,
             hook.code_hash,
         )?),
-        ExecuteMsg::UpdateQueryAuth { query_auth } => {
-            ADMIN.assert_admin(deps.as_ref(), &info.sender)?;
-            let mut queryauth = QUERY_AUTH.load(deps.storage)?;
-            queryauth = query_auth.into_valid(deps.api)?;
-            QUERY_AUTH.save(deps.storage, &queryauth)?;
-            Ok(Response::default().add_attribute("action", "update query_auth"))
-        }
     }
 }
 

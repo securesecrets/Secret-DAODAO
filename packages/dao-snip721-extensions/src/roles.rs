@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::CustomMsg;
-use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
+use shade_protocol::basic_staking::Auth;
 
 #[cw_serde]
 pub struct MetadataExt {
@@ -14,38 +14,27 @@ pub struct MetadataExt {
 pub enum ExecuteExt {
     /// Add a new hook to be informed of all membership changes.
     /// Must be called by Admin
-    AddHook {
-        addr: String,
-        code_hash: String,
-    },
+    AddHook { addr: String, code_hash: String },
     /// Remove a hook. Must be called by Admin
-    RemoveHook {
-        addr: String,
-        code_hash: String,
-    },
+    RemoveHook { addr: String, code_hash: String },
     /// Update the token_uri for a particular NFT. Must be called by minter / admin
     UpdateTokenUri {
         token_id: String,
         token_uri: Option<String>,
     },
     /// Updates the voting weight of a token. Must be called by minter / admin
-    UpdateTokenWeight {
-        token_id: String,
-        weight: u64,
-    },
+    UpdateTokenWeight { token_id: String, weight: u64 },
     /// Udates the role of a token. Must be called by minter / admin
     UpdateTokenRole {
         token_id: String,
         role: Option<String>,
-    },
-    UpdateQueryAuth {
-        query_auth: RawContract,
     },
 }
 impl CustomMsg for ExecuteExt {}
 
 #[cw_serde]
 #[derive(QueryResponses)]
+#[allow(clippy::large_enum_variant)]
 pub enum QueryExt {
     /// Total weight at a given height
     #[returns(cw4::TotalWeightResponse)]

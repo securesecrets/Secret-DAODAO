@@ -34,7 +34,6 @@ use secret_utils::{must_pay, Duration};
 use shade_protocol::{
     basic_staking::{Auth, AuthPermit},
     query_auth::helpers::{authenticate_permit, authenticate_vk, PermitAuthentication},
-    utils::asset::RawContract,
     Contract,
 };
 
@@ -190,10 +189,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::Stake {} => execute_stake(deps, env, info),
         ExecuteMsg::Unstake { amount } => execute_unstake(deps, env, info, amount),
-        ExecuteMsg::UpdateConfig {
-            duration,
-            query_auth,
-        } => execute_update_config(deps, info, duration, query_auth),
+        ExecuteMsg::UpdateConfig { duration } => execute_update_config(deps, info, duration),
         ExecuteMsg::Claim {} => execute_claim(deps, env, info),
         ExecuteMsg::UpdateActiveThreshold { new_threshold } => {
             execute_update_active_threshold(deps, env, info, new_threshold)
@@ -333,7 +329,6 @@ pub fn execute_update_config(
     deps: DepsMut,
     info: MessageInfo,
     duration: Option<Duration>,
-    query_auth: RawContract,
 ) -> Result<Response, ContractError> {
     let mut config: Config = CONFIG.load(deps.storage)?;
 
@@ -346,7 +341,6 @@ pub fn execute_update_config(
     validate_duration(duration)?;
 
     config.unstaking_duration = duration;
-    config.query_auth = query_auth.into_valid(deps.api)?;
 
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::new().add_attribute("action", "update_config"))

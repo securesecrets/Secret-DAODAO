@@ -12,12 +12,10 @@ pub struct Config {
     pub description: String,
     /// An optional image URL for displaying alongside the contract.
     pub image_url: Option<String>,
-    /// If true the contract will automatically add received cw20
-    /// tokens to its treasury.
-    pub automatically_add_snip20s: bool,
-    /// If true the contract will automatically add received cw721
-    /// tokens to its treasury.
-    pub automatically_add_snip721s: bool,
+    /// Code hash snip20 token contract
+    pub snip20_code_hash: String,
+    /// Code hash snip721 nft contract
+    pub snip721_code_hash: String,
     /// The URI for the DAO as defined by the DAOstar standard
     /// <https://daostar.one/EIP>
     pub dao_uri: Option<String>,

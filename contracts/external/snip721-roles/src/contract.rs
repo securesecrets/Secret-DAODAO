@@ -48,7 +48,7 @@ pub fn instantiate(
     // Initialize total weight to zero
     TotalStore::save(deps.storage, env.block.height, 0)?;
 
-    cw_ownable::initialize_owner(deps.storage, deps.api, Some(&info.sender.to_string()))?;
+    cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_ref()))?;
 
     secret_cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
@@ -119,16 +119,6 @@ pub fn execute(
             } => execute_update_token_uri(deps, env, info, token_id, token_uri),
             ExecuteExt::UpdateTokenWeight { token_id, weight } => {
                 execute_update_token_weight(deps, env, info, token_id, weight)
-            }
-            ExecuteExt::UpdateQueryAuth { query_auth } => {
-                let mut query_auth_res = Snip721roles::default().query_auth.load(deps.storage)?;
-                let from_raw_query_auth = query_auth.into_valid(deps.api)?;
-                query_auth_res.address = from_raw_query_auth.address;
-                query_auth_res.code_hash = from_raw_query_auth.code_hash;
-                Snip721roles::default()
-                    .query_auth
-                    .save(deps.storage, &query_auth_res)?;
-                Ok(Response::default())
             }
         },
         ExecuteMsg::TransferNft {

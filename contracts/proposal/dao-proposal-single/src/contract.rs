@@ -30,7 +30,6 @@ use shade_protocol::basic_staking::{Auth, AuthPermit};
 use shade_protocol::query_auth::helpers::{
     authenticate_permit, authenticate_vk, PermitAuthentication,
 };
-use shade_protocol::utils::asset::RawContract;
 use shade_protocol::Contract;
 // use crate::msg::MigrateMsg;
 use crate::proposal::{next_proposal_id, SingleChoiceProposal};
@@ -144,11 +143,8 @@ pub fn execute(
             min_voting_period,
             only_members_execute,
             allow_revoting,
-            dao,
-            code_hash,
             close_proposal_on_execution_failure,
             veto,
-            query_auth,
         } => execute_update_config(
             deps,
             info,
@@ -157,11 +153,8 @@ pub fn execute(
             min_voting_period,
             only_members_execute,
             allow_revoting,
-            dao,
-            code_hash,
             close_proposal_on_execution_failure,
             veto,
-            query_auth,
         ),
         ExecuteMsg::UpdatePreProposeInfo { info: new_info } => {
             execute_update_proposal_creation_policy(deps, info, new_info)
@@ -179,6 +172,9 @@ pub fn execute(
             execute_remove_vote_hook(deps, env, info, address, code_hash)
         }
         ExecuteMsg::Veto { proposal_id } => execute_veto(deps, env, info, proposal_id),
+        ExecuteMsg::UpdateDaoInfo { address, code_hash } => {
+            execute_update_dao_info(deps, info, address, code_hash)
+        }
     }
 }
 
@@ -693,20 +689,16 @@ pub fn execute_update_config(
     min_voting_period: Option<Duration>,
     only_members_execute: bool,
     allow_revoting: bool,
-    dao: String,
-    code_hash: String,
     close_proposal_on_execution_failure: bool,
     veto: Option<VetoConfig>,
-    query_auth: RawContract,
 ) -> Result<Response, ContractError> {
-    let mut dao_info = DAO.load(deps.storage)?;
+    let mut config = CONFIG.load(deps.storage)?;
 
     // Only the DAO may call this method.
-    if info.sender != dao_info.addr {
+    if info.sender != DAO.load(deps.storage)?.addr {
         return Err(ContractError::Unauthorized {});
     }
     threshold.validate()?;
-    let dao = deps.api.addr_validate(&dao)?;
 
     let (min_voting_period, max_voting_period) =
         validate_voting_period(min_voting_period, max_voting_period)?;
@@ -715,24 +707,15 @@ pub fn execute_update_config(
     if let Some(veto_config) = &veto {
         veto_config.validate(&deps.as_ref(), &max_voting_period)?;
     };
+    config.threshold = threshold;
+    config.max_voting_period = max_voting_period;
+    config.min_voting_period = min_voting_period;
+    config.only_members_execute = only_members_execute;
+    config.allow_revoting = allow_revoting;
+    config.close_proposal_on_execution_failure = close_proposal_on_execution_failure;
+    config.veto = veto;
 
-    CONFIG.save(
-        deps.storage,
-        &Config {
-            threshold,
-            max_voting_period,
-            min_voting_period,
-            only_members_execute,
-            allow_revoting,
-            close_proposal_on_execution_failure,
-            veto,
-            query_auth: query_auth.into_valid(deps.api)?,
-        },
-    )?;
-    dao_info.addr = dao;
-    dao_info.code_hash = code_hash;
-
-    DAO.save(deps.storage, &dao_info)?;
+    CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::default()
         .add_attribute("action", "update_config")
@@ -887,6 +870,29 @@ pub fn execute_remove_vote_hook(
     Ok(Response::default()
         .add_attribute("action", "remove_vote_hook")
         .add_attribute("address", address))
+}
+
+pub fn execute_update_dao_info(
+    deps: DepsMut,
+    info: MessageInfo,
+    address: Addr,
+    code_hash: String,
+) -> Result<Response, ContractError> {
+    let mut dao_info = DAO.load(deps.storage)?;
+
+    // Only the DAO may call this method.
+    if info.sender != dao_info.addr {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    dao_info.addr = address;
+    dao_info.code_hash = code_hash;
+
+    DAO.save(deps.storage, &dao_info)?;
+
+    Ok(Response::default()
+        .add_attribute("action", "update_dao_info")
+        .add_attribute("sender", info.sender))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

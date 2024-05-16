@@ -8,7 +8,6 @@ use secret_multi_test::{next_block, App, AppResponse, Contract, ContractWrapper,
 use secret_utils::Duration;
 use secret_utils::Expiration::AtHeight;
 use shade_protocol::basic_staking::Auth;
-use shade_protocol::utils::asset::RawContract;
 use snip20_reference_impl::msg::InitialBalance;
 use std::borrow::BorrowMut;
 
@@ -67,13 +66,11 @@ fn create_viewing_key(app: &mut App, contract_info: ContractInfo, info: MessageI
     let mut viewing_key = String::new();
     let data: shade_protocol::contract_interfaces::query_auth::ExecuteAnswer =
         from_binary(&res.data.unwrap()).unwrap();
-    match data {
-        shade_protocol::contract_interfaces::query_auth::ExecuteAnswer::CreateViewingKey {
-            key,
-        } => {
-            viewing_key = key;
-        }
-        _ => (),
+    if let shade_protocol::contract_interfaces::query_auth::ExecuteAnswer::CreateViewingKey {
+        key,
+    } = data
+    {
+        viewing_key = key;
     };
     viewing_key
 }
@@ -270,12 +267,8 @@ fn update_config(
     staking_code_hash: String,
     info: MessageInfo,
     duration: Option<Duration>,
-    query_auth: RawContract,
 ) -> AnyResult<AppResponse> {
-    let msg = ExecuteMsg::UpdateConfig {
-        duration,
-        query_auth,
-    };
+    let msg = ExecuteMsg::UpdateConfig { duration };
     app.execute_contract(
         info.sender,
         &ContractInfo {
@@ -363,7 +356,7 @@ fn test_update_config() {
         address: ADDR1.to_string(),
         amount: amount1,
     }];
-    let (staking_info, _snip20_info, query_auth_info) =
+    let (staking_info, _snip20_info, _query_auth_info) =
         setup_test_case(&mut app, initial_balances, None);
 
     // Owner can update configuration.
@@ -374,15 +367,11 @@ fn test_update_config() {
         staking_info.code_hash.clone(),
         info,
         Some(Duration::Height(1234)),
-        RawContract {
-            address: query_auth_info.address.to_string().clone(),
-            code_hash: query_auth_info.code_hash.clone(),
-        },
     )
     .unwrap();
     let config = query_config(
         &app,
-        &staking_info.address.clone(),
+        staking_info.address.clone(),
         staking_info.code_hash.clone(),
     );
     assert_eq!(config.unstaking_duration, Some(Duration::Height(1234)));
@@ -395,10 +384,6 @@ fn test_update_config() {
         staking_info.code_hash.clone(),
         info,
         None,
-        RawContract {
-            address: query_auth_info.address.to_string().clone(),
-            code_hash: query_auth_info.code_hash.clone(),
-        },
     )
     .unwrap_err()
     .downcast()
@@ -413,10 +398,6 @@ fn test_update_config() {
         staking_info.code_hash.clone(),
         info,
         Some(Duration::Height(0)),
-        RawContract {
-            address: query_auth_info.address.to_string().clone(),
-            code_hash: query_auth_info.code_hash.clone(),
-        },
     )
     .unwrap_err()
     .downcast()
@@ -433,10 +414,6 @@ fn test_update_config() {
         staking_info.code_hash.clone(),
         info,
         Some(Duration::Time(0)),
-        RawContract {
-            address: query_auth_info.address.to_string().clone(),
-            code_hash: query_auth_info.code_hash,
-        },
     )
     .unwrap_err()
     .downcast()
@@ -496,7 +473,7 @@ fn test_staking() {
     assert_eq!(
         query_total_staked(
             &app,
-            &staking_info.address.clone(),
+            staking_info.address.clone(),
             staking_info.code_hash.clone()
         ),
         Uint128::from(50u128)
@@ -558,7 +535,7 @@ fn test_staking() {
     assert_eq!(
         query_total_staked(
             &app,
-            &staking_info.address.clone(),
+            staking_info.address.clone(),
             staking_info.code_hash.clone()
         ),
         Uint128::from(70u128)
@@ -601,7 +578,7 @@ fn test_staking() {
     assert_eq!(
         query_total_staked(
             &app,
-            &staking_info.address.clone(),
+            staking_info.address.clone(),
             staking_info.code_hash.clone()
         ),
         Uint128::from(60u128)
@@ -684,7 +661,7 @@ fn text_max_claims() {
     // Unstaking now allowed again.
     unstake_tokens(
         &mut app,
-        &&staking_info.address.clone(),
+        &staking_info.address.clone(),
         staking_info.code_hash.clone(),
         info.clone(),
         Uint128::new(1),
@@ -693,7 +670,7 @@ fn text_max_claims() {
     app.update_block(next_block);
     claim_tokens(
         &mut app,
-        &&staking_info.address.clone(),
+        &staking_info.address.clone(),
         staking_info.code_hash.clone(),
         info.clone(),
     )
@@ -749,7 +726,7 @@ fn test_unstaking_with_claims() {
     assert_eq!(
         query_total_staked(
             &app,
-            &staking_info.address.clone(),
+            staking_info.address.clone(),
             staking_info.code_hash.clone()
         ),
         Uint128::from(50u128)
@@ -782,7 +759,7 @@ fn test_unstaking_with_claims() {
     assert_eq!(
         query_total_staked(
             &app,
-            &staking_info.address.clone(),
+            staking_info.address.clone(),
             staking_info.code_hash.clone()
         ),
         Uint128::from(40u128)
@@ -826,7 +803,7 @@ fn test_unstaking_with_claims() {
     assert_eq!(
         query_total_staked(
             &app,
-            &staking_info.address.clone(),
+            staking_info.address.clone(),
             staking_info.code_hash.clone()
         ),
         Uint128::from(40u128)
@@ -872,7 +849,7 @@ fn test_unstaking_with_claims() {
     assert_eq!(
         query_total_staked(
             &app,
-            &staking_info.address.clone(),
+            staking_info.address.clone(),
             staking_info.code_hash.clone()
         ),
         Uint128::from(30u128)
@@ -902,7 +879,7 @@ fn test_unstaking_with_claims() {
     assert_eq!(
         query_total_staked(
             &app,
-            &staking_info.address.clone(),
+            staking_info.address.clone(),
             staking_info.code_hash.clone()
         ),
         Uint128::from(30u128)
@@ -1054,7 +1031,7 @@ fn multiple_address_staking() {
     assert_eq!(
         query_total_staked(
             &app,
-            &staking_info.address.clone(),
+            staking_info.address.clone(),
             staking_info.code_hash.clone()
         ),
         amount1.checked_mul(Uint128::new(4)).unwrap()
@@ -1278,7 +1255,7 @@ fn test_ownership_transfer() {
 
     let ownership = query_owner(
         &app,
-        &staking_info.address.to_string(),
+        staking_info.address.to_string(),
         staking_info.code_hash.to_string(),
     );
     assert_eq!(

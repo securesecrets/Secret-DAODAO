@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Addr;
 use dao_dao_macros::proposal_module_query;
 use dao_voting::{
     multiple_choice::{MultipleChoiceOptions, MultipleChoiceVote, VotingStrategy},
@@ -125,12 +126,6 @@ pub enum ExecuteMsg {
         /// vote information is not known until the time of proposal
         /// expiration.
         allow_revoting: bool,
-        /// The address if tge DAO that this governance module is
-        /// associated with.
-        dao: String,
-        /// The code hash if tge DAO that this governance module is
-        /// associated with.
-        code_hash: String,
         /// If set to true proposals will be closed if their execution
         /// fails. Otherwise, proposals will remain open after execution
         /// failure. For example, with this enabled a proposal to send 5
@@ -142,7 +137,6 @@ pub enum ExecuteMsg {
         /// Optional time delay on proposal execution, during which the
         /// proposal may be vetoed.
         veto: Option<VetoConfig>,
-        query_auth: RawContract,
     },
     /// Updates the sender's rationale for their vote on the specified
     /// proposal. Errors if no vote vote has been cast.
@@ -169,6 +163,12 @@ pub enum ExecuteMsg {
     },
     RemoveVoteHook {
         address: String,
+        code_hash: String,
+    },
+    /// Update address and code hash of the DAO that this governance module is
+    /// associated with.
+    UpdateDaoInfo {
+        address: Addr,
         code_hash: String,
     },
 }

@@ -1,4 +1,5 @@
 use cosmwasm_schema::QueryResponses;
+use cosmwasm_std::Addr;
 use dao_dao_macros::proposal_module_query;
 use dao_voting::{
     pre_propose::PreProposeInfo, proposal::SingleChoiceProposeMsg, threshold::Threshold,
@@ -48,7 +49,7 @@ pub struct InstantiateMsg {
     /// During this period an oversight account (`veto.vetoer`) can
     /// veto the proposal.
     pub veto: Option<VetoConfig>,
-
+    /// Code hash of dao
     pub dao_code_hash: String,
 
     pub query_auth: RawContract,
@@ -121,10 +122,6 @@ pub enum ExecuteMsg {
         /// vote information is not known until the time of proposal
         /// expiration.
         allow_revoting: bool,
-        /// The address if tge DAO that this governance module is
-        /// associated with.
-        dao: String,
-        code_hash: String,
         /// If set to true proposals will be closed if their execution
         /// fails. Otherwise, proposals will remain open after execution
         /// failure. For example, with this enabled a proposal to send 5
@@ -136,7 +133,6 @@ pub enum ExecuteMsg {
         /// Optional time delay on proposal execution, during which the
         /// proposal may be vetoed.
         veto: Option<VetoConfig>,
-        query_auth: RawContract,
     },
     /// Update's the proposal creation policy used for this
     /// module. Only the DAO may call this method.
@@ -156,6 +152,9 @@ pub enum ExecuteMsg {
     AddVoteHook { address: String, code_hash: String },
     /// Removed a consumer of vote hooks.
     RemoveVoteHook { address: String, code_hash: String },
+    /// Update address and code hash of the DAO that this governance module is
+    /// associated with.
+    UpdateDaoInfo { address: Addr, code_hash: String },
 }
 
 #[proposal_module_query]

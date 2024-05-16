@@ -104,7 +104,7 @@ impl SuiteBuilder {
         let viewing_key_sender = create_viewing_key(
             &mut suite.app,
             query_auth,
-            mock_info(&suite.sender.to_string(), &[]),
+            mock_info(suite.sender.as_ref(), &[]),
         );
 
         if let Some(candidates) = self.with_proposal {

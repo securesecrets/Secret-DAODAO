@@ -3,7 +3,7 @@ use secret_multi_test::{App, Executor};
 
 use dao_voting::voting::Vote;
 use secret_utils::Duration;
-use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
+use shade_protocol::basic_staking::Auth;
 
 use crate::{
     msg::{ExecuteMsg, QueryMsg},
@@ -27,11 +27,8 @@ pub(crate) fn make_proposal(
     // let proposal_creation_policy =
     //     query_creation_policy(app, proposal_single, proposal_single_code_hash.clone());
     let mut proposer = Addr::unchecked("");
-    match auth.clone() {
-        Auth::ViewingKey { address, .. } => {
-            proposer = Addr::unchecked(address);
-        }
-        _ => (),
+    if let Auth::ViewingKey { address, .. } = auth.clone() {
+        proposer = Addr::unchecked(address);
     }
 
     app.execute_contract(
@@ -78,11 +75,8 @@ pub(crate) fn _vote_on_proposal(
     vote: Vote,
 ) {
     let mut sender = Addr::unchecked("");
-    match auth.clone() {
-        Auth::ViewingKey { address, .. } => {
-            sender = Addr::unchecked(address);
-        }
-        _ => (),
+    if let Auth::ViewingKey { address, .. } = auth.clone() {
+        sender = Addr::unchecked(address);
     }
     app.execute_contract(
         Addr::unchecked(sender),
@@ -110,11 +104,8 @@ pub(crate) fn vote_on_proposal_should_fail(
     vote: Vote,
 ) -> ContractError {
     let mut sender = Addr::unchecked("");
-    match auth.clone() {
-        Auth::ViewingKey { address, .. } => {
-            sender = Addr::unchecked(address);
-        }
-        _ => (),
+    if let Auth::ViewingKey { address, .. } = auth.clone() {
+        sender = Addr::unchecked(address);
     }
     app.execute_contract(
         Addr::unchecked(sender),
@@ -143,11 +134,8 @@ pub(crate) fn execute_proposal_should_fail(
     proposal_id: u64,
 ) -> ContractError {
     let mut sender = Addr::unchecked("");
-    match auth.clone() {
-        Auth::ViewingKey { address, .. } => {
-            sender = Addr::unchecked(address);
-        }
-        _ => (),
+    if let Auth::ViewingKey { address, .. } = auth.clone() {
+        sender = Addr::unchecked(address);
     }
 
     app.execute_contract(
@@ -174,11 +162,8 @@ pub(crate) fn _vote_on_proposal_with_rationale(
     rationale: Option<String>,
 ) {
     let mut sender = Addr::unchecked("");
-    match auth.clone() {
-        Auth::ViewingKey { address, .. } => {
-            sender = Addr::unchecked(address);
-        }
-        _ => (),
+    if let Auth::ViewingKey { address, .. } = auth.clone() {
+        sender = Addr::unchecked(address);
     }
 
     app.execute_contract(
@@ -229,11 +214,8 @@ pub(crate) fn _execute_proposal(
     proposal_id: u64,
 ) {
     let mut sender = Addr::unchecked("");
-    match auth.clone() {
-        Auth::ViewingKey { address, .. } => {
-            sender = Addr::unchecked(address);
-        }
-        _ => (),
+    if let Auth::ViewingKey { address, .. } = auth.clone() {
+        sender = Addr::unchecked(address);
     }
 
     app.execute_contract(
@@ -293,7 +275,6 @@ pub(crate) fn update_config(
     proposal_single: &Addr,
     proposal_single_code_hash: String,
     sender: &str,
-    query_auth: RawContract,
 ) {
     app.execute_contract(
         Addr::unchecked(sender),
@@ -310,11 +291,8 @@ pub(crate) fn update_config(
             min_voting_period: None,
             only_members_execute: true,
             allow_revoting: false,
-            dao: "dao_address".to_string(),
-            code_hash: "dao_code_hash".to_string(),
             close_proposal_on_execution_failure: true,
             veto: None,
-            query_auth,
         },
         &[],
     )
@@ -326,7 +304,6 @@ pub(crate) fn update_config_should_fail(
     proposal_single: &Addr,
     proposal_single_code_hash: String,
     sender: &str,
-    query_auth: RawContract,
 ) -> ContractError {
     app.execute_contract(
         Addr::unchecked(sender),
@@ -343,11 +320,8 @@ pub(crate) fn update_config_should_fail(
             min_voting_period: None,
             only_members_execute: true,
             allow_revoting: false,
-            dao: "dao_address".to_string(),
-            code_hash: "dao_code_hash".to_string(),
             close_proposal_on_execution_failure: true,
             veto: None,
-            query_auth,
         },
         &[],
     )

@@ -31,7 +31,6 @@ use shade_protocol::contract_interfaces::basic_staking::Auth;
 use shade_protocol::query_auth::helpers::{
     authenticate_permit, authenticate_vk, PermitAuthentication,
 };
-use shade_protocol::utils::asset::RawContract;
 use shade_protocol::Contract;
 use snip20_reference_impl::msg::QueryAnswer;
 
@@ -98,10 +97,7 @@ pub fn execute(
         ExecuteMsg::Receive(msg) => execute_receive(deps, env, info, msg),
         ExecuteMsg::Unstake { amount } => execute_unstake(deps, env, info, amount),
         ExecuteMsg::Claim {} => execute_claim(deps, env, info),
-        ExecuteMsg::UpdateConfig {
-            duration,
-            query_auth,
-        } => execute_update_config(info, deps, duration, query_auth),
+        ExecuteMsg::UpdateConfig { duration } => execute_update_config(info, deps, duration),
         ExecuteMsg::AddHook { addr, code_hash } => {
             execute_add_hook(deps, env, info, addr, code_hash)
         }
@@ -116,14 +112,12 @@ pub fn execute_update_config(
     info: MessageInfo,
     deps: DepsMut,
     duration: Option<Duration>,
-    query_auth: RawContract,
 ) -> Result<Response, ContractError> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
     validate_duration(duration)?;
     let mut config = CONFIG.load(deps.storage)?;
     config.unstaking_duration = duration;
-    config.query_auth = query_auth.into_valid(deps.api)?;
 
     CONFIG.save(deps.storage, &config)?;
 

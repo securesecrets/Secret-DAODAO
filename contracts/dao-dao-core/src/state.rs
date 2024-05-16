@@ -62,7 +62,4 @@ pub static SUBDAO_LIST: Keymap<Addr, SubDao, Json> = Keymap::new(b"sub_daos");
 
 pub static TOKEN_VIEWING_KEY: Keymap<Addr, String, Json> = Keymap::new(b"token_viewing_key");
 
-pub const SNIP20_CODE_HASH: Item<String> = Item::new("snip20_code_hash");
-pub const SNIP721_CODE_HASH: Item<String> = Item::new("snip721_code_hash");
-
 pub static REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");
