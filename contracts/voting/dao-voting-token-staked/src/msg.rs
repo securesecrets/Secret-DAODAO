@@ -39,7 +39,7 @@ pub struct InstantiateMsg {
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
     pub dao_code_hash: String,
-    pub query_auth: RawContract,
+    pub query_auth: Option<RawContract>,
 }
 
 #[cw_serde]

@@ -1,5 +1,5 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
-use dao_dao_macros::voting_module_query;
+use cosmwasm_schema::cw_serde;
+use secret_toolkit::utils::InitCallback;
 use shade_protocol::utils::asset::RawContract;
 
 #[cw_serde]
@@ -22,17 +22,6 @@ pub struct InstantiateMsg {
     pub dao_code_hash: String,
 }
 
-#[cw_serde]
-pub enum ExecuteMsg {}
-
-#[allow(clippy::large_enum_variant)]
-#[voting_module_query]
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryMsg {
-    #[returns(dao_interface::state::AnyContractInfo)]
-    GroupContract {},
+impl InitCallback for InstantiateMsg {
+    const BLOCK_SIZE: usize = 256;
 }
-
-#[cw_serde]
-pub struct MigrateMsg {}

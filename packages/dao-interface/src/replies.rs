@@ -3,6 +3,7 @@ use thiserror::Error;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{StdError, Storage};
 
+use crate::state::ModuleInstantiateInfo;
 use secret_toolkit::{
     serialization::Json,
     storage::{Item, Keymap},
@@ -23,12 +24,30 @@ pub enum ReplyEvent {
     ProposalModuleInstantiate {},
     PreProposalModuleInstantiate {},
     Snip20ModuleInstantiate {},
-    Snip20ModuleCreateViewingKey { contract_address: String },
+    Snip20ModuleCreateViewingKey {
+        contract_address: String,
+    },
     FailedPreProposeModuleHook {},
-    FailedVoteHook { idx: u64 },
-    FailedProposalHook { idx: u64 },
-    FailedProposalExecution { proposal_id: u64 },
+    FailedVoteHook {
+        idx: u64,
+    },
+    FailedProposalHook {
+        idx: u64,
+    },
+    FailedProposalExecution {
+        proposal_id: u64,
+    },
     InstantiateWithAdminFactory {},
+    InstantiateQueryAuth {
+        /// Instantiate information for the core contract's voting
+        /// power module.
+        voting_module_instantiate_info: ModuleInstantiateInfo,
+        /// Instantiate information for the core contract's proposal modules.
+        /// NOTE: the pre-propose-base package depends on it being the case
+        /// that the core module instantiates its proposal module.
+        proposal_modules_instantiate_info: Vec<ModuleInstantiateInfo>,
+    },
+    InstantiateGroupContract {},
 }
 // store all hook addresses in one item. We cannot have many of them before the contract becomes unusable anyway.
 pub struct ReplyIds<'a> {

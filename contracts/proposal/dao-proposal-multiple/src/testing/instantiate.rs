@@ -22,7 +22,7 @@ pub(crate) fn get_default_token_dao_proposal_module_instantiate(
         pre_propose_info: PreProposeInfo::AnyoneMayPropose {},
         close_proposal_on_execution_failure: true,
         dao_code_hash,
-        query_auth,
+        query_auth: Some(query_auth),
     }
 }
 

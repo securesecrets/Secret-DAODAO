@@ -2,9 +2,9 @@
 
 pub mod contract;
 mod error;
+pub mod query_auth_init;
 pub mod snip20_msg;
 pub mod state;
-
 #[cfg(test)]
 mod tests;
 

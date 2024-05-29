@@ -1,4 +1,5 @@
 use crate::{handle, query};
+use dao_interface::state::AnyContractInfo;
 use shade_protocol::{
     c_std::{
         shd_entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError,
@@ -16,7 +17,7 @@ pub const RESPONSE_BLOCK_SIZE: usize = 256;
 #[shd_entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
@@ -26,7 +27,10 @@ pub fn instantiate(
 
     ContractStatus::Default.save(deps.storage)?;
 
-    Ok(Response::new())
+    Ok(Response::default().set_data(to_binary(&AnyContractInfo {
+        addr: env.contract.address,
+        code_hash: env.contract.code_hash,
+    })?))
 }
 
 #[shd_entry_point]

@@ -77,7 +77,7 @@ pub fn instantiate(
         deps.storage,
         &Config {
             owner: info.sender,
-            query_auth: msg.query_auth.into_valid(deps.api)?,
+            query_auth: msg.query_auth.into_valid(deps.api).unwrap_or_default(),
         },
     )?;
 

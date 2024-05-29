@@ -1,6 +1,6 @@
 #![allow(clippy::large_enum_variant)]
 
-use cosmwasm_schema::QueryResponses;
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary, Coin};
 use schemars::JsonSchema;
 use secret_toolkit::permit::Permit;
@@ -45,7 +45,7 @@ pub struct InstantiateResponse {
 /// This type represents optional configuration values.
 /// All values are optional and have defaults which are more private by default,
 /// but can be overridden if necessary
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+#[cw_serde]
 pub struct InstantiateConfig {
     /// indicates whether the token IDs and the number of tokens controlled by the contract are
     /// public.  If the token supply is private, only minters can view the token IDs and
@@ -96,7 +96,7 @@ impl Default for InstantiateConfig {
 }
 
 /// info needed to perform a callback message after instantiation
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+#[cw_serde]
 pub struct PostInstantiateCallback {
     /// the callback message to execute
     pub msg: Binary,

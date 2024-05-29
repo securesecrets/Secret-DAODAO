@@ -49,7 +49,7 @@ pub struct InstantiateMsg {
 
     pub dao_code_hash: String,
 
-    pub query_auth: RawContract,
+    pub query_auth: Option<RawContract>,
 }
 
 #[cw_serde]

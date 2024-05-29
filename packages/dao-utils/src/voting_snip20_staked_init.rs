@@ -1,13 +1,9 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Uint128;
-use dao_dao_macros::{active_query, cw20_token_query, voting_module_query};
 use dao_voting::threshold::ActiveThreshold;
-use schemars::JsonSchema;
+use secret_toolkit::utils::InitCallback;
 use secret_utils::Duration;
-use serde::{Deserialize, Serialize};
 use shade_protocol::utils::asset::RawContract;
-
-use crate::snip20_msg::InitialBalance;
 
 /// Information about the staking contract to be used with this voting
 /// module.
@@ -71,29 +67,12 @@ pub struct InstantiateMsg {
     pub query_auth: Option<RawContract>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-pub enum ExecuteMsg {
-    /// Sets the active threshold to a new value. Only the
-    /// instantiator this contract (a DAO most likely) may call this
-    /// method.
-    UpdateActiveThreshold {
-        new_threshold: Option<ActiveThreshold>,
-    },
+#[cw_serde]
+pub struct InitialBalance {
+    pub address: String,
+    pub amount: Uint128,
 }
 
-#[allow(clippy::large_enum_variant)]
-#[voting_module_query]
-#[cw20_token_query]
-#[active_query]
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, QueryResponses)]
-pub enum QueryMsg {
-    /// Gets the address of the cw20-stake contract this voting module
-    /// is wrapping.
-    #[returns(dao_interface::state::AnyContractInfo)]
-    StakingContract {},
-    #[returns(dao_voting::threshold::ActiveThresholdResponse)]
-    ActiveThreshold {},
+impl InitCallback for InstantiateMsg {
+    const BLOCK_SIZE: usize = 256;
 }
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-pub struct MigrateMsg {}

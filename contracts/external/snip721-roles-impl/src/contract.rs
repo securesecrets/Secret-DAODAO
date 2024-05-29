@@ -189,8 +189,10 @@ where
         info: MessageInfo,
         msg: InstantiateMsg,
     ) -> StdResult<Response> {
-        self.query_auth
-            .save(deps.storage, &msg.query_auth.into_valid(deps.api)?)?;
+        self.query_auth.save(
+            deps.storage,
+            &msg.query_auth.into_valid(deps.api).unwrap_or_default(),
+        )?;
         let creator_raw = deps.api.addr_canonicalize(info.sender.as_str())?;
         save(deps.storage, CREATOR_KEY, &creator_raw)?;
         let admin_raw = msg

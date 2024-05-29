@@ -12,14 +12,6 @@ pub struct Cw4GroupInstantiateMsg {
     pub query_auth: RawContract,
 }
 
-#[cw_serde]
-pub struct InstantiateMsgResponse {
-    /// The admin is the only account that can update the group state.
-    /// Omit it to make the group immutable.
-    pub address: String,
-    pub code_hash: String,
-}
-
 impl InitCallback for Cw4GroupInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
 }

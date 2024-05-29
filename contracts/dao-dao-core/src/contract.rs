@@ -17,12 +17,18 @@ use dao_interface::{
     },
     voting,
 };
+use dao_utils::voting_cw4_init::GroupContract;
+use dao_utils::voting_snip721_roles_init::NftContract;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
+use secret_toolkit::utils::InitCallback;
 use secret_toolkit::{serialization::Json, storage::Keymap, utils::HandleCallback};
 use secret_utils::Duration;
 use shade_protocol::basic_staking::Auth;
+use shade_protocol::utils::asset::RawContract;
+use shade_protocol::Contract;
 use snip20_reference_impl::msg::ExecuteAnswer;
 
+use crate::query_auth_init::QueryAuthInstantiateMsg;
 use crate::state::{
     ACTIVE_PROPOSAL_MODULE_COUNT, ADMIN, CONFIG, ITEMS, NOMINATED_ADMIN, PAUSED, PROPOSAL_MODULES,
     REPLY_IDS, SNIP20_LIST, SNIP721_LIST, SUBDAO_LIST, TOKEN_VIEWING_KEY,
@@ -60,27 +66,33 @@ pub fn instantiate(
         .unwrap_or_else(|| env.contract.address.clone());
     ADMIN.save(deps.storage, &admin)?;
 
-    let vote_module_msg = msg
-        .clone()
-        .voting_module_instantiate_info
-        .to_cosmos_msg(env.contract.address.clone());
-    let reply_id = REPLY_IDS.add_event(deps.storage, ReplyEvent::VotingModuleInstantiate {})?;
-    let vote_module_msg: SubMsg<Empty> = SubMsg::reply_on_success(vote_module_msg, reply_id);
+    let query_auth_msg = QueryAuthInstantiateMsg {
+        admin_auth: Contract {
+            address: env.contract.address.clone(),
+            code_hash: env.contract.code_hash,
+        },
+        prng_seed: to_binary(&"seed".to_string())?,
+    };
+    let reply_id = REPLY_IDS.add_event(
+        deps.storage,
+        ReplyEvent::InstantiateQueryAuth {
+            voting_module_instantiate_info: msg.voting_module_instantiate_info.clone(),
+            proposal_modules_instantiate_info: msg.proposal_modules_instantiate_info,
+        },
+    )?;
+    let query_auth_submsg: SubMsg<Empty> = SubMsg::reply_on_success(
+        query_auth_msg.to_cosmos_msg(
+            None,
+            env.contract.address.to_string(),
+            msg.query_auth_code_id,
+            msg.query_auth_code_hash,
+            None,
+        )?,
+        reply_id,
+    );
 
-    let proposal_module_msgs: Vec<SubMsg<Empty>> = msg
-        .proposal_modules_instantiate_info
-        .into_iter()
-        .map(|info| {
-            let wasm = info.clone().to_cosmos_msg(env.contract.address.clone());
-            let reply_id = REPLY_IDS
-                .add_event(deps.storage, ReplyEvent::ProposalModuleInstantiate {})
-                .unwrap();
-            SubMsg::reply_on_success(wasm, reply_id)
-        })
-        .collect();
-    if proposal_module_msgs.is_empty() {
-        return Err(ContractError::NoActiveProposalModules {});
-    }
+    let _: dao_utils::voting_cw4_init::InstantiateMsg =
+        from_binary(&msg.voting_module_instantiate_info.msg)?;
 
     if let Some(initial_items) = msg.initial_items {
         // O(N*N) deduplication.
@@ -100,12 +112,7 @@ pub fn instantiate(
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("sender", info.sender)
-        .set_data(to_binary(&AnyContractInfo {
-            addr: env.contract.address,
-            code_hash: env.contract.code_hash,
-        })?)
-        .add_submessage(vote_module_msg)
-        .add_submessages(proposal_module_msgs))
+        .add_submessage(query_auth_submsg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -1012,7 +1019,7 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
     let reply_event = REPLY_IDS.get_event(deps.storage, msg.id)?;
     match reply_event {
         ReplyEvent::ProposalModuleInstantiate {} => match msg.result {
@@ -1090,8 +1097,134 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             }
             SubMsgResult::Err(_) => Err(ContractError::TokenExecuteError {}),
         },
+        ReplyEvent::InstantiateQueryAuth {
+            voting_module_instantiate_info,
+            proposal_modules_instantiate_info,
+        } => match msg.result {
+            SubMsgResult::Ok(res) => {
+                let query_auth_info: AnyContractInfo =
+                    from_binary(&res.data.clone().unwrap_or_default())?;
+                let msg = update_query_auth(
+                    voting_module_instantiate_info.clone(),
+                    RawContract {
+                        address: query_auth_info.addr.clone().to_string(),
+                        code_hash: query_auth_info.code_hash.clone(),
+                    },
+                    env.contract.address.clone().to_string(),
+                )?;
+                let reply_id =
+                    REPLY_IDS.add_event(deps.storage, ReplyEvent::VotingModuleInstantiate {})?;
+                let vote_module_msg: SubMsg<Empty> = SubMsg::reply_on_success(msg, reply_id);
+
+                let proposal_module_msgs: Vec<SubMsg<Empty>> = proposal_modules_instantiate_info
+                    .into_iter()
+                    .map(|info| {
+                        let msg = update_query_auth(
+                            info.clone(),
+                            RawContract {
+                                address: query_auth_info.addr.to_string(),
+                                code_hash: query_auth_info.code_hash.clone(),
+                            },
+                            env.contract.address.clone().to_string(),
+                        )
+                        .unwrap();
+
+                        let reply_id = REPLY_IDS
+                            .add_event(deps.storage, ReplyEvent::ProposalModuleInstantiate {})
+                            .unwrap();
+                        SubMsg::reply_on_success(msg, reply_id)
+                    })
+                    .collect();
+                // if proposal_module_msgs.is_empty() {
+                //     return Err(ContractError::NoActiveProposalModules {});
+                // }
+                Ok(Response::new()
+                    .add_attribute("action", "instantiate query_auth with dao as admin")
+                    .add_submessage(vote_module_msg)
+                    .add_submessages(proposal_module_msgs))
+            }
+            SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+        },
         _ => Err(ContractError::UnknownReplyID {}),
     }
+}
+
+// Function to update query_auth field in binary msg
+pub(crate) fn update_query_auth(
+    info: ModuleInstantiateInfo,
+    new_query_auth: RawContract,
+    admin: String,
+) -> StdResult<CosmosMsg> {
+    // Voting CW4
+    if let Ok(mut msg) = from_binary::<dao_utils::voting_cw4_init::InstantiateMsg>(&info.msg) {
+        if let GroupContract::New {
+            ref mut query_auth, ..
+        } = msg.group_contract
+        {
+            *query_auth = Some(new_query_auth);
+        }
+        return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
+    }
+
+    // Voting Snip20 Staked
+    if let Ok(mut msg) =
+        from_binary::<dao_utils::voting_snip20_staked_init::InstantiateMsg>(&info.msg)
+    {
+        msg.query_auth = Some(new_query_auth);
+        return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
+    }
+
+    // Voting Token Staked
+    if let Ok(mut msg) =
+        from_binary::<dao_utils::voting_token_staked_init::InstantiateMsg>(&info.msg)
+    {
+        msg.query_auth = Some(new_query_auth);
+        return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
+    }
+
+    // Voting Snip721 Staked
+    if let Ok(mut msg) =
+        from_binary::<dao_utils::voting_snip721_staked_init::InstantiateMsg>(&info.msg)
+    {
+        msg.query_auth = Some(new_query_auth);
+        return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
+    }
+
+    // Voting Snip721 Roles
+    if let Ok(mut msg) =
+        from_binary::<dao_utils::voting_snip721_roles_init::InstantiateMsg>(&info.msg)
+    {
+        if let NftContract::New {
+            ref mut query_auth, ..
+        } = msg.nft_contract
+        {
+            *query_auth = Some(new_query_auth);
+        }
+        return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
+    }
+
+    // Proposal Single
+    if let Ok(mut msg) = from_binary::<dao_utils::proposal_single_init::InstantiateMsg>(&info.msg) {
+        msg.query_auth = Some(new_query_auth);
+        return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
+    }
+
+    // Proposal Multiple
+    if let Ok(mut msg) = from_binary::<dao_utils::proposal_multiple_init::InstantiateMsg>(&info.msg)
+    {
+        msg.query_auth = Some(new_query_auth);
+        return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
+    }
+
+    // Proposal Condorcet
+    if let Ok(msg) = from_binary::<dao_utils::proposal_condorcet_init::InstantiateMsg>(&info.msg) {
+        return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
+    }
+
+    // If none of the types matched, return an error
+    Err(StdError::generic_err(
+        "Failed to deserialize data into any known struct",
+    ))
 }
 
 pub(crate) fn derive_proposal_module_prefix(mut dividend: usize) -> StdResult<String> {

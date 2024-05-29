@@ -39,7 +39,10 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    QUERY_AUTH.save(deps.storage, &msg.query_auth.into_valid(deps.api)?)?;
+    QUERY_AUTH.save(
+        deps.storage,
+        &msg.query_auth.into_valid(deps.api).unwrap_or_default(),
+    )?;
     OWNER.save(deps.storage, &info.sender)?;
     create(deps, msg.admin, msg.members, env.block.height)?;
     Ok(Response::default().set_data(to_binary(&AnyContractInfo {

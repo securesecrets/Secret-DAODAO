@@ -26,6 +26,7 @@ debug-print = ["shade-protocol/debug-print"]
 shade-protocol = { workspace = true }
 cosmwasm-std = { workspace = true }
 schemars = { workspace = true }
+dao-interface ={ workspace = true }
 
 [dev-dependencies]
 shade-multi-test = { workspace = true }

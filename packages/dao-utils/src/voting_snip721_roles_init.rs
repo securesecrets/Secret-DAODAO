@@ -1,6 +1,6 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
-use dao_dao_macros::voting_module_query;
+use cosmwasm_schema::cw_serde;
 use dao_snip721_extensions::roles::MetadataExt;
+use secret_toolkit::utils::InitCallback;
 use shade_protocol::utils::asset::RawContract;
 use snip721_roles_impl::{
     msg::{InstantiateConfig, PostInstantiateCallback},
@@ -67,14 +67,6 @@ pub struct InstantiateMsg {
     pub dao_code_hash: String,
 }
 
-#[cw_serde]
-pub enum ExecuteMsg {}
-
-#[allow(clippy::large_enum_variant)]
-#[voting_module_query]
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryMsg {
-    #[returns(crate::state::Config)]
-    Config {},
+impl InitCallback for InstantiateMsg {
+    const BLOCK_SIZE: usize = 256;
 }

@@ -882,6 +882,7 @@ dependencies = [
  "cw-paginate-storage 2.4.0",
  "dao-dao-macros",
  "dao-interface",
+ "dao-utils",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
  "secret-cw-controllers",
@@ -933,6 +934,7 @@ version = "2.4.0"
 dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-hooks",
+ "cw4",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
  "secret-cw2",
@@ -1228,6 +1230,26 @@ dependencies = [
  "snip20-stake",
  "snip721-reference-impl",
  "snip721-roles",
+]
+
+[[package]]
+name = "dao-utils"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "cw-hooks",
+ "cw4",
+ "dao-snip721-extensions",
+ "dao-voting 2.4.0",
+ "schemars 0.8.16",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-toolkit",
+ "secret-utils 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
+ "serde",
+ "shade-protocol",
+ "snip721-roles-impl",
+ "thiserror",
 ]
 
 [[package]]
@@ -1930,6 +1952,7 @@ dependencies = [
 name = "query_auth"
 version = "0.1.0"
 dependencies = [
+ "dao-interface",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
  "shade-multi-test",

@@ -142,7 +142,11 @@ pub fn instantiate(
                 nft_address: deps.api.addr_validate(&address)?,
                 unstaking_duration: msg.unstaking_duration,
                 nft_code_hash: code_hash.clone(),
-                query_auth: msg.query_auth.into_valid(deps.api)?,
+                query_auth: msg
+                    .query_auth
+                    .unwrap_or_default()
+                    .into_valid(deps.api)
+                    .unwrap_or_default(),
             };
             CONFIG.save(deps.storage, &config)?;
 
@@ -178,7 +182,11 @@ pub fn instantiate(
                 nft_address: Addr::unchecked(""),
                 unstaking_duration: msg.unstaking_duration,
                 nft_code_hash: code_hash.clone(),
-                query_auth: msg.query_auth.into_valid(deps.api)?,
+                query_auth: msg
+                    .query_auth
+                    .unwrap_or_default()
+                    .into_valid(deps.api)
+                    .unwrap_or_default(),
             };
             CONFIG.save(deps.storage, &config)?;
 
@@ -218,7 +226,11 @@ pub fn instantiate(
                     nft_address: Addr::unchecked(""),
                     unstaking_duration: msg.unstaking_duration,
                     nft_code_hash: code_hash.clone(),
-                    query_auth: msg.query_auth.into_valid(deps.api)?,
+                    query_auth: msg
+                        .query_auth
+                        .unwrap_or_default()
+                        .into_valid(deps.api)
+                        .unwrap_or_default(),
                 };
                 CONFIG.save(deps.storage, &config)?;
 

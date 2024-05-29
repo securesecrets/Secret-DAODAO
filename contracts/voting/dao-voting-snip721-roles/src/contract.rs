@@ -80,7 +80,7 @@ pub fn instantiate(
                 symbol,
                 entropy,
                 config,
-                query_auth,
+                query_auth: query_auth.unwrap_or_default(),
                 admin,
                 royalty_info,
                 post_init_callback,

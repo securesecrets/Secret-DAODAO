@@ -1,12 +1,13 @@
 use crate::state::Config;
 use crate::{migrate_msg::MigrateParams, query::SubDao, state::ModuleInstantiateInfo};
-use cosmwasm_schema::QueryResponses;
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Uint128};
 use schemars::JsonSchema;
 use secret_toolkit::utils::HandleCallback;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
 use shade_protocol::basic_staking::Auth;
+use shade_protocol::utils::asset::RawContract;
 
 /// Information about an item to be stored in the items list.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -49,6 +50,8 @@ pub struct InstantiateMsg {
     pub dao_uri: Option<String>,
     pub snip20_code_hash: String,
     pub snip721_code_hash: String,
+    pub query_auth_code_id: u64,
+    pub query_auth_code_hash: String,
 }
 
 /// Snip20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg
@@ -260,4 +263,24 @@ pub enum MigrateMsg {
         params: Option<MigrateParams>,
     },
     FromCompatible {},
+}
+
+#[cw_serde]
+pub enum GroupContract {
+    Existing {
+        address: String,
+        code_hash: String,
+    },
+    New {
+        cw4_group_code_id: u64,
+        cw4_group_code_hash: String,
+        initial_members: Vec<cw4::Member>,
+        query_auth: RawContract,
+    },
+}
+
+#[cw_serde]
+pub struct VotingCw4InstantiateMsg {
+    pub group_contract: GroupContract,
+    pub dao_code_hash: String,
 }

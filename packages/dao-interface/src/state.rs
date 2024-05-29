@@ -118,6 +118,21 @@ impl ModuleInstantiateInfo {
             label: self.label,
         }
     }
+
+    pub fn to_cosmos_msg_with_query_auth(self, dao: Addr, updated_binary_msg: Binary) -> WasmMsg {
+        // Create and return the instantiation message
+        WasmMsg::Instantiate {
+            admin: self.admin.clone().map(|admin| match admin {
+                Admin::Address { addr } => addr,
+                Admin::CoreModule {} => dao.into_string(),
+            }),
+            code_id: self.code_id,
+            code_hash: self.code_hash.clone(),
+            msg: updated_binary_msg,
+            funds: self.funds.clone(),
+            label: self.label.clone(),
+        }
+    }
 }
 
 /// Callbacks to be executed when a module is instantiated

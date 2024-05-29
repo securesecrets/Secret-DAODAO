@@ -52,7 +52,7 @@ pub struct InstantiateMsg {
     /// Code hash of dao
     pub dao_code_hash: String,
 
-    pub query_auth: RawContract,
+    pub query_auth: Option<RawContract>,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]

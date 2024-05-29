@@ -287,10 +287,10 @@ fn test_instantiate_existing() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -305,10 +305,10 @@ fn test_instantiate_existing() {
             unstaking_duration: None,
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -346,10 +346,10 @@ fn test_instantiate_invalid_unstaking_duration_height() {
             unstaking_duration: Some(Duration::Height(0)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 }
@@ -372,10 +372,10 @@ fn test_instantiate_invalid_unstaking_duration_time() {
             unstaking_duration: Some(Duration::Time(0)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 }
@@ -398,10 +398,10 @@ fn test_stake_invalid_denom() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -426,10 +426,10 @@ fn test_stake_valid_denom() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
     // Try and stake an valid denom
@@ -455,10 +455,10 @@ fn test_unstake_none_staked() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -483,10 +483,10 @@ fn test_unstake_zero_tokens() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -511,10 +511,10 @@ fn test_unstake_invalid_balance() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -543,10 +543,10 @@ fn test_unstake() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -602,10 +602,10 @@ fn test_unstake_no_unstaking_duration() {
             unstaking_duration: None,
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -648,10 +648,10 @@ fn test_claim_no_claims() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -676,10 +676,10 @@ fn test_claim_claim_not_reached() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -712,10 +712,10 @@ fn test_claim() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -772,10 +772,10 @@ fn test_update_config_invalid_sender() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -800,10 +800,10 @@ fn test_update_config_as_owner() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -844,10 +844,10 @@ fn test_update_config_invalid_duration() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -872,10 +872,10 @@ fn test_query_dao() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -914,10 +914,10 @@ fn test_query_info() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -950,10 +950,10 @@ fn test_query_claims() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -1018,10 +1018,10 @@ fn test_query_get_config() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -1052,10 +1052,10 @@ fn test_voting_power_queries() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -1243,10 +1243,10 @@ fn test_active_threshold_none() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 
@@ -1284,10 +1284,10 @@ fn test_active_threshold_percentage_gt_100() {
                 percent: Decimal::percent(120),
             }),
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 }
@@ -1314,10 +1314,10 @@ fn test_active_threshold_percentage_lte_0() {
                 percent: Decimal::percent(0),
             }),
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 }
@@ -1339,10 +1339,10 @@ fn test_add_remove_hooks() {
             unstaking_duration: Some(Duration::Height(5)),
             active_threshold: None,
             dao_code_hash: "dao_code_hash".to_string(),
-            query_auth: RawContract {
+            query_auth: Some(RawContract {
                 address: query_auth.clone().address.to_string(),
                 code_hash: query_auth.clone().code_hash,
-            },
+            }),
         },
     );
 

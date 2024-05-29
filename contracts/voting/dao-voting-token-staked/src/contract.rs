@@ -76,7 +76,11 @@ pub fn instantiate(
 
     let config = Config {
         unstaking_duration: msg.unstaking_duration,
-        query_auth: msg.query_auth.into_valid(deps.api)?,
+        query_auth: msg
+            .query_auth
+            .unwrap_or_default()
+            .into_valid(deps.api)
+            .unwrap_or_default(),
     };
 
     CONFIG.save(deps.storage, &config)?;

@@ -1,7 +1,7 @@
 [package]
-name = "dao-interface"
+name = "dao-utils"
 authors = ["ekez ekez@withoutdoing.com"]
-description = "A package containing interface definitions for DAO DAO DAOs."
+description = "A package containing combined InstantiateMsg Enum for DAO DAO Initialization."
 edition = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
@@ -20,7 +20,12 @@ serde ={ workspace = true }
 schemars = {workspace = true}
 shade-protocol ={ workspace = true }
 thiserror = { workspace = true }
+dao-voting ={ workspace = true }
 cw4 ={ workspace = true }
+dao-snip721-extensions = { workspace = true }
+snip721-roles-impl ={ workspace = true }
+
+
 
 [dev-dependencies]
 cosmwasm-schema = { workspace = true }

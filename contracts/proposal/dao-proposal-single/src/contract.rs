@@ -90,7 +90,11 @@ pub fn instantiate(
         allow_revoting: msg.allow_revoting,
         close_proposal_on_execution_failure: msg.close_proposal_on_execution_failure,
         veto: msg.veto,
-        query_auth: msg.query_auth.into_valid(deps.api)?,
+        query_auth: msg
+            .query_auth
+            .unwrap_or_default()
+            .into_valid(deps.api)
+            .unwrap_or_default(),
     };
 
     // Initialize proposal count to zero so that queries return zero
