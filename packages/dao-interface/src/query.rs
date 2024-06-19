@@ -23,7 +23,7 @@ pub struct DumpStateResponse {
     /// contract.
     pub proposal_modules: Vec<ProposalModule>,
     /// The voting module address associated with the governance contract.
-    pub voting_module_address: Addr,
+    pub voting_module: Addr,
     /// The voting module code hash associated with the governance contract.
     pub voting_module_code_hash: String,
     /// The number of active proposal modules.

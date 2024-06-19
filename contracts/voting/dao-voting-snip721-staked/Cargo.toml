@@ -53,3 +53,4 @@ secret-multi-test = { workspace = true }
 # osmosis-std = { workspace = true }
 # osmosis-test-tube = { workspace = true }
 serde = { workspace = true }
+query_auth = {workspace = true}

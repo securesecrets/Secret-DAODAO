@@ -122,6 +122,7 @@ pub fn instantiate(
                         address,
                         &snip721::Snip721QueryMsg::NumTokens { viewer: None },
                     )?;
+                    println!("{}", nft_supply.count);
                     // Check the absolute count is less than the supply of NFTs and
                     // greater than zero.
                     assert_valid_absolute_count_threshold(
@@ -686,7 +687,7 @@ pub fn query_voting_power_at_height(
     let height = height.unwrap_or(env.block.height);
     let power = NftBalancesStore::may_load_at_height(deps.storage, address, height)?;
     to_binary(&dao_interface::voting::VotingPowerAtHeightResponse {
-        power: power.unwrap(),
+        power: power.unwrap_or_default(),
         height,
     })
 }
@@ -695,7 +696,7 @@ pub fn query_total_power_at_height(deps: Deps, env: Env, height: Option<u64>) ->
     let height = height.unwrap_or(env.block.height);
     let power = StakedNftsTotalStore::may_load_at_height(deps.storage, height)?;
     to_binary(&dao_interface::voting::TotalPowerAtHeightResponse {
-        power: power.unwrap(),
+        power: power.unwrap_or_default(),
         height,
     })
 }

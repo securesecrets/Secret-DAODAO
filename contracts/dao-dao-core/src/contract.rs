@@ -777,7 +777,7 @@ pub fn query_dump_state(deps: Deps, env: Env) -> StdResult<Binary> {
         version,
         pause_info,
         proposal_modules: proposal_module_res,
-        voting_module_address: voting_module.addr,
+        voting_module: voting_module.addr,
         voting_module_code_hash: voting_module.code_hash,
         active_proposal_module_count,
         total_proposal_module_count,
@@ -823,7 +823,7 @@ pub fn query_list_items(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    let mut res: Vec<Vec<(String, String)>> = Vec::new(); // Vector to hold key-value pairs
+    let mut res: Vec<(String, String)> = Vec::new(); // Vector to hold key-value pairs
     let mut start = start_after.clone();
     let binding = &ITEMS;
     let iter = binding.iter(deps.storage)?;
@@ -837,7 +837,7 @@ pub fn query_list_items(
             }
         }
         if start.is_none() {
-            res.push(vec![(key.clone(), value.clone())]); // Collect the key-value pair
+            res.push((key.clone(), value.clone())); // Collect the key-value pair
             if res.len() >= limit.unwrap_or_default() as usize {
                 break; // Break out of loop if limit reached
             }

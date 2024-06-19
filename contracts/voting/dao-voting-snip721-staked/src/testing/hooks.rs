@@ -3,11 +3,20 @@ use cosmwasm_std::{
     Addr,
 };
 use dao_hooks::nft_stake::{stake_nft_hook_msgs, unstake_nft_hook_msgs};
+use dao_interface::state::AnyContractInfo;
+use shade_protocol::Contract;
 
 use crate::{
     contract::execute,
     state::{Config, CONFIG, DAO, HOOKS},
 };
+
+// Shorthand for an unchecked address.
+macro_rules! addr {
+    ($x:expr ) => {
+        Addr::unchecked($x)
+    };
+}
 
 #[test]
 fn test_hooks() {
@@ -32,8 +41,14 @@ fn test_hooks() {
     assert_eq!(messages.len(), 0);
 
     // Save a DAO address for the execute messages we're testing.
-    DAO.save(deps.as_mut().storage, &Addr::unchecked("ekez"))
-        .unwrap();
+    DAO.save(
+        deps.as_mut().storage,
+        &AnyContractInfo {
+            addr: addr!("ekez"),
+            code_hash: "dummy_code_hash".to_string(),
+        },
+    )
+    .unwrap();
 
     // Save a config for the execute messages we're testing.
     CONFIG
@@ -41,7 +56,12 @@ fn test_hooks() {
             deps.as_mut().storage,
             &Config {
                 nft_address: Addr::unchecked("ekez-token"),
+                nft_code_hash: "nft_code_hash".to_string(),
                 unstaking_duration: None,
+                query_auth: Contract {
+                    address: addr!("erty"),
+                    code_hash: "dfgh".to_string(),
+                },
             },
         )
         .unwrap();
@@ -55,6 +75,7 @@ fn test_hooks() {
         info,
         crate::msg::ExecuteMsg::AddHook {
             addr: "ekez".to_string(),
+            code_hash: "efgh".to_string(),
         },
     )
     .unwrap();
@@ -86,6 +107,7 @@ fn test_hooks() {
         info,
         crate::msg::ExecuteMsg::RemoveHook {
             addr: "ekez".to_string(),
+            code_hash: "efgh".to_string(),
         },
     )
     .unwrap();

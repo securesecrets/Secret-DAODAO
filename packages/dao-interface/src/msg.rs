@@ -204,7 +204,7 @@ pub enum QueryMsg {
     /// example, given the items `{ "group": "foo", "subdao": "bar"}`
     /// this query would return `[("group", "foo"), ("subdao",
     /// "bar")]`.
-    #[returns(Vec<Vec<(String,String)>>)]
+    #[returns(Vec<(String,String)>)]
     ListItems {
         start_after: Option<String>,
         limit: Option<u32>,

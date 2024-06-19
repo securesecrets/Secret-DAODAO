@@ -7,5 +7,5 @@ pub mod snip721;
 pub mod state;
 
 #[cfg(test)]
-// mod testing;
+mod testing;
 pub use crate::error::ContractError;

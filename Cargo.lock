@@ -1373,6 +1373,7 @@ dependencies = [
  "dao-hooks",
  "dao-interface",
  "dao-voting 2.4.0",
+ "query_auth 0.1.0",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
  "secret-cw-controllers",

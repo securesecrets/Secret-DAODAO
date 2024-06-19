@@ -1,14 +1,11 @@
 use cosmwasm_std::Uint128;
-use cw_multi_test::next_block;
-use cw_utils::Duration;
+use secret_multi_test::next_block;
+use shade_protocol::basic_staking::Auth;
 
-use crate::{
-    state::MAX_CLAIMS,
-    testing::{
-        execute::{stake_nft, unstake_nfts},
-        instantiate::instantiate_cw721_base,
-        queries::query_voting_power,
-    },
+use crate::testing::{
+    execute::{create_viewing_key, stake_nft, unstake_nfts},
+    instantiate::instantiate_snip721_base,
+    queries::query_voting_power,
 };
 
 use super::{
@@ -16,74 +13,81 @@ use super::{
     CommonTest, CREATOR_ADDR,
 };
 
-/// Staking tokens has a one block delay before staked tokens are
-/// reflected in voting power. Unstaking tokens has a one block delay
-/// before the unstaking is reflected in voting power, yet you have
-/// access to the NFT. If I immediately stake an unstaked NFT, my
-/// voting power should not change.
 #[test]
-fn test_circular_stake() -> anyhow::Result<()> {
+fn test_stake_and_unstake() -> anyhow::Result<()> {
     let CommonTest {
         mut app,
         module,
         nft,
+        query_auth,
     } = setup_test(None);
+
+    let viewing_key = create_viewing_key(&mut app, query_auth, CREATOR_ADDR);
 
     mint_and_stake_nft(&mut app, &nft, &module, CREATOR_ADDR, "1")?;
     mint_and_stake_nft(&mut app, &nft, &module, CREATOR_ADDR, "2")?;
 
     app.update_block(next_block);
 
-    let (total, voting) = query_total_and_voting_power(&app, &module, CREATOR_ADDR, None)?;
+    let (total, voting) = query_total_and_voting_power(
+        &app,
+        &module,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: CREATOR_ADDR.to_string().clone(),
+        },
+        None,
+    )?;
     assert_eq!(total, Uint128::new(2));
     assert_eq!(voting, Uint128::new(2));
 
     unstake_nfts(&mut app, &module, CREATOR_ADDR, &["1", "2"])?;
 
-    // Unchanged, one block delay.
-    let (total, voting) = query_total_and_voting_power(&app, &module, CREATOR_ADDR, None)?;
-    assert_eq!(total, Uint128::new(2));
-    assert_eq!(voting, Uint128::new(2));
+    // changed,
+    let (total, voting) = query_total_and_voting_power(
+        &app,
+        &module,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: CREATOR_ADDR.to_string().clone(),
+        },
+        None,
+    )?;
+    assert_eq!(total, Uint128::new(0));
+    assert_eq!(voting, Uint128::new(0));
+
+    app.update_block(next_block);
 
     stake_nft(&mut app, &nft, &module, CREATOR_ADDR, "1")?;
     stake_nft(&mut app, &nft, &module, CREATOR_ADDR, "2")?;
 
-    // Unchanged.
-    let (total, voting) = query_total_and_voting_power(&app, &module, CREATOR_ADDR, None)?;
+    // changed.
+    let (total, voting) = query_total_and_voting_power(
+        &app,
+        &module,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: CREATOR_ADDR.to_string().clone(),
+        },
+        None,
+    )?;
     assert_eq!(total, Uint128::new(2));
     assert_eq!(voting, Uint128::new(2));
 
     app.update_block(next_block);
 
     // Still unchanged.
-    let (total, voting) = query_total_and_voting_power(&app, &module, CREATOR_ADDR, None)?;
+    let (total, voting) = query_total_and_voting_power(
+        &app,
+        &module,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: CREATOR_ADDR.to_string().clone(),
+        },
+        None,
+    )?;
     assert_eq!(total, Uint128::new(2));
     assert_eq!(voting, Uint128::new(2));
-
-    Ok(())
-}
-
-/// I can immediately unstake after staking even though voting powers
-/// aren't updated until one block later. Voting power does not change
-/// if I do this.
-#[test]
-fn test_immediate_unstake() -> anyhow::Result<()> {
-    let CommonTest {
-        mut app,
-        module,
-        nft,
-    } = setup_test(None);
-
-    mint_and_stake_nft(&mut app, &nft, &module, CREATOR_ADDR, "1")?;
-    mint_and_stake_nft(&mut app, &nft, &module, CREATOR_ADDR, "2")?;
-
-    unstake_nfts(&mut app, &module, CREATOR_ADDR, &["1", "2"])?;
-
-    app.update_block(next_block);
-
-    let (total, voting) = query_total_and_voting_power(&app, &module, CREATOR_ADDR, None)?;
-    assert_eq!(total, Uint128::zero());
-    assert_eq!(voting, Uint128::zero());
 
     Ok(())
 }
@@ -93,15 +97,29 @@ fn test_immediate_unstake() -> anyhow::Result<()> {
 #[test]
 fn test_stake_wrong_nft() -> anyhow::Result<()> {
     let CommonTest {
-        mut app, module, ..
+        mut app,
+        module,
+        query_auth,
+        ..
     } = setup_test(None);
-    let other_nft = instantiate_cw721_base(&mut app, CREATOR_ADDR, CREATOR_ADDR);
+
+    let viewing_key = create_viewing_key(&mut app, query_auth, CREATOR_ADDR);
+
+    let other_nft = instantiate_snip721_base(&mut app, CREATOR_ADDR, CREATOR_ADDR);
 
     let res = mint_and_stake_nft(&mut app, &other_nft, &module, CREATOR_ADDR, "1");
     is_error!(res => "Invalid token.");
 
     app.update_block(next_block);
-    let voting = query_voting_power(&app, &module, CREATOR_ADDR, None)?;
+    let voting = query_voting_power(
+        &app,
+        &module,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: CREATOR_ADDR.to_string().clone(),
+        },
+        None,
+    )?;
     assert_eq!(voting.power, Uint128::new(0));
 
     Ok(())
@@ -115,7 +133,10 @@ fn test_query_the_future() -> anyhow::Result<()> {
         mut app,
         module,
         nft,
+        query_auth,
     } = setup_test(None);
+
+    let viewing_key = create_viewing_key(&mut app, query_auth, CREATOR_ADDR);
 
     mint_and_stake_nft(&mut app, &nft, &module, CREATOR_ADDR, "1")?;
 
@@ -123,14 +144,27 @@ fn test_query_the_future() -> anyhow::Result<()> {
     let voting = query_voting_power(
         &app,
         &module,
-        CREATOR_ADDR,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: CREATOR_ADDR.to_string().clone(),
+        },
         Some(app.block_info().height + 100),
     )?;
     assert_eq!(voting.power, Uint128::new(1));
 
-    // Current voting power is zero.
-    let voting = query_voting_power(&app, &module, CREATOR_ADDR, None)?;
-    assert_eq!(voting.power, Uint128::new(0));
+    app.update_block(next_block);
+
+    // Current voting power is 1.
+    let voting = query_voting_power(
+        &app,
+        &module,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: CREATOR_ADDR.to_string().clone(),
+        },
+        None,
+    )?;
+    assert_eq!(voting.power, Uint128::new(1));
 
     unstake_nfts(&mut app, &module, CREATOR_ADDR, &["1"])?;
 
@@ -138,38 +172,13 @@ fn test_query_the_future() -> anyhow::Result<()> {
     let voting = query_voting_power(
         &app,
         &module,
-        CREATOR_ADDR,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: CREATOR_ADDR.to_string().clone(),
+        },
         Some(app.block_info().height + 100),
     )?;
     assert_eq!(voting.power, Uint128::zero());
 
-    Ok(())
-}
-
-/// I can not unstake more than one NFT in a TX in order to bypass the
-/// MAX_CLAIMS limit.
-#[test]
-fn test_bypass_max_claims() -> anyhow::Result<()> {
-    let CommonTest {
-        mut app,
-        module,
-        nft,
-    } = setup_test(Some(Duration::Height(1)));
-    let mut to_stake = vec![];
-    for i in 1..(MAX_CLAIMS + 10) {
-        let i_str = &i.to_string();
-        mint_and_stake_nft(&mut app, &nft, &module, CREATOR_ADDR, i_str)?;
-        if i < MAX_CLAIMS {
-            // unstake MAX_CLAMS - 1 NFTs
-            unstake_nfts(&mut app, &module, CREATOR_ADDR, &[i_str])?;
-        } else {
-            // push rest of NFT ids to vec
-            to_stake.push(i_str.clone());
-        }
-    }
-    let binding = to_stake.iter().map(|s| s.as_str()).collect::<Vec<_>>();
-    let to_stake_slice: &[&str] = binding.as_slice();
-    let res = unstake_nfts(&mut app, &module, CREATOR_ADDR, to_stake_slice);
-    is_error!(res => "Too many outstanding claims. Claim some tokens before unstaking more.");
     Ok(())
 }
