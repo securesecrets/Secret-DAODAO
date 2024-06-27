@@ -85,7 +85,8 @@ pub enum ExecuteMsg {
 #[voting_module_query]
 #[cw20_token_query]
 #[active_query]
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, QueryResponses)]
+#[cw_serde]
+#[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Gets the address of the cw20-stake contract this voting module
     /// is wrapping.

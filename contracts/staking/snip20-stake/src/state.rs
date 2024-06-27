@@ -19,6 +19,8 @@ pub struct Config {
 pub const RESPONSE_BLOCK_SIZE: usize = 256;
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const BALANCE: Item<Uint128> = Item::new("balance");
+pub const DAO: Item<String> = Item::new("dao");
+
 
 // Hooks to contracts that will receive staking and unstaking messages
 pub const HOOKS: Hooks = Hooks::new("hooks");

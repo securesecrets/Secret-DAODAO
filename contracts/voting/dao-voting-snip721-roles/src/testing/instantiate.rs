@@ -15,14 +15,14 @@ fn snip721_roles_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-pub(crate) fn snip721_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        snip721_reference_impl::contract::execute,
-        snip721_reference_impl::contract::instantiate,
-        snip721_reference_impl::contract::query,
-    );
-    Box::new(contract)
-}
+// pub(crate) fn snip721_contract() -> Box<dyn Contract<Empty>> {
+//     let contract = ContractWrapper::new(
+//         snip721_reference_impl::contract::execute,
+//         snip721_reference_impl::contract::instantiate,
+//         snip721_reference_impl::contract::query,
+//     );
+//     Box::new(contract)
+// }
 
 pub(crate) fn query_auth_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
@@ -72,13 +72,13 @@ pub fn instantiate_snip721_roles(
                 symbol: "bad kids".to_string(),
                 entropy: "entropy".to_string(),
                 config: None,
-                code_id: snip721_contract_instantiate_info.code_id,
-                code_hash: snip721_contract_instantiate_info.code_hash,
-                label: "snip721".to_string(),
                 query_auth: RawContract{
                     address: query_auth.address.to_string(),
                     code_hash: query_auth.code_hash
-                }
+                },
+                admin: None,
+                royalty_info: None,
+                post_init_callback: None,
             },
             &[],
             "snip721_roles".to_string(),

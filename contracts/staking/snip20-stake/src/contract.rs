@@ -6,8 +6,7 @@ use crate::msg::{
     TotalStakedAtHeightResponse, TotalValueResponse,
 };
 use crate::state::{
-    Config, StakedBalancesStore, StakedTotalStore, BALANCE, CLAIMS, CONFIG, HOOKS, MAX_CLAIMS,
-    STAKED_BALANCES_PRIMARY,
+    Config, StakedBalancesStore, StakedTotalStore, BALANCE, CLAIMS, CONFIG, DAO, HOOKS, MAX_CLAIMS, STAKED_BALANCES_PRIMARY
 };
 use crate::ContractError;
 use cosmwasm_std::{
@@ -43,7 +42,7 @@ pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response<Empty>, ContractError> {
     cw_ownable::initialize_owner(deps.storage, deps.api, msg.owner.as_deref())?;
@@ -77,6 +76,7 @@ pub fn instantiate(
     // against a scenerio where state is cleared by a bad actor and
     // `unwrap_or_default` carries on.
     BALANCE.save(deps.storage, &Uint128::zero())?;
+    DAO.save(deps.storage, &info.sender.to_string())?;
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
@@ -535,6 +535,9 @@ pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<A
             Ok(address)
         }
         Auth::Permit(permit) => {
+            if permit.params.key!=DAO.load(deps.storage)?{
+                return Err(StdError::generic_err("Invalid permit Key"));
+            }
             let res: PermitAuthentication<AuthPermit> =
                 authenticate_permit(permit, &deps.querier, query_auth)?;
             if res.revoked {

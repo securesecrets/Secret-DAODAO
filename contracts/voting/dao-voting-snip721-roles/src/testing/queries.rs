@@ -4,7 +4,8 @@ use dao_interface::voting::{
 };
 use secret_multi_test::App;
 use shade_protocol::basic_staking::Auth;
-use snip721_reference_impl::msg::QueryAnswer;
+use snip721_roles::QueryExt;
+use snip721_roles_impl::msg::QueryAnswer;
 
 use crate::{msg::QueryMsg, state::Config};
 
@@ -54,10 +55,10 @@ pub fn query_info(app: &App, module: ContractInfo) -> StdResult<InfoResponse> {
 }
 
 pub fn query_minter(app: &App, nft: ContractInfo) -> StdResult<Vec<Addr>> {
-    let minters_res: snip721_reference_impl::msg::QueryAnswer = app.wrap().query_wasm_smart(
+    let minters_res: snip721_roles_impl::msg::QueryAnswer = app.wrap().query_wasm_smart(
         nft.code_hash,
         nft.address.to_string(),
-        &snip721_reference_impl::msg::QueryMsg::Minters {},
+        &snip721_roles_impl::msg::QueryMsg::<QueryExt>::Minters {},
     )?;
     let mut res: Vec<Addr> = Vec::new();
     match minters_res {
