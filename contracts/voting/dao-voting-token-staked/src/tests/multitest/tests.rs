@@ -168,12 +168,13 @@ fn stake_tokens(
     staking_info: ContractInfo,
     sender: &str,
     amount: u128,
+    auth: Auth,
     denom: &str,
 ) -> anyhow::Result<AppResponse> {
     app.execute_contract(
         Addr::unchecked(sender),
         &staking_info,
-        &ExecuteMsg::Stake {},
+        &ExecuteMsg::Stake { auth },
         &coins(amount, denom),
     )
 }
@@ -183,11 +184,13 @@ fn unstake_tokens(
     staking_info: ContractInfo,
     sender: &str,
     amount: u128,
+    auth: Auth,
 ) -> anyhow::Result<AppResponse> {
     app.execute_contract(
         Addr::unchecked(sender),
         &staking_info,
         &ExecuteMsg::Unstake {
+            auth,
             amount: Uint128::new(amount),
         },
         &[],
@@ -387,6 +390,8 @@ fn test_stake_invalid_denom() {
 
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+    let info = mock_info(ADDR1, &[]);
+    let viewing_key = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -406,7 +411,18 @@ fn test_stake_invalid_denom() {
     );
 
     // Try and stake an invalid denom
-    stake_tokens(&mut app, staking_info, ADDR1, 100, INVALID_DENOM).unwrap();
+    stake_tokens(
+        &mut app,
+        staking_info,
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key,
+            address: info.sender.to_string(),
+        },
+        INVALID_DENOM,
+    )
+    .unwrap();
 }
 
 #[test]
@@ -415,6 +431,8 @@ fn test_stake_valid_denom() {
 
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+    let info = mock_info(ADDR1, &[]);
+    let viewing_key = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -433,7 +451,18 @@ fn test_stake_valid_denom() {
         },
     );
     // Try and stake an valid denom
-    stake_tokens(&mut app, staking_info, ADDR1, 100, DENOM).unwrap();
+    stake_tokens(
+        &mut app,
+        staking_info,
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key,
+            address: info.sender.to_string(),
+        },
+        DENOM,
+    )
+    .unwrap();
     app.update_block(next_block);
 }
 
@@ -444,6 +473,8 @@ fn test_unstake_none_staked() {
 
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+    let info = mock_info(ADDR1, &[]);
+    let viewing_key = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -462,7 +493,17 @@ fn test_unstake_none_staked() {
         },
     );
 
-    unstake_tokens(&mut app, staking_info, ADDR1, 100).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info,
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key,
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -472,6 +513,8 @@ fn test_unstake_zero_tokens() {
 
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+    let info = mock_info(ADDR1, &[]);
+    let viewing_key = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -490,7 +533,17 @@ fn test_unstake_zero_tokens() {
         },
     );
 
-    unstake_tokens(&mut app, staking_info, ADDR1, 0).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info,
+        ADDR1,
+        0,
+        Auth::ViewingKey {
+            key: viewing_key,
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -500,6 +553,8 @@ fn test_unstake_invalid_balance() {
 
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+    let info = mock_info(ADDR1, &[]);
+    let viewing_key = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -519,11 +574,32 @@ fn test_unstake_invalid_balance() {
     );
 
     // Stake some tokens
-    stake_tokens(&mut app, staking_info.clone(), ADDR1, 100, DENOM).unwrap();
+    stake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+        DENOM,
+    )
+    .unwrap();
     app.update_block(next_block);
 
     // Try and unstake too many
-    unstake_tokens(&mut app, staking_info, ADDR1, 200).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info,
+        ADDR1,
+        200,
+        Auth::ViewingKey {
+            key: viewing_key,
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -532,6 +608,8 @@ fn test_unstake() {
 
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+    let info = mock_info(ADDR1, &[]);
+    let viewing_key = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -550,14 +628,33 @@ fn test_unstake() {
         },
     );
 
-    let viewing_key = create_viewing_key(&mut app, query_auth, mock_info(ADDR1, &[]));
-
     // Stake some tokens
-    stake_tokens(&mut app, staking_info.clone(), ADDR1, 100, DENOM).unwrap();
+    stake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+        DENOM,
+    )
+    .unwrap();
     app.update_block(next_block);
 
     // Unstake some
-    unstake_tokens(&mut app, staking_info.clone(), ADDR1, 75).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        75,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
 
     // Query claims
     let claims = get_claims(
@@ -572,7 +669,17 @@ fn test_unstake() {
     app.update_block(next_block);
 
     // Unstake the rest
-    unstake_tokens(&mut app, staking_info.clone(), ADDR1, 25).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        25,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
 
     // Query claims
     let claims = get_claims(
@@ -591,6 +698,8 @@ fn test_unstake_no_unstaking_duration() {
     let mut app = mock_app();
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+    let info = mock_info(ADDR1, &[]);
+    let viewing_key = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -610,11 +719,32 @@ fn test_unstake_no_unstaking_duration() {
     );
 
     // Stake some tokens
-    stake_tokens(&mut app, staking_info.clone(), ADDR1, 100, DENOM).unwrap();
+    stake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+        DENOM,
+    )
+    .unwrap();
     app.update_block(next_block);
 
     // Unstake some tokens
-    unstake_tokens(&mut app, staking_info.clone(), ADDR1, 75).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        75,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
 
     app.update_block(next_block);
 
@@ -623,7 +753,17 @@ fn test_unstake_no_unstaking_duration() {
     assert_eq!(balance, Uint128::new(9975));
 
     // Unstake the rest
-    unstake_tokens(&mut app, staking_info, ADDR1, 25).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info,
+        ADDR1,
+        25,
+        Auth::ViewingKey {
+            key: viewing_key,
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
 
     let balance = get_balance(&mut app, ADDR1, DENOM);
     // 10000 (initial bal) - 100 (staked) + 75 (unstaked 1) + 25 (unstaked 2) = 10000
@@ -665,6 +805,8 @@ fn test_claim_claim_not_reached() {
 
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+    let info = mock_info(ADDR1, &[]);
+    let viewing_key = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -684,11 +826,32 @@ fn test_claim_claim_not_reached() {
     );
 
     // Stake some tokens
-    stake_tokens(&mut app, staking_info.clone(), ADDR1, 100, DENOM).unwrap();
+    stake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+        DENOM,
+    )
+    .unwrap();
     app.update_block(next_block);
 
     // Unstake them to create the claims
-    unstake_tokens(&mut app, staking_info.clone(), ADDR1, 100).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key,
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
     app.update_block(next_block);
 
     // We have a claim but it isnt reached yet so this will still fail
@@ -701,6 +864,8 @@ fn test_claim() {
 
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+    let info = mock_info(ADDR1, &[]);
+    let viewing_key = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -720,11 +885,32 @@ fn test_claim() {
     );
 
     // Stake some tokens
-    stake_tokens(&mut app, staking_info.clone(), ADDR1, 100, DENOM).unwrap();
+    stake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+        DENOM,
+    )
+    .unwrap();
     app.update_block(next_block);
 
     // Unstake some to create the claims
-    unstake_tokens(&mut app, staking_info.clone(), ADDR1, 75).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        75,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
     app.update_block(|b| {
         b.height += 5;
         b.time = b.time.plus_seconds(25);
@@ -739,7 +925,17 @@ fn test_claim() {
     assert_eq!(balance, Uint128::new(9975));
 
     // Unstake the rest
-    unstake_tokens(&mut app, staking_info.clone(), ADDR1, 25).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        25,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
     app.update_block(|b| {
         b.height += 10;
         b.time = b.time.plus_seconds(50);
@@ -939,6 +1135,8 @@ fn test_query_claims() {
 
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+    let info = mock_info(ADDR1, &[]);
+    let viewing_key = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -957,8 +1155,6 @@ fn test_query_claims() {
         },
     );
 
-    let viewing_key = create_viewing_key(&mut app, query_auth, mock_info(ADDR1, &[]));
-
     let claims = get_claims(
         &mut app,
         staking_info.clone(),
@@ -970,11 +1166,32 @@ fn test_query_claims() {
     assert_eq!(claims.claims.len(), 0);
 
     // Stake some tokens
-    stake_tokens(&mut app, staking_info.clone(), ADDR1, 100, DENOM).unwrap();
+    stake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+        DENOM,
+    )
+    .unwrap();
     app.update_block(next_block);
 
     // Unstake some tokens
-    unstake_tokens(&mut app, staking_info.clone(), ADDR1, 25).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        25,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
     app.update_block(next_block);
 
     let claims = get_claims(
@@ -987,7 +1204,17 @@ fn test_query_claims() {
     );
     assert_eq!(claims.claims.len(), 1);
 
-    unstake_tokens(&mut app, staking_info.clone(), ADDR1, 25).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        25,
+        Auth::ViewingKey {
+            key: viewing_key.clone(),
+            address: info.sender.to_string(),
+        },
+    )
+    .unwrap();
     app.update_block(next_block);
 
     let claims = get_claims(
@@ -1041,6 +1268,7 @@ fn test_voting_power_queries() {
 
     let staking_contract_instantiate_info = app.store_code(staking_contract());
     let query_auth = instantiate_query_auth(&mut app);
+
     // Populated fields
     let staking_info = instantiate_staking(
         &mut app,
@@ -1080,7 +1308,18 @@ fn test_voting_power_queries() {
     assert!(resp.power.is_zero());
 
     // ADDR1 stakes
-    stake_tokens(&mut app, staking_info.clone(), ADDR1, 100, DENOM).unwrap();
+    stake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        100,
+        Auth::ViewingKey {
+            key: viewing_key_addr1.clone(),
+            address: ADDR1.to_string(),
+        },
+        DENOM,
+    )
+    .unwrap();
     app.update_block(next_block);
 
     // Total power is 100
@@ -1112,7 +1351,18 @@ fn test_voting_power_queries() {
     assert!(resp.power.is_zero());
 
     // ADDR2 stakes
-    stake_tokens(&mut app, staking_info.clone(), ADDR2, 50, DENOM).unwrap();
+    stake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR2,
+        50,
+        Auth::ViewingKey {
+            key: viewing_key_addr2.clone(),
+            address: ADDR2.to_string(),
+        },
+        DENOM,
+    )
+    .unwrap();
     app.update_block(next_block);
     let prev_height = app.block_info().height - 2;
 
@@ -1163,7 +1413,17 @@ fn test_voting_power_queries() {
     assert_eq!(resp.power, Uint128::new(50));
 
     // ADDR1 unstakes half
-    unstake_tokens(&mut app, staking_info.clone(), ADDR1, 50).unwrap();
+    unstake_tokens(
+        &mut app,
+        staking_info.clone(),
+        ADDR1,
+        50,
+        Auth::ViewingKey {
+            key: viewing_key_addr1.clone(),
+            address: ADDR1.to_string(),
+        },
+    )
+    .unwrap();
     app.update_block(next_block);
     let prev_height = app.block_info().height - 2;
 

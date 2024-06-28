@@ -1135,9 +1135,9 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                         SubMsg::reply_on_success(msg, reply_id)
                     })
                     .collect();
-                // if proposal_module_msgs.is_empty() {
-                //     return Err(ContractError::NoActiveProposalModules {});
-                // }
+                if proposal_module_msgs.is_empty() {
+                    return Err(ContractError::NoActiveProposalModules {});
+                }
                 Ok(Response::new()
                     .add_attribute("action", "instantiate query_auth with dao as admin")
                     .add_submessage(vote_module_msg)

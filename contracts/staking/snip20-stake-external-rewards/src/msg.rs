@@ -43,11 +43,6 @@ pub enum ExecuteMsg {
     Receive(Snip20ReceiveMsg),
     Fund { auth: Auth },
     UpdateRewardDuration { new_duration: u64 },
-    // User viewing key for snip20 token.
-    // user need to create viewing key for snip20 token in token
-    // contract and set that viewing key here for further use
-    // like checking user token balance etc.
-    SetViewingKey { key: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -60,9 +55,9 @@ pub enum MigrateMsg {
     FromV1 {},
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub enum ReceiveMsg {
-    Fund {},
+    Fund { auth: Auth },
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, QueryResponses)]
@@ -71,7 +66,7 @@ pub enum QueryMsg {
     #[returns(InfoResponse)]
     Info {},
     #[returns(PendingRewardsResponse)]
-    GetPendingRewards { auth: Box<Auth> },
+    GetPendingRewards { auth: Box<Auth>, addr: Addr },
     #[returns(::cw_ownable::Ownership<::cosmwasm_std::Addr>)]
     Ownership {},
 }

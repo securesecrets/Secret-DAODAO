@@ -241,10 +241,11 @@ fn stake_tokens(
     snip20_code_hash: String,
     info: MessageInfo,
     amount: Uint128,
+    auth: Auth,
 ) -> AnyResult<AppResponse> {
     let msg = secret_toolkit::snip20::HandleMsg::Send {
         amount,
-        msg: Some(to_binary(&ReceiveMsg::Stake {}).unwrap()),
+        msg: Some(to_binary(&ReceiveMsg::Stake { auth }).unwrap()),
         recipient: staking_addr.to_string(),
         recipient_code_hash: Some(staking_code_hash),
         memo: None,
@@ -286,8 +287,9 @@ fn unstake_tokens(
     staking_code_hash: String,
     info: MessageInfo,
     amount: Uint128,
+    auth: Auth,
 ) -> AnyResult<AppResponse> {
-    let msg = ExecuteMsg::Unstake { amount };
+    let msg = ExecuteMsg::Unstake { auth, amount };
     app.execute_contract(
         info.sender,
         &ContractInfo {
@@ -439,6 +441,7 @@ fn test_staking() {
         setup_test_case(&mut app, initial_balances, None);
 
     let info = mock_info(ADDR1, &[]);
+    let viewing_key_user1 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
     let _env = mock_env();
 
     // Successful bond
@@ -451,6 +454,10 @@ fn test_staking() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount,
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap();
 
@@ -505,6 +512,8 @@ fn test_staking() {
 
     // Addr 2 successful bond
     let info = mock_info(ADDR2, &[]);
+    let viewing_key_user2 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
     stake_tokens(
         &mut app,
         &staking_info.address.clone(),
@@ -513,10 +522,12 @@ fn test_staking() {
         snip20_info.code_hash.clone(),
         info.clone(),
         Uint128::new(20),
+        Auth::ViewingKey {
+            key: viewing_key_user2.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap();
-
-    let viewing_key_user2 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
 
     app.update_block(next_block);
 
@@ -549,6 +560,10 @@ fn test_staking() {
         staking_info.code_hash.clone(),
         info.clone(),
         Uint128::new(100),
+        Auth::ViewingKey {
+            key: viewing_key_user2.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap_err();
 
@@ -559,6 +574,10 @@ fn test_staking() {
         staking_info.code_hash.clone(),
         info.clone(),
         Uint128::new(10),
+        Auth::ViewingKey {
+            key: viewing_key_user2.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap();
     app.update_block(next_block);
@@ -608,13 +627,14 @@ fn text_max_claims() {
         address: ADDR1.to_string(),
         amount: amount1,
     }];
-    let (staking_info, snip20_info, _query_auth) = setup_test_case(
+    let (staking_info, snip20_info, query_auth) = setup_test_case(
         &mut app,
         initial_balances,
         Some(Duration::Height(unstaking_blocks)),
     );
 
     let info = mock_info(ADDR1, &[]);
+    let viewing_key_user1 = create_viewing_key(&mut app, query_auth.clone(), info.clone());
     stake_tokens(
         &mut app,
         &staking_info.address.clone(),
@@ -623,6 +643,10 @@ fn text_max_claims() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount1,
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap();
 
@@ -634,6 +658,10 @@ fn text_max_claims() {
             staking_info.code_hash.clone(),
             info.clone(),
             Uint128::new(1),
+            Auth::ViewingKey {
+                key: viewing_key_user1.clone(),
+                address: info.clone().sender.into_string(),
+            },
         )
         .unwrap();
     }
@@ -645,6 +673,10 @@ fn text_max_claims() {
         staking_info.code_hash.clone(),
         info.clone(),
         Uint128::new(1),
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap_err();
 
@@ -665,6 +697,10 @@ fn text_max_claims() {
         staking_info.code_hash.clone(),
         info.clone(),
         Uint128::new(1),
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap();
     app.update_block(next_block);
@@ -705,8 +741,12 @@ fn test_unstaking_with_claims() {
         staking_info.code_hash.clone(),
         &snip20_info.address.clone(),
         snip20_info.code_hash.clone(),
-        info,
+        info.clone(),
         Uint128::new(50),
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap();
     app.update_block(next_block);
@@ -738,8 +778,12 @@ fn test_unstaking_with_claims() {
         &mut app,
         &staking_info.address.clone(),
         staking_info.code_hash.clone(),
-        info,
+        info.clone(),
         Uint128::new(10),
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap();
     app.update_block(next_block);
@@ -816,8 +860,12 @@ fn test_unstaking_with_claims() {
         &mut app,
         &staking_info.address.clone(),
         staking_info.code_hash.clone(),
-        info,
+        info.clone(),
         Uint128::new(5),
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap();
     app.update_block(next_block);
@@ -828,8 +876,12 @@ fn test_unstaking_with_claims() {
         &mut app,
         &staking_info.address.clone(),
         staking_info.code_hash.clone(),
-        info,
+        info.clone(),
         Uint128::new(5),
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: info.clone().sender.into_string(),
+        },
     )
     .unwrap();
     app.update_block(next_block);
@@ -918,22 +970,8 @@ fn multiple_address_staking() {
     );
 
     let info = mock_info(ADDR1, &[]);
-    // Successful bond
-    let _res = stake_tokens(
-        &mut app,
-        &staking_info.address.clone(),
-        staking_info.code_hash.clone(),
-        &snip20_info.address.clone(),
-        snip20_info.code_hash.clone(),
-        info.clone(),
-        amount1,
-    )
-    .unwrap();
-    app.update_block(next_block);
-
     let viewing_key_user1 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
 
-    let info = mock_info(ADDR2, &[]);
     // Successful bond
     let _res = stake_tokens(
         &mut app,
@@ -943,28 +981,37 @@ fn multiple_address_staking() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount1,
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: ADDR1.to_string().clone(),
+        },
     )
     .unwrap();
     app.update_block(next_block);
 
+    let info = mock_info(ADDR2, &[]);
     let viewing_key_user2 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
 
+    // Successful bond
+    let _res = stake_tokens(
+        &mut app,
+        &staking_info.address.clone(),
+        staking_info.code_hash.clone(),
+        &snip20_info.address.clone(),
+        snip20_info.code_hash.clone(),
+        info.clone(),
+        amount1,
+        Auth::ViewingKey {
+            key: viewing_key_user2.clone(),
+            address: ADDR1.to_string().clone(),
+        },
+    )
+    .unwrap();
+    app.update_block(next_block);
+
     let info = mock_info(ADDR3, &[]);
-    // Successful bond
-    let _res = stake_tokens(
-        &mut app,
-        &staking_info.address.clone(),
-        staking_info.code_hash.clone(),
-        &snip20_info.address.clone(),
-        snip20_info.code_hash.clone(),
-        info.clone(),
-        amount1,
-    )
-    .unwrap();
-    app.update_block(next_block);
-
     let viewing_key_user3 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
-    let info = mock_info(ADDR4, &[]);
+
     // Successful bond
     let _res = stake_tokens(
         &mut app,
@@ -974,11 +1021,34 @@ fn multiple_address_staking() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount1,
+        Auth::ViewingKey {
+            key: viewing_key_user3.clone(),
+            address: ADDR1.to_string().clone(),
+        },
     )
     .unwrap();
     app.update_block(next_block);
 
+    let info = mock_info(ADDR4, &[]);
     let viewing_key_user4 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
+    // Successful bond
+    let _res = stake_tokens(
+        &mut app,
+        &staking_info.address.clone(),
+        staking_info.code_hash.clone(),
+        &snip20_info.address.clone(),
+        snip20_info.code_hash.clone(),
+        info.clone(),
+        amount1,
+        Auth::ViewingKey {
+            key: viewing_key_user4.clone(),
+            address: ADDR1.to_string().clone(),
+        },
+    )
+    .unwrap();
+    app.update_block(next_block);
+
     assert_eq!(
         query_staked_balance(
             &app,
@@ -1060,6 +1130,8 @@ fn test_simple_unstaking_with_duration() {
 
     // Bond Address 1
     let info = mock_info(ADDR1, &[]);
+    let viewing_key_user1 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
     let _env = mock_env();
     let amount = Uint128::new(100);
     stake_tokens(
@@ -1070,13 +1142,17 @@ fn test_simple_unstaking_with_duration() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount,
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: ADDR1.to_string().clone(),
+        },
     )
     .unwrap();
 
-    let viewing_key_user1 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
-
     // Bond Address 2
     let info = mock_info(ADDR2, &[]);
+    let viewing_key_user2 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
+
     let _env = mock_env();
     let amount = Uint128::new(100);
     let _res = stake_tokens(
@@ -1087,9 +1163,12 @@ fn test_simple_unstaking_with_duration() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount,
+        Auth::ViewingKey {
+            key: viewing_key_user2.clone(),
+            address: ADDR1.to_string().clone(),
+        },
     )
     .unwrap();
-    let viewing_key_user2 = create_viewing_key(&mut app, query_auth_info.clone(), info.clone());
     app.update_block(next_block);
     assert_eq!(
         query_staked_balance(
@@ -1127,6 +1206,10 @@ fn test_simple_unstaking_with_duration() {
         staking_info.code_hash.clone(),
         info,
         amount,
+        Auth::ViewingKey {
+            key: viewing_key_user1.clone(),
+            address: ADDR1.to_string().clone(),
+        },
     )
     .unwrap();
     // Unstake Addr2
@@ -1139,6 +1222,10 @@ fn test_simple_unstaking_with_duration() {
         staking_info.code_hash.clone(),
         info,
         amount,
+        Auth::ViewingKey {
+            key: viewing_key_user2.clone(),
+            address: ADDR1.to_string().clone(),
+        },
     )
     .unwrap();
     app.update_block(next_block);

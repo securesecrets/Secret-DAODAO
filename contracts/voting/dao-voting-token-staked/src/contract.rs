@@ -191,8 +191,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Stake {} => execute_stake(deps, env, info),
-        ExecuteMsg::Unstake { amount } => execute_unstake(deps, env, info, amount),
+        ExecuteMsg::Stake { auth } => execute_stake(deps, env, info, auth),
+        ExecuteMsg::Unstake { auth, amount } => execute_unstake(deps, env, info, amount, auth),
         ExecuteMsg::UpdateConfig { duration } => execute_update_config(deps, info, duration),
         ExecuteMsg::Claim {} => execute_claim(deps, env, info),
         ExecuteMsg::UpdateActiveThreshold { new_threshold } => {
@@ -211,6 +211,7 @@ pub fn execute_stake(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    auth: Auth,
 ) -> Result<Response, ContractError> {
     let denom = DENOM.load(deps.storage)?;
     let amount = must_pay(&info, &denom)?;
@@ -246,7 +247,7 @@ pub fn execute_stake(
     )?;
 
     // Add stake hook messages
-    let hook_msgs = stake_hook_msgs(HOOKS, deps.storage, info.sender.clone(), amount)?;
+    let hook_msgs = stake_hook_msgs(HOOKS, deps.storage, info.sender.clone(), amount, auth)?;
 
     Ok(Response::new()
         .add_submessages(hook_msgs)
@@ -260,6 +261,7 @@ pub fn execute_unstake(
     env: Env,
     info: MessageInfo,
     amount: Uint128,
+    auth: Auth,
 ) -> Result<Response, ContractError> {
     if amount.is_zero() {
         return Err(ContractError::ZeroUnstake {});
@@ -289,7 +291,7 @@ pub fn execute_unstake(
     )?;
 
     // Add unstake hook messages
-    let hook_msgs = unstake_hook_msgs(HOOKS, deps.storage, info.sender.clone(), amount)?;
+    let hook_msgs = unstake_hook_msgs(HOOKS, deps.storage, info.sender.clone(), amount, auth)?;
 
     let config = CONFIG.load(deps.storage)?;
     let denom = DENOM.load(deps.storage)?;
@@ -651,6 +653,10 @@ pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<A
             Ok(address)
         }
         Auth::Permit(permit) => {
+            let dao = DAO.load(deps.storage)?.addr.to_string();
+            if permit.params.key != dao {
+                return Err(StdError::generic_err("Invalid permit Key"));
+            }
             let res: PermitAuthentication<AuthPermit> =
                 authenticate_permit(permit, &deps.querier, query_auth)?;
             if res.revoked {

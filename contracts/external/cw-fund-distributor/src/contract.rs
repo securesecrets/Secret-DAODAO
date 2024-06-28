@@ -5,7 +5,7 @@ use crate::msg::{
     VotingContractResponse,
 };
 use crate::state::{
-    Config, VotingContractInfo, CONFIG, DISTRIBUTION_HEIGHT, FUNDING_PERIOD_EXPIRATION,
+    Config, VotingContractInfo, CONFIG, DAO, DISTRIBUTION_HEIGHT, FUNDING_PERIOD_EXPIRATION,
     NATIVE_BALANCES, NATIVE_CLAIMS, SNIP20S_CODE_HASH, SNIP20_BALANCES, SNIP20_CLAIMS, TOTAL_POWER,
     VOTING_CONTRACT,
 };
@@ -43,6 +43,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    DAO.save(deps.storage, &info.sender.to_string())?;
 
     // store the height
     DISTRIBUTION_HEIGHT.save(deps.storage, &msg.distribution_height)?;
@@ -107,9 +108,13 @@ pub fn execute(
             memo: _,
         }) => execute_fund_snip20(deps, env, info.sender, amount),
         ExecuteMsg::FundNative {} => execute_fund_native(deps, env, info),
-        ExecuteMsg::ClaimSnip20 { auth, tokens } => execute_claim_snip20s(deps, env, auth, tokens),
-        ExecuteMsg::ClaimNatives { auth, denoms } => execute_claim_natives(deps, env, auth, denoms),
-        ExecuteMsg::ClaimAll { auth } => execute_claim_all(deps, env, auth),
+        ExecuteMsg::ClaimSnip20 { auth, tokens } => {
+            execute_claim_snip20s(deps, env, info.sender, auth, tokens)
+        }
+        ExecuteMsg::ClaimNatives { auth, denoms } => {
+            execute_claim_natives(deps, env, auth, info.sender, denoms)
+        }
+        ExecuteMsg::ClaimAll { auth } => execute_claim_all(deps, env, info.sender, auth),
         ExecuteMsg::SetSnip20sCodeHash { token_info } => {
             if info.sender != CONFIG.load(deps.storage)?.owner {
                 return Err(ContractError::Unauthorized {});
@@ -226,6 +231,7 @@ fn get_relative_share(deps: &Deps, auth: Auth) -> Result<Decimal, StdError> {
 pub fn execute_claim_snip20s(
     deps: DepsMut,
     env: Env,
+    sender: Addr,
     auth: Auth,
     tokens: Vec<TokenInfo>,
 ) -> Result<Response, ContractError> {
@@ -239,10 +245,6 @@ pub fn execute_claim_snip20s(
     }
 
     let relative_share = get_relative_share(&deps.as_ref(), auth.clone())?;
-    let mut sender = Addr::unchecked("");
-    if let Auth::ViewingKey { address, .. } = auth {
-        sender = deps.api.addr_validate(&address)?;
-    }
     let messages = get_snip20_claim_wasm_messages(tokens, deps, sender.clone(), relative_share)?;
 
     Ok(Response::default()
@@ -320,6 +322,7 @@ pub fn execute_claim_natives(
     deps: DepsMut,
     env: Env,
     auth: Auth,
+    sender: Addr,
     denoms: Vec<String>,
 ) -> Result<Response, ContractError> {
     let funding_deadline = FUNDING_PERIOD_EXPIRATION.load(deps.storage)?;
@@ -334,10 +337,6 @@ pub fn execute_claim_natives(
     // find the relative share of the distributor pool for the user
     // and determine the native claim transfer amounts with it
     let relative_share = get_relative_share(&deps.as_ref(), auth.clone())?;
-    let mut sender = Addr::unchecked("");
-    if let Auth::ViewingKey { address, .. } = auth {
-        sender = deps.api.addr_validate(&address)?;
-    }
     let messages = get_native_claim_bank_messages(denoms, deps, sender.clone(), relative_share)?;
 
     Ok(Response::default()
@@ -399,6 +398,7 @@ fn get_native_claim_bank_messages(
 pub fn execute_claim_all(
     mut deps: DepsMut,
     env: Env,
+    sender: Addr,
     auth: Auth,
 ) -> Result<Response, ContractError> {
     let funding_deadline = FUNDING_PERIOD_EXPIRATION.load(deps.storage)?;
@@ -429,11 +429,6 @@ pub fn execute_claim_all(
 
     let relative_share = get_relative_share(&deps.as_ref(), auth.clone())?;
 
-    let mut sender = Addr::unchecked("");
-    if let Auth::ViewingKey { address, .. } = auth {
-        sender = deps.api.addr_validate(&address)?;
-    }
-
     // get the claim messages
     let cw20_claim_msgs =
         get_snip20_claim_wasm_messages(snip20_info, deps.branch(), sender.clone(), relative_share)?;
@@ -455,13 +450,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Snip20Tokens {} => query_snip20_tokens(deps),
         QueryMsg::NativeEntitlement { auth, denom } => {
             let query_auth = CONFIG.load(deps.storage)?.query_auth;
-            authenticate(deps, auth.clone(), query_auth)?;
-            query_native_entitlement(deps, auth, denom)
+            let sender = authenticate(deps, auth.clone(), query_auth)?;
+            query_native_entitlement(deps, auth, sender, denom)
         }
         QueryMsg::Snip20Entitlement { auth, token } => {
             let query_auth = CONFIG.load(deps.storage)?.query_auth;
-            authenticate(deps, auth.clone(), query_auth)?;
-            query_snip20_entitlement(deps, auth, token)
+            let sender = authenticate(deps, auth.clone(), query_auth)?;
+            query_snip20_entitlement(deps, auth, sender, token)
         }
         QueryMsg::NativeEntitlements {
             auth,
@@ -469,8 +464,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             limit,
         } => {
             let query_auth = CONFIG.load(deps.storage)?.query_auth;
-            authenticate(deps, auth.clone(), query_auth)?;
-            query_native_entitlements(deps, auth, start_at, limit)
+            let sender = authenticate(deps, auth.clone(), query_auth)?;
+            query_native_entitlements(deps, auth, sender, start_at, limit)
         }
         QueryMsg::Snip20Entitlements {
             auth,
@@ -478,8 +473,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             limit,
         } => {
             let query_auth = CONFIG.load(deps.storage)?.query_auth;
-            authenticate(deps, auth.clone(), query_auth)?;
-            query_snip20_entitlements(deps, auth, start_at, limit)
+            let sender = authenticate(deps, auth.clone(), query_auth)?;
+            query_snip20_entitlements(deps, auth, sender, start_at, limit)
         }
     }
 }
@@ -528,11 +523,12 @@ pub fn query_snip20_tokens(deps: Deps) -> StdResult<Binary> {
     to_binary(&cw20_responses)
 }
 
-pub fn query_native_entitlement(deps: Deps, auth: Auth, denom: String) -> StdResult<Binary> {
-    let mut sender = Addr::unchecked("");
-    if let Auth::ViewingKey { address, .. } = auth.clone() {
-        sender = deps.api.addr_validate(&address)?;
-    }
+pub fn query_native_entitlement(
+    deps: Deps,
+    auth: Auth,
+    sender: Addr,
+    denom: String,
+) -> StdResult<Binary> {
     let prev_claim = NATIVE_CLAIMS
         .get(deps.storage, &(sender.clone(), denom.clone()))
         .unwrap_or_default();
@@ -551,11 +547,12 @@ pub fn query_native_entitlement(deps: Deps, auth: Auth, denom: String) -> StdRes
     })
 }
 
-pub fn query_snip20_entitlement(deps: Deps, auth: Auth, token: String) -> StdResult<Binary> {
-    let mut sender = Addr::unchecked("");
-    if let Auth::ViewingKey { address, .. } = auth.clone() {
-        sender = deps.api.addr_validate(&address)?;
-    }
+pub fn query_snip20_entitlement(
+    deps: Deps,
+    auth: Auth,
+    sender: Addr,
+    token: String,
+) -> StdResult<Binary> {
     let token = Addr::unchecked(token);
 
     let prev_claim = SNIP20_CLAIMS
@@ -579,13 +576,10 @@ pub fn query_snip20_entitlement(deps: Deps, auth: Auth, token: String) -> StdRes
 pub fn query_native_entitlements(
     deps: Deps,
     auth: Auth,
+    sender: Addr,
     start_at: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    let mut sender = Addr::unchecked("");
-    if let Auth::ViewingKey { address, .. } = auth.clone() {
-        sender = deps.api.addr_validate(&address)?;
-    }
     let relative_share = get_relative_share(&deps, auth)?;
     let mut start = start_at.clone(); // Clone start_after to mutate it if necessary
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
@@ -634,13 +628,10 @@ const DEFAULT_LIMIT: u32 = 10;
 pub fn query_snip20_entitlements(
     deps: Deps,
     auth: Auth,
+    sender: Addr,
     start_at: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    let mut sender = Addr::unchecked("");
-    if let Auth::ViewingKey { address, .. } = auth.clone() {
-        sender = deps.api.addr_validate(&address)?;
-    }
     let relative_share = get_relative_share(&deps, auth)?;
     let mut start = start_at.map(|h| deps.api.addr_validate(&h)).transpose()?;
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
@@ -764,6 +755,10 @@ pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<A
             Ok(address)
         }
         Auth::Permit(permit) => {
+            let dao = DAO.load(deps.storage)?;
+            if permit.params.key != dao {
+                return Err(StdError::generic_err("Invalid permit Key"));
+            }
             let res: PermitAuthentication<AuthPermit> =
                 authenticate_permit(permit, &deps.querier, query_auth)?;
             if res.revoked {

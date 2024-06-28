@@ -756,7 +756,7 @@ pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<A
         }
         Auth::Permit(permit) => {
             let dao = DAO.load(deps.storage)?.addr.to_string();
-            if permit.params.key!=dao{
+            if permit.params.key != dao {
                 return Err(StdError::generic_err("Invalid permit Key"));
             }
             let res: PermitAuthentication<AuthPermit> =

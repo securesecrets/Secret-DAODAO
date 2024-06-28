@@ -38,7 +38,7 @@ pub struct Snip20ReceiveMsg {
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     Receive(Snip20ReceiveMsg),
-    Unstake { amount: Uint128 },
+    Unstake { auth: Auth, amount: Uint128 },
     Claim {},
     UpdateConfig { duration: Option<Duration> },
     AddHook { addr: String, code_hash: String },
@@ -65,7 +65,7 @@ pub enum ExecuteAnswer {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub enum ReceiveMsg {
-    Stake {},
+    Stake { auth: Auth },
     Fund {},
 }
 

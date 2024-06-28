@@ -189,12 +189,13 @@ fn stake_tokens(
     snip20_contract_info: ContractInfo,
     sender: &str,
     amount: u128,
+    auth: Auth,
 ) {
     let msg = snip20_reference_impl::msg::ExecuteMsg::Send {
         recipient: staking_addr.to_string(),
         recipient_code_hash: Some(staking_code_hash),
         amount: Uint128::new(amount),
-        msg: Some(to_binary(&snip20_stake::msg::ReceiveMsg::Stake {}).unwrap()),
+        msg: Some(to_binary(&snip20_stake::msg::ReceiveMsg::Stake { auth }).unwrap()),
         memo: None,
         decoys: None,
         entropy: None,
@@ -542,6 +543,10 @@ fn test_existing_snip20() {
         snip20_info,
         CREATOR_ADDR,
         1,
+        Auth::ViewingKey {
+            key: creator_viewing_key_snip20_stake.clone(),
+            address: CREATOR_ADDR.to_string(),
+        },
     );
     app.update_block(next_block);
 
@@ -697,6 +702,10 @@ fn test_existing_cw20_existing_staking() {
         snip20_info.clone(),
         CREATOR_ADDR,
         1,
+        Auth::ViewingKey {
+            key: creator_viewing_key_snip20_stake.clone(),
+            address: CREATOR_ADDR.to_string(),
+        },
     );
 
     // Expect 1 as creator has now staked 1
@@ -851,6 +860,10 @@ fn test_different_heights() {
         snip20_info.clone(),
         CREATOR_ADDR,
         1,
+        Auth::ViewingKey {
+            key: creator_viewing_key_snip20_stake.clone(),
+            address: CREATOR_ADDR.to_string(),
+        },
     );
 
     // Expect 1 as creator has now staked 1
@@ -904,6 +917,10 @@ fn test_different_heights() {
         snip20_info.clone(),
         CREATOR_ADDR,
         1,
+        Auth::ViewingKey {
+            key: creator_viewing_key_snip20_stake.clone(),
+            address: CREATOR_ADDR.to_string(),
+        },
     );
 
     // Expect 2 as creator has now staked 2
@@ -1048,8 +1065,8 @@ fn test_active_threshold_absolute_count() {
             }),
             dao_code_hash: "dao_code_hash".to_string(),
             query_auth: Some(RawContract {
-                address: query_auth.address.to_string(),
-                code_hash: query_auth.code_hash,
+                address: query_auth.clone().address.to_string(),
+                code_hash: query_auth.clone().code_hash,
             }),
         },
     );
@@ -1067,6 +1084,8 @@ fn test_active_threshold_absolute_count() {
 
     // Stake 100 token as creator
     app.update_block(next_block);
+    let creator_viewing_key_snip20_stake =
+        create_viewing_key(&mut app, query_auth.clone(), mock_info(CREATOR_ADDR, &[]));
     stake_tokens(
         &mut app,
         staking_contract_info.clone().address,
@@ -1074,6 +1093,10 @@ fn test_active_threshold_absolute_count() {
         snip20_info.clone(),
         CREATOR_ADDR,
         100,
+        Auth::ViewingKey {
+            key: creator_viewing_key_snip20_stake.clone(),
+            address: CREATOR_ADDR.to_string(),
+        },
     );
 
     // Active as enough staked
@@ -1143,8 +1166,8 @@ fn test_active_threshold_percent() {
             }),
             dao_code_hash: "dao_code_hash".to_string(),
             query_auth: Some(RawContract {
-                address: query_auth.address.to_string(),
-                code_hash: query_auth.code_hash,
+                address: query_auth.clone().address.to_string(),
+                code_hash: query_auth.clone().code_hash,
             }),
         },
     );
@@ -1162,6 +1185,8 @@ fn test_active_threshold_percent() {
 
     // Stake 60 token as creator, now active
     app.update_block(next_block);
+    let creator_viewing_key_snip20_stake =
+        create_viewing_key(&mut app, query_auth.clone(), mock_info(CREATOR_ADDR, &[]));
     stake_tokens(
         &mut app,
         staking_contract_info.clone().address,
@@ -1169,6 +1194,10 @@ fn test_active_threshold_percent() {
         snip20_info.clone(),
         CREATOR_ADDR,
         60,
+        Auth::ViewingKey {
+            key: creator_viewing_key_snip20_stake.clone(),
+            address: CREATOR_ADDR.to_string(),
+        },
     );
     // Active as enough staked
     let is_active: IsActiveResponse = app
@@ -1237,8 +1266,8 @@ fn test_active_threshold_percent_rounds_up() {
             }),
             dao_code_hash: "dao_code_hash".to_string(),
             query_auth: Some(RawContract {
-                address: query_auth.address.to_string(),
-                code_hash: query_auth.code_hash,
+                address: query_auth.clone().address.to_string(),
+                code_hash: query_auth.clone().code_hash,
             }),
         },
     );
@@ -1256,6 +1285,8 @@ fn test_active_threshold_percent_rounds_up() {
 
     // Stake 2 token as creator, should not be active
     app.update_block(next_block);
+    let creator_viewing_key_snip20_stake =
+        create_viewing_key(&mut app, query_auth.clone(), mock_info(CREATOR_ADDR, &[]));
     stake_tokens(
         &mut app,
         staking_contract_info.clone().address,
@@ -1263,6 +1294,10 @@ fn test_active_threshold_percent_rounds_up() {
         snip20_info.clone(),
         CREATOR_ADDR,
         2,
+        Auth::ViewingKey {
+            key: creator_viewing_key_snip20_stake.clone(),
+            address: CREATOR_ADDR.to_string(),
+        },
     );
 
     let is_active: IsActiveResponse = app
@@ -1284,6 +1319,10 @@ fn test_active_threshold_percent_rounds_up() {
         snip20_info.clone(),
         CREATOR_ADDR,
         1,
+        Auth::ViewingKey {
+            key: creator_viewing_key_snip20_stake.clone(),
+            address: CREATOR_ADDR.to_string(),
+        },
     );
 
     let is_active: IsActiveResponse = app

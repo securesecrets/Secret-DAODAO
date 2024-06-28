@@ -21,7 +21,9 @@ use shade_protocol::Contract;
 use crate::error::ContractError;
 use crate::helpers::validate_unique_members;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{MembersStore, TotalStore, ADMIN, DAO, HOOKS, MEMBERS_PRIMARY, OWNER, QUERY_AUTH};
+use crate::state::{
+    MembersStore, TotalStore, ADMIN, DAO, HOOKS, MEMBERS_PRIMARY, OWNER, QUERY_AUTH,
+};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw4-group";
@@ -288,7 +290,7 @@ pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<A
             Ok(address)
         }
         Auth::Permit(permit) => {
-            if permit.params.key!=DAO.load(deps.storage)?{
+            if permit.params.key != DAO.load(deps.storage)? {
                 return Err(StdError::generic_err("Invalid permit Key"));
             }
             let res: PermitAuthentication<AuthPermit> =

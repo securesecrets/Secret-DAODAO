@@ -2,13 +2,22 @@ use cosmwasm_std::{to_binary, Addr, StdResult, Storage, SubMsg, Uint128, WasmMsg
 use cw_hooks::Hooks;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use shade_protocol::basic_staking::Auth;
 
 /// An enum representing staking hooks.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum StakeChangedHookMsg {
-    Stake { addr: Addr, amount: Uint128 },
-    Unstake { addr: Addr, amount: Uint128 },
+    Stake {
+        addr: Addr,
+        amount: Uint128,
+        auth: Auth,
+    },
+    Unstake {
+        addr: Addr,
+        amount: Uint128,
+        auth: Auth,
+    },
 }
 
 /// Prepares StakeChangedHookMsg::Stake hook SubMsgs,
@@ -18,9 +27,10 @@ pub fn stake_hook_msgs(
     storage: &dyn Storage,
     addr: Addr,
     amount: Uint128,
+    auth: Auth,
 ) -> StdResult<Vec<SubMsg>> {
     let msg = to_binary(&StakeChangedExecuteMsg::StakeChangeHook(
-        StakeChangedHookMsg::Stake { addr, amount },
+        StakeChangedHookMsg::Stake { addr, amount, auth },
     ))?;
     hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {
@@ -40,9 +50,10 @@ pub fn unstake_hook_msgs(
     storage: &dyn Storage,
     addr: Addr,
     amount: Uint128,
+    auth: Auth,
 ) -> StdResult<Vec<SubMsg>> {
     let msg = to_binary(&StakeChangedExecuteMsg::StakeChangeHook(
-        StakeChangedHookMsg::Unstake { addr, amount },
+        StakeChangedHookMsg::Unstake { addr, amount, auth },
     ))?;
     hooks.prepare_hooks(storage, |hook_item| {
         let execute = WasmMsg::Execute {

@@ -45,9 +45,9 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Stakes tokens with the contract to get voting power in the DAO
-    Stake {},
+    Stake { auth: Auth },
     /// Unstakes tokens so that they begin unbonding
-    Unstake { amount: Uint128 },
+    Unstake { auth: Auth, amount: Uint128 },
     /// Updates the contract configuration
     UpdateConfig { duration: Option<Duration> },
     /// Claims unstaked tokens that have completed the unbonding period

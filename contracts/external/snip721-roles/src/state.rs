@@ -14,6 +14,7 @@ pub struct Config {
 // Hooks to contracts that will receive staking and unstaking messages.
 pub const HOOKS: Hooks = Hooks::new("hooks");
 pub const SNIP721_INFO: Item<Config> = Item::new("si");
+pub const DAO: Item<String> = Item::new("dao");
 
 // /// A historic snapshot of total weight over time
 // pub const TOTAL: SnapshotItem<u64> = SnapshotItem::new(

@@ -6,7 +6,8 @@ use crate::msg::{
     TotalStakedAtHeightResponse, TotalValueResponse,
 };
 use crate::state::{
-    Config, StakedBalancesStore, StakedTotalStore, BALANCE, CLAIMS, CONFIG, DAO, HOOKS, MAX_CLAIMS, STAKED_BALANCES_PRIMARY
+    Config, StakedBalancesStore, StakedTotalStore, BALANCE, CLAIMS, CONFIG, DAO, HOOKS, MAX_CLAIMS,
+    STAKED_BALANCES_PRIMARY,
 };
 use crate::ContractError;
 use cosmwasm_std::{
@@ -95,7 +96,7 @@ pub fn execute(
 ) -> Result<Response<Empty>, ContractError> {
     match msg {
         ExecuteMsg::Receive(msg) => execute_receive(deps, env, info, msg),
-        ExecuteMsg::Unstake { amount } => execute_unstake(deps, env, info, amount),
+        ExecuteMsg::Unstake { amount, auth } => execute_unstake(deps, env, info, amount, auth),
         ExecuteMsg::Claim {} => execute_claim(deps, env, info),
         ExecuteMsg::UpdateConfig { duration } => execute_update_config(info, deps, duration),
         ExecuteMsg::AddHook { addr, code_hash } => {
@@ -147,7 +148,7 @@ pub fn execute_receive(
     let msg: ReceiveMsg = from_binary(&wrapper.msg.unwrap())?;
     let sender: Addr = deps.api.addr_validate(wrapper.sender.as_ref())?;
     match msg {
-        ReceiveMsg::Stake {} => execute_stake(deps, env, sender, wrapper.amount),
+        ReceiveMsg::Stake { auth } => execute_stake(deps, env, sender, wrapper.amount, auth),
         ReceiveMsg::Fund {} => execute_fund(deps, env, &sender, wrapper.amount),
     }
 }
@@ -157,6 +158,7 @@ pub fn execute_stake(
     env: Env,
     sender: Addr,
     amount: Uint128,
+    auth: Auth,
 ) -> Result<Response, ContractError> {
     let balance = BALANCE.load(deps.storage).unwrap_or_default();
     let staked_total = StakedTotalStore::load(deps.storage);
@@ -182,7 +184,7 @@ pub fn execute_stake(
             .checked_add(amount_to_stake)
             .map_err(StdError::overflow)?,
     )?;
-    let hook_msgs = stake_hook_msgs(HOOKS, deps.storage, sender.clone(), amount_to_stake)?;
+    let hook_msgs = stake_hook_msgs(HOOKS, deps.storage, sender.clone(), amount_to_stake, auth)?;
     Ok(Response::new()
         .add_submessages(hook_msgs)
         .add_attribute("action", "stake")
@@ -195,6 +197,7 @@ pub fn execute_unstake(
     env: Env,
     info: MessageInfo,
     amount: Uint128,
+    auth: Auth,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let balance = BALANCE.load(deps.storage).unwrap_or_default();
@@ -233,7 +236,7 @@ pub fn execute_unstake(
             .checked_sub(amount_to_claim)
             .map_err(StdError::overflow)?,
     )?;
-    let hook_msgs = unstake_hook_msgs(HOOKS, deps.storage, info.sender.clone(), amount)?;
+    let hook_msgs = unstake_hook_msgs(HOOKS, deps.storage, info.sender.clone(), amount, auth)?;
     match config.unstaking_duration {
         None => {
             let snip_send_msg = secret_toolkit::snip20::HandleMsg::Transfer {
@@ -535,7 +538,7 @@ pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<A
             Ok(address)
         }
         Auth::Permit(permit) => {
-            if permit.params.key!=DAO.load(deps.storage)?{
+            if permit.params.key != DAO.load(deps.storage)? {
                 return Err(StdError::generic_err("Invalid permit Key"));
             }
             let res: PermitAuthentication<AuthPermit> =

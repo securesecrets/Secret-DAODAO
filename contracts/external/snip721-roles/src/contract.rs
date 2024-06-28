@@ -23,7 +23,7 @@ use snip721_roles_impl::{
 use std::cmp::Ordering;
 
 use crate::msg::{ExecuteMsg, QueryMsg};
-use crate::state::{MembersStore, TotalStore, MEMBERS_PRIMARY};
+use crate::state::{MembersStore, TotalStore, DAO, MEMBERS_PRIMARY};
 use crate::{error::RolesContractError as ContractError, state::HOOKS};
 
 // Version info for migration
@@ -44,6 +44,7 @@ pub fn instantiate(
     msg: Snip721BaseInstantiateMsg,
 ) -> Result<Response, ContractError> {
     Snip721roles::default().instantiate(deps.branch(), env.clone(), info.clone(), msg)?;
+    DAO.save(deps.storage, &info.sender.to_string())?;
 
     // Initialize total weight to zero
     TotalStore::save(deps.storage, env.block.height, 0)?;
@@ -683,6 +684,10 @@ pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<A
             Ok(address)
         }
         Auth::Permit(permit) => {
+            let dao = DAO.load(deps.storage)?;
+            if permit.params.key != dao {
+                return Err(StdError::generic_err("Invalid permit Key"));
+            }
             let res: PermitAuthentication<AuthPermit> =
                 authenticate_permit(permit, &deps.querier, query_auth)?;
             if res.revoked {
