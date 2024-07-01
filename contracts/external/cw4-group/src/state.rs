@@ -12,7 +12,6 @@ pub const ADMIN: Admin = Admin::new("admin");
 pub const HOOKS: Hooks = Hooks::new("cw4-hooks");
 pub const QUERY_AUTH: Item<Contract> = Item::new("query_auth");
 pub const OWNER: Item<Addr> = Item::new("owner");
-pub const DAO: Item<String> = Item::new("dao");
 
 // pub const TOTAL: SnapshotItem<u64> = SnapshotItem::new(
 //     TOTAL_KEY,

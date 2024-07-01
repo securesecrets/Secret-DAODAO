@@ -40,4 +40,3 @@ pub static NATIVE_CLAIMS: Keymap<(Addr, String), Uint128> = Keymap::new(b"native
 pub static SNIP20S_CODE_HASH: Keymap<Addr, String> = Keymap::new(b"snip20s_code_hash");
 
 pub const CONFIG: Item<Config> = Item::new("config");
-pub const DAO: Item<String> = Item::new("dao");

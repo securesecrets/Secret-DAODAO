@@ -5,7 +5,7 @@ use crate::msg::{
     VotingContractResponse,
 };
 use crate::state::{
-    Config, VotingContractInfo, CONFIG, DAO, DISTRIBUTION_HEIGHT, FUNDING_PERIOD_EXPIRATION,
+    Config, VotingContractInfo, CONFIG, DISTRIBUTION_HEIGHT, FUNDING_PERIOD_EXPIRATION,
     NATIVE_BALANCES, NATIVE_CLAIMS, SNIP20S_CODE_HASH, SNIP20_BALANCES, SNIP20_CLAIMS, TOTAL_POWER,
     VOTING_CONTRACT,
 };
@@ -43,7 +43,6 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    DAO.save(deps.storage, &info.sender.to_string())?;
 
     // store the height
     DISTRIBUTION_HEIGHT.save(deps.storage, &msg.distribution_height)?;
@@ -755,10 +754,6 @@ pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<A
             Ok(address)
         }
         Auth::Permit(permit) => {
-            let dao = DAO.load(deps.storage)?;
-            if permit.params.key != dao {
-                return Err(StdError::generic_err("Invalid permit Key"));
-            }
             let res: PermitAuthentication<AuthPermit> =
                 authenticate_permit(permit, &deps.querier, query_auth)?;
             if res.revoked {
