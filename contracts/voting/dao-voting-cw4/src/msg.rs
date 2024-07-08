@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Addr;
 use dao_dao_macros::voting_module_query;
 use shade_protocol::utils::asset::RawContract;
 
@@ -23,7 +24,10 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
-pub enum ExecuteMsg {}
+pub enum ExecuteMsg {
+    // Only callable by group contract
+    AddGroupContract { addr: Addr, code_hash: String },
+}
 
 #[allow(clippy::large_enum_variant)]
 #[voting_module_query]

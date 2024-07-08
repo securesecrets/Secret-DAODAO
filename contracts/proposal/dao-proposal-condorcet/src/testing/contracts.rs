@@ -36,8 +36,8 @@ pub fn _dao_voting_cw4_contract() -> Box<dyn Contract<Empty>> {
         dao_voting_cw4::contract::execute,
         dao_voting_cw4::contract::instantiate,
         dao_voting_cw4::contract::query,
-    )
-    .with_reply(dao_voting_cw4::contract::reply);
+    );
+    // .with_reply(dao_voting_cw4::contract::reply);
     Box::new(contract)
 }
 
