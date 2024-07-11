@@ -17,8 +17,8 @@ use dao_interface::{
     },
     voting,
 };
-use dao_utils::voting_cw4_init::GroupContract;
-use dao_utils::voting_snip721_roles_init::NftContract;
+use dao_utils::msg::GroupContract;
+use dao_utils::msg::NftRolesContract;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 use secret_toolkit::{serialization::Json, storage::Keymap, utils::HandleCallback};
@@ -69,7 +69,7 @@ pub fn instantiate(
     let query_auth_msg = QueryAuthInstantiateMsg {
         admin_auth: Contract {
             address: env.contract.address.clone(),
-            code_hash: env.contract.code_hash,
+            code_hash: env.contract.code_hash.clone(),
         },
         prng_seed: to_binary(&"seed".to_string())?,
     };
@@ -91,9 +91,6 @@ pub fn instantiate(
         reply_id,
     );
 
-    let _: dao_utils::voting_cw4_init::InstantiateMsg =
-        from_binary(&msg.voting_module_instantiate_info.msg)?;
-
     if let Some(initial_items) = msg.initial_items {
         // O(N*N) deduplication.
         let mut seen = Vec::with_capacity(initial_items.len());
@@ -111,6 +108,10 @@ pub fn instantiate(
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
+        .set_data(to_binary(&AnyContractInfo{
+            addr: env.contract.address,
+            code_hash: env.contract.code_hash
+        })?)
         .add_attribute("sender", info.sender)
         .add_submessage(query_auth_submsg))
 }
@@ -1156,7 +1157,7 @@ pub(crate) fn update_query_auth(
     admin: String,
 ) -> StdResult<CosmosMsg> {
     // Voting CW4
-    if let Ok(mut msg) = from_binary::<dao_utils::voting_cw4_init::InstantiateMsg>(&info.msg) {
+    if let Ok(mut msg) = from_binary::<dao_utils::msg::VotingCW4nstantiateMsg>(&info.msg) {
         if let GroupContract::New {
             ref mut query_auth, ..
         } = msg.group_contract
@@ -1167,34 +1168,26 @@ pub(crate) fn update_query_auth(
     }
 
     // Voting Snip20 Staked
-    if let Ok(mut msg) =
-        from_binary::<dao_utils::voting_snip20_staked_init::InstantiateMsg>(&info.msg)
-    {
+    if let Ok(mut msg) = from_binary::<dao_utils::msg::Snip20StakedInstantiateMsg>(&info.msg) {
         msg.query_auth = Some(new_query_auth);
         return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
     }
 
     // Voting Token Staked
-    if let Ok(mut msg) =
-        from_binary::<dao_utils::voting_token_staked_init::InstantiateMsg>(&info.msg)
-    {
+    if let Ok(mut msg) = from_binary::<dao_utils::msg::TokenStakedInstantiateMsg>(&info.msg) {
         msg.query_auth = Some(new_query_auth);
         return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
     }
 
     // Voting Snip721 Staked
-    if let Ok(mut msg) =
-        from_binary::<dao_utils::voting_snip721_staked_init::InstantiateMsg>(&info.msg)
-    {
+    if let Ok(mut msg) = from_binary::<dao_utils::msg::Snip721StakedInstantiateMsg>(&info.msg) {
         msg.query_auth = Some(new_query_auth);
         return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
     }
 
     // Voting Snip721 Roles
-    if let Ok(mut msg) =
-        from_binary::<dao_utils::voting_snip721_roles_init::InstantiateMsg>(&info.msg)
-    {
-        if let NftContract::New {
+    if let Ok(mut msg) = from_binary::<dao_utils::msg::Snip721RolesInstantiateMsg>(&info.msg) {
+        if let NftRolesContract::New {
             ref mut query_auth, ..
         } = msg.nft_contract
         {
@@ -1204,20 +1197,19 @@ pub(crate) fn update_query_auth(
     }
 
     // Proposal Single
-    if let Ok(mut msg) = from_binary::<dao_utils::proposal_single_init::InstantiateMsg>(&info.msg) {
+    if let Ok(mut msg) = from_binary::<dao_utils::msg::ProposalSingleInstantiateMsg>(&info.msg) {
         msg.query_auth = Some(new_query_auth);
         return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
     }
 
     // Proposal Multiple
-    if let Ok(mut msg) = from_binary::<dao_utils::proposal_multiple_init::InstantiateMsg>(&info.msg)
-    {
+    if let Ok(mut msg) = from_binary::<dao_utils::msg::ProposalMultipleInstantiateMsg>(&info.msg) {
         msg.query_auth = Some(new_query_auth);
         return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
     }
 
     // Proposal Condorcet
-    if let Ok(msg) = from_binary::<dao_utils::proposal_condorcet_init::InstantiateMsg>(&info.msg) {
+    if let Ok(msg) = from_binary::<dao_utils::msg::ProposalCondorcetInstantiateMsg>(&info.msg) {
         return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
     }
 

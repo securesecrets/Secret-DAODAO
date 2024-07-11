@@ -52,7 +52,7 @@ pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
@@ -103,6 +103,10 @@ pub fn instantiate(
 
     Ok(Response::default()
         .add_submessages(pre_propose_messages)
+        .set_data(to_binary(&AnyContractInfo {
+            addr: env.contract.address,
+            code_hash: env.contract.code_hash,
+        })?)
         .add_attribute("action", "instantiate")
         .add_attribute("dao", info.sender.to_string()))
 }

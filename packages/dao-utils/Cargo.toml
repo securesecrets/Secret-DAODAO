@@ -24,7 +24,7 @@ dao-voting ={ workspace = true }
 cw4 ={ workspace = true }
 dao-snip721-extensions = { workspace = true }
 snip721-roles-impl ={ workspace = true }
-
+anybuf = { workspace = true }
 
 
 [dev-dependencies]

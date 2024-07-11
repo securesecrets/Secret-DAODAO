@@ -11,7 +11,7 @@ use dao_snip721_extensions::roles::{ExecuteExt, MetadataExt, QueryExt};
 use secret_cw2::set_contract_version;
 use shade_protocol::basic_staking::Auth;
 
-use crate::msg::{ExecuteMsg, InstantiateMsg, NftContract, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, NftRolesContract, QueryMsg};
 use crate::state::{Config, CONFIG, DAO, INITIAL_NFTS};
 use crate::{error::ContractError, snip721roles};
 use secret_toolkit::utils::InitCallback;
@@ -39,7 +39,7 @@ pub fn instantiate(
     )?;
 
     match msg.nft_contract {
-        NftContract::Existing { address, code_hash } => {
+        NftRolesContract::Existing { address, code_hash } => {
             let config = Config {
                 nft_address: deps.api.addr_validate(&address)?,
                 nft_code_hash: code_hash.clone(),
@@ -54,7 +54,7 @@ pub fn instantiate(
                 })?)
                 .add_attribute("nft_contract", address))
         }
-        NftContract::New {
+        NftRolesContract::New {
             snip721_roles_code_id,
             snip721_roles_code_hash,
             name,

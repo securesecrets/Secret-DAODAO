@@ -23,7 +23,7 @@ pub struct NftMintMsg {
 
 #[allow(clippy::large_enum_variant)]
 #[cw_serde]
-pub enum NftContract {
+pub enum NftRolesContract {
     Existing {
         /// Address of an already instantiated snip721-weighted-roles token contract.
         address: String,
@@ -63,7 +63,7 @@ pub enum NftContract {
 #[cw_serde]
 pub struct InstantiateMsg {
     /// Info about the associated NFT contract
-    pub nft_contract: NftContract,
+    pub nft_contract: NftRolesContract,
     pub dao_code_hash: String,
 }
 

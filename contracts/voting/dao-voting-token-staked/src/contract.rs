@@ -123,63 +123,7 @@ pub fn instantiate(
                     addr: env.contract.address,
                     code_hash: env.contract.code_hash,
                 })?))
-        } // TokenInfo::New(ref token) => {
-          //     let NewTokenInfo {
-          //         subdenom,
-          //         token_issuer_code_id,
-          //         token_issuer_code_hash,
-          //         ..
-          //     } = token;
-
-          //     // Save new token info for use in reply
-          //     TOKEN_INSTANTIATION_INFO.save(deps.storage, &msg.token_info)?;
-
-          //     // Instantiate cw-token-factory-issuer contract
-          //     // DAO (sender) is set as contract admin
-          //     let msg = IssuerInstantiateMsg::NewToken {
-          //         subdenom: subdenom.to_string(),
-          //     };
-          //     let issuer_instantiate_msg = SubMsg::reply_on_success(
-          //         msg.to_cosmos_msg(
-          //             Some(info.sender.to_string()),
-          //             env.contract.address.to_string(),
-          //             token_issuer_code_id.clone(),
-          //             token_issuer_code_hash.clone(),
-          //             None,
-          //         )?,
-          //         INSTANTIATE_TOKEN_FACTORY_ISSUER_REPLY_ID,
-          //     );
-
-          //     Ok(Response::new()
-          //         .add_attribute("action", "instantiate")
-          //         .add_attribute("token", "new_token")
-          //         .add_submessage(issuer_instantiate_msg))
-          // }
-          // TokenInfo::Factory(binary) => match from_binary(&binary)? {
-          //     WasmMsg::Execute {
-          //         msg,
-          //         contract_addr,
-          //         code_hash,
-          //         funds,
-          //     } => {
-          //         // Call factory contract. Use only a trusted factory contract,
-          //         // as this is a critical security component and valdiation of
-          //         // setup will happen in the factory.
-          //         Ok(Response::new()
-          //             .add_attribute("action", "intantiate")
-          //             .add_attribute("token", "custom_factory")
-          //             .add_submessage(SubMsg::reply_on_success(
-          //                 WasmMsg::Execute {
-          //                     contract_addr,
-          //                     code_hash,
-          //                     msg,
-          //                     funds,
-          //                 },
-          //                 FACTORY_EXECUTE_REPLY_ID,
-          //             )))
-          //     }
-          //     _ => Err(ContractError::UnsupportedFactoryMsg {}),
-          // },
+        }
     }
 }
 

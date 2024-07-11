@@ -46,16 +46,15 @@ pub fn instantiate(
     )?;
     create(deps, msg.admin, msg.members, env.block.height)?;
     // if this contract is being deployed from voting module
-    if msg.voting_code_hash.is_some(){
+    if msg.voting_code_hash.is_some() {
         let exec_msg = voting_cw4::VotingCW4ExecuteMsg::AddGroupContract {
             addr: env.contract.address,
             code_hash: env.contract.code_hash,
         }
         .to_cosmos_msg(msg.voting_code_hash.unwrap(), info.sender.to_string(), None)?;
         return Ok(Response::default().add_message(exec_msg));
-    } 
+    }
     Ok(Response::default())
-   
 }
 
 // create is the instantiation logic with set_contract_version removed so it can more
