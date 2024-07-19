@@ -1,11 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg,
+    SubMsgResult, Uint128,
 };
 use cw4::{MemberListResponse, MemberResponse, TotalWeightResponse};
+use dao_interface::replies::parse_reply_address_from_event;
 // use cw4_group::msg::InstantiateMsg as Cw4GroupInstantiateMsg;
 use dao_interface::state::AnyContractInfo;
+use dao_utils::query::get_contract_code_hash;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 use shade_protocol::basic_staking::Auth;
@@ -18,7 +21,7 @@ use crate::state::{DAO, GROUP_CONTRACT};
 pub(crate) const CONTRACT_NAME: &str = "crates.io:dao-voting-cw4";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-// const INSTANTIATE_GROUP_REPLY_ID: u64 = 0;
+const INSTANTIATE_GROUP_REPLY_ID: u64 = 0;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -80,35 +83,22 @@ pub fn instantiate(
                 admin: Some(info.sender.to_string()),
                 members: initial_members,
                 query_auth: query_auth.unwrap_or_default(),
-                voting_code_hash: Some(env.contract.code_hash.clone()),
             };
 
-            // let sub_msg = SubMsg::reply_always(
-            // msg.to_cosmos_msg(
-            //     Some(info.sender.to_string()),
-            //     env.contract.address.to_string(),
-            //     cw4_group_code_id,
-            //     cw4_group_code_hash,
-            //     None,
-            // )?,
-            //     INSTANTIATE_GROUP_REPLY_ID,
-            // );
-
-            let init_msg = msg.to_cosmos_msg(
-                Some(info.sender.to_string()),
-                env.contract.address.to_string(),
-                cw4_group_code_id,
-                cw4_group_code_hash,
-                None,
-            )?;
+            let sub_msg = SubMsg::reply_always(
+                msg.to_cosmos_msg(
+                    Some(info.sender.to_string()),
+                    env.contract.address.to_string(),
+                    cw4_group_code_id,
+                    cw4_group_code_hash,
+                    None,
+                )?,
+                INSTANTIATE_GROUP_REPLY_ID,
+            );
 
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
-                .add_message(init_msg)
-                .set_data(to_binary(&AnyContractInfo {
-                    addr: env.contract.address,
-                    code_hash: env.contract.code_hash,
-                })?))
+                .add_submessage(sub_msg))
         }
         GroupContract::Existing { address, code_hash } => {
             let group_contract = deps.api.addr_validate(&address.clone())?;
@@ -136,10 +126,6 @@ pub fn instantiate(
 
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
-                .set_data(to_binary(&AnyContractInfo {
-                    addr: env.contract.address,
-                    code_hash: env.contract.code_hash,
-                })?)
                 .add_attribute("group_contract", group_contract.to_string()))
         }
     }
@@ -147,26 +133,12 @@ pub fn instantiate(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    deps: DepsMut,
+    _deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
-    msg: ExecuteMsg,
+    _info: MessageInfo,
+    _msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    match msg {
-        ExecuteMsg::AddGroupContract { addr, code_hash } => {
-            if info.sender != addr.clone() {
-                return Err(ContractError::Unauthorized {});
-            }
-            GROUP_CONTRACT.save(
-                deps.storage,
-                &AnyContractInfo {
-                    addr: addr.clone(),
-                    code_hash,
-                },
-            )?;
-            Ok(Response::new().add_attribute("group_contract", addr))
-        }
-    }
+    Err(ContractError::NoExecute {})
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -235,24 +207,31 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
     Ok(Response::new().add_attribute("action", "migrate"))
 }
 
-// #[cfg_attr(not(feature = "library"), entry_point)]
-// pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-//     match msg.id {
-//         INSTANTIATE_GROUP_REPLY_ID => match msg.result {
-//             SubMsgResult::Ok(res) => {
-//                 let group_contract = GROUP_CONTRACT.may_load(deps.storage)?;
-//                 if group_contract.is_some() {
-//                     return Err(ContractError::DuplicateGroupContract {});
-//                 }
-//                 let data: AnyContractInfo = from_binary(&res.data.unwrap())?;
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
+    match msg.id {
+        INSTANTIATE_GROUP_REPLY_ID => match msg.result {
+            SubMsgResult::Ok(res) => {
+                let group_contract = GROUP_CONTRACT.may_load(deps.storage)?;
+                if group_contract.is_some() {
+                    return Err(ContractError::DuplicateGroupContract {});
+                }
+                let address = parse_reply_address_from_event(res);
+                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
 
-//                 GROUP_CONTRACT.save(deps.storage, &data)?;
+                GROUP_CONTRACT.save(
+                    deps.storage,
+                    &AnyContractInfo {
+                        addr: deps.api.addr_validate(&address)?,
+                        code_hash,
+                    },
+                )?;
 
-//                 Ok(Response::default().add_attribute("group_contract", data.addr))
-//             }
-//             SubMsgResult::Err(_) => Err(ContractError::GroupContractInstantiateError {}),
-//         },
+                Ok(Response::default().add_attribute("group_contract", address.to_string()))
+            }
+            SubMsgResult::Err(_) => Err(ContractError::GroupContractInstantiateError {}),
+        },
 
-//         _ => Err(ContractError::UnknownReplyId { id: msg.id }),
-//     }
-// }
+        _ => Err(ContractError::UnknownReplyId { id: msg.id }),
+    }
+}

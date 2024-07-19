@@ -12,10 +12,6 @@ pub struct Config {
     pub description: String,
     /// An optional image URL for displaying alongside the contract.
     pub image_url: Option<String>,
-    /// Code hash snip20 token contract
-    pub snip20_code_hash: String,
-    /// Code hash snip721 nft contract
-    pub snip721_code_hash: String,
     /// The URI for the DAO as defined by the DAOstar standard
     /// <https://daostar.one/EIP>
     pub dao_uri: Option<String>,

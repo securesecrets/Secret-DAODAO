@@ -9,7 +9,6 @@ use cw4::{
     TotalWeightResponse,
 };
 use secret_cw2::set_contract_version;
-use secret_toolkit::utils::HandleCallback;
 use shade_protocol::basic_staking::{Auth, AuthPermit};
 use shade_protocol::query_auth::helpers::{
     authenticate_permit, authenticate_vk, PermitAuthentication,
@@ -22,7 +21,6 @@ use crate::error::ContractError;
 use crate::helpers::validate_unique_members;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{MembersStore, TotalStore, ADMIN, HOOKS, MEMBERS_PRIMARY, QUERY_AUTH};
-use crate::voting_cw4;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw4-group";
@@ -36,7 +34,7 @@ pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -45,15 +43,6 @@ pub fn instantiate(
         &msg.query_auth.into_valid(deps.api).unwrap_or_default(),
     )?;
     create(deps, msg.admin, msg.members, env.block.height)?;
-    // if this contract is being deployed from voting module
-    if msg.voting_code_hash.is_some() {
-        let exec_msg = voting_cw4::VotingCW4ExecuteMsg::AddGroupContract {
-            addr: env.contract.address,
-            code_hash: env.contract.code_hash,
-        }
-        .to_cosmos_msg(msg.voting_code_hash.unwrap(), info.sender.to_string(), None)?;
-        return Ok(Response::default().add_message(exec_msg));
-    }
     Ok(Response::default())
 }
 

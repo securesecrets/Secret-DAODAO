@@ -48,8 +48,6 @@ pub struct InstantiateMsg {
     pub initial_items: Option<Vec<InitialItem>>,
     /// Implements the DAO Star standard: <https://daostar.one/EIP>
     pub dao_uri: Option<String>,
-    pub snip20_code_hash: String,
-    pub snip721_code_hash: String,
     pub query_auth_code_id: u64,
     pub query_auth_code_hash: String,
 }

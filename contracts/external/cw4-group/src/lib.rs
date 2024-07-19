@@ -19,7 +19,6 @@ pub mod error;
 pub mod helpers;
 pub mod msg;
 pub mod state;
-pub mod voting_cw4;
 
 #[cfg(test)]
 mod tests;

@@ -33,7 +33,6 @@ fn set_up(deps: DepsMut) {
             address: "query_Auth".to_string(),
             code_hash: "klacnq".to_string(),
         },
-        voting_code_hash: Some("voting_code_hash".to_string()),
     };
     let info = mock_info("creator", &[]);
     instantiate(deps, mock_env(), info, msg).unwrap();
@@ -98,7 +97,6 @@ fn duplicate_members_instantiation() {
             address: "query_Auth".to_string(),
             code_hash: "klacnq".to_string(),
         },
-        voting_code_hash: Some("voting_code_hash".to_string()),
     };
     let info = mock_info("creator", &[]);
     let err = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap_err();

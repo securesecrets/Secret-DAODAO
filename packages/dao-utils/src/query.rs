@@ -1,7 +1,12 @@
 use anybuf::Anybuf;
-use cosmwasm_std::{to_vec, Binary, ContractResult, QuerierWrapper, StdError, StdResult, SystemResult};
+use cosmwasm_std::{
+    to_vec, Binary, ContractResult, QuerierWrapper, StdError, StdResult, SystemResult,
+};
 
-pub fn get_contract_code_hash(querier: QuerierWrapper, contract_address: String) -> StdResult<String> {
+pub fn get_contract_code_hash(
+    querier: QuerierWrapper,
+    contract_address: String,
+) -> StdResult<String> {
     let code_hash_query: cosmwasm_std::QueryRequest<cosmwasm_std::Empty> =
         cosmwasm_std::QueryRequest::Stargate {
             path: "/secret.compute.v1beta1.Query/CodeHashByContractAddress".into(),

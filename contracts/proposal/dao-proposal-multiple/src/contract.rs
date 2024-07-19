@@ -3,7 +3,7 @@ use std::borrow::Borrow;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
+    to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response,
     StdError, StdResult, Storage, SubMsg, SubMsgResult,
 };
 
@@ -12,9 +12,11 @@ use dao_hooks::proposal::{
     new_proposal_hooks, proposal_completed_hooks, proposal_status_changed_hooks,
 };
 use dao_hooks::vote::new_vote_hooks;
+use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::{AnyContractInfo, VotingModuleInfo};
 use dao_interface::voting::IsActiveResponse;
 use dao_interface::ReplyEvent;
+use dao_utils::query::get_contract_code_hash;
 use dao_voting::veto::{VetoConfig, VetoError};
 use dao_voting::{
     multiple_choice::{
@@ -52,7 +54,7 @@ pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
@@ -103,10 +105,6 @@ pub fn instantiate(
 
     Ok(Response::default()
         .add_submessages(pre_propose_messages)
-        .set_data(to_binary(&AnyContractInfo {
-            addr: env.contract.address,
-            code_hash: env.contract.code_hash,
-        })?)
         .add_attribute("action", "instantiate")
         .add_attribute("dao", info.sender.to_string()))
 }
@@ -1182,14 +1180,14 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
         ReplyEvent::PreProposalModuleInstantiate {} => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
-                let pre_propose_module_info: AnyContractInfo =
-                    from_binary(&res.data.clone().unwrap_or_default())?;
+                let address = parse_reply_address_from_event(res.clone());
+                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
 
                 CREATION_POLICY.save(
                     deps.storage,
                     &ProposalCreationPolicy::Module {
-                        addr: pre_propose_module_info.addr.clone(),
-                        code_hash: pre_propose_module_info.code_hash,
+                        addr: deps.api.addr_validate(&address.clone())?,
+                        code_hash,
                     },
                 )?;
 
@@ -1202,12 +1200,12 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     Some(data) => Ok(Response::new()
                         .add_attribute(
                             "update_pre_propose_module",
-                            pre_propose_module_info.addr.clone().to_string(),
+                            address.clone().to_string(),
                         )
                         .set_data(data)),
                     None => Ok(Response::new().add_attribute(
                         "update_pre_propose_module",
-                        pre_propose_module_info.addr.to_string(),
+                        address.to_string(),
                     )),
                 }
             }

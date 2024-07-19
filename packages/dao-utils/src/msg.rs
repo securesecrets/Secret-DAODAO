@@ -1,14 +1,17 @@
 use cosmwasm_schema::cw_serde;
+use cosmwasm_std::{Binary, Uint128};
+use dao_snip721_extensions::roles::MetadataExt;
+use dao_voting::threshold::ActiveThreshold;
 use dao_voting::threshold::PercentageThreshold;
+use dao_voting::{
+    multiple_choice::VotingStrategy, pre_propose::PreProposeInfo, threshold::Threshold,
+    veto::VetoConfig,
+};
+use schemars::JsonSchema;
 use secret_toolkit::utils::InitCallback;
 use secret_utils::Duration;
-use dao_voting::{multiple_choice::VotingStrategy, pre_propose::PreProposeInfo, veto::VetoConfig,threshold::Threshold};
-use shade_protocol::utils::asset::RawContract;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::{Binary, Uint128};
-use dao_voting::threshold::ActiveThreshold;
-use dao_snip721_extensions::roles::MetadataExt;
+use shade_protocol::utils::asset::RawContract;
 use snip721_roles_impl::{
     msg::{InstantiateConfig, PostInstantiateCallback},
     royalties::RoyaltyInfo,
@@ -28,7 +31,6 @@ pub struct UncheckedConfig {
 impl InitCallback for ProposalCondorcetInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
 }
-
 
 #[cw_serde]
 pub struct ProposalMultipleInstantiateMsg {
@@ -77,7 +79,6 @@ pub struct ProposalMultipleInstantiateMsg {
 impl InitCallback for ProposalMultipleInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
 }
-
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
@@ -128,7 +129,6 @@ impl InitCallback for ProposalSingleInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
 }
 
-
 #[cw_serde]
 pub enum GroupContract {
     Existing {
@@ -152,7 +152,6 @@ pub struct VotingCW4nstantiateMsg {
 impl InitCallback for VotingCW4nstantiateMsg {
     const BLOCK_SIZE: usize = 256;
 }
-
 
 /// Information about the staking contract to be used with this voting
 /// module.
@@ -226,7 +225,6 @@ impl InitCallback for Snip20StakedInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
 }
 
-
 #[cw_serde]
 pub struct NftMintMsg {
     /// Unique ID of the NFT
@@ -291,7 +289,6 @@ impl InitCallback for Snip721RolesInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
 }
 
-
 #[cw_serde]
 #[allow(clippy::large_enum_variant)]
 pub enum NftContract {
@@ -342,7 +339,6 @@ pub struct Snip721StakedInstantiateMsg {
 impl InitCallback for Snip721StakedInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
 }
-
 
 #[cw_serde]
 pub struct TokenStakedInstantiateMsg {

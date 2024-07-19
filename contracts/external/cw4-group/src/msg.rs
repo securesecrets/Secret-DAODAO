@@ -10,8 +10,6 @@ pub struct InstantiateMsg {
     pub admin: Option<String>,
     pub members: Vec<Member>,
     pub query_auth: RawContract,
-    // Set voting code_hash to none is not deploying from voting module
-    pub voting_code_hash: Option<String>,
 }
 
 #[cw_serde]

@@ -10,7 +10,6 @@ pub struct Cw4GroupInstantiateMsg {
     pub admin: Option<String>,
     pub members: Vec<Member>,
     pub query_auth: RawContract,
-    pub voting_code_hash: Option<String>,
 }
 
 impl InitCallback for Cw4GroupInstantiateMsg {

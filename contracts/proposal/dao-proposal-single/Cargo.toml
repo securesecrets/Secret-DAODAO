@@ -40,6 +40,7 @@ shade-protocol ={ workspace = true }
 query_auth ={ workspace = true }
 dao-pre-propose-single = { workspace = true }
 dao-testing ={ workspace = true }
+dao-utils ={ workspace = true }
 
 
 [dev-dependencies]

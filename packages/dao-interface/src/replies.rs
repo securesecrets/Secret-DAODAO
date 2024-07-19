@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{StdError, Storage};
+use cosmwasm_std::{StdError, Storage, SubMsgResponse};
 
 use crate::state::ModuleInstantiateInfo;
 use secret_toolkit::{
@@ -84,4 +84,25 @@ impl<'a> ReplyIds<'a> {
             None => Err(ReplyError::ReplyNotRegistered {}),
         }
     }
+}
+
+pub fn parse_reply_address_from_event(res: SubMsgResponse) -> String {
+    let mut address = String::new();
+    let mut found_address = false;
+    
+    for event in &res.events {
+        if event.ty == "instantiate" {
+            for attribute in &event.attributes {
+                if attribute.key == "contract_address" {
+                    address = attribute.value.clone();
+                    found_address = true;
+                    break;
+                }
+            }
+        }
+        if found_address {
+            break; 
+        }
+    }
+    address
 }

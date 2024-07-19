@@ -4,6 +4,7 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply,
     Response, StdError, StdResult, SubMsg, SubMsgResult,
 };
+use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::ReplyEvent;
 use dao_interface::{
     msg::{ExecuteMsg, InitialItem, InstantiateMsg, MigrateMsg, QueryMsg, Snip20ReceiveMsg},
@@ -12,13 +13,14 @@ use dao_interface::{
         PauseInfoResponse, ProposalModuleCountResponse, Snip20BalanceResponse, SubDao,
     },
     state::{
-        AnyContractInfo, Config, ModuleInstantiateCallback, ModuleInstantiateInfo, ProposalModule,
+        Config, ModuleInstantiateCallback, ModuleInstantiateInfo, ProposalModule,
         ProposalModuleStatus, VotingModuleInfo,
     },
     voting,
 };
 use dao_utils::msg::GroupContract;
 use dao_utils::msg::NftRolesContract;
+use dao_utils::query::get_contract_code_hash;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 use secret_toolkit::{serialization::Json, storage::Keymap, utils::HandleCallback};
@@ -51,8 +53,6 @@ pub fn instantiate(
         name: msg.clone().name,
         description: msg.clone().description,
         image_url: msg.clone().image_url,
-        snip20_code_hash: msg.clone().snip20_code_hash,
-        snip721_code_hash: msg.clone().snip721_code_hash,
         dao_uri: msg.clone().dao_uri,
     };
     CONFIG.save(deps.storage, &config)?;
@@ -73,6 +73,7 @@ pub fn instantiate(
         },
         prng_seed: to_binary(&"seed".to_string())?,
     };
+
     let reply_id = REPLY_IDS.add_event(
         deps.storage,
         ReplyEvent::InstantiateQueryAuth {
@@ -80,6 +81,7 @@ pub fn instantiate(
             proposal_modules_instantiate_info: msg.proposal_modules_instantiate_info,
         },
     )?;
+
     let query_auth_submsg: SubMsg<Empty> = SubMsg::reply_on_success(
         query_auth_msg.to_cosmos_msg(
             None,
@@ -108,10 +110,6 @@ pub fn instantiate(
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
-        .set_data(to_binary(&AnyContractInfo{
-            addr: env.contract.address,
-            code_hash: env.contract.code_hash
-        })?)
         .add_attribute("sender", info.sender)
         .add_submessage(query_auth_submsg))
 }
@@ -449,7 +447,7 @@ pub fn execute_update_snip20_list(
         let viewing_key = TOKEN_VIEWING_KEY
             .get(deps.storage, addr)
             .unwrap_or_default();
-        let snip20_code_hash = CONFIG.load(deps.storage)?.snip20_code_hash;
+        let snip20_code_hash = get_contract_code_hash(deps.querier, addr.to_string())?;
         let _info: secret_toolkit::snip20::query::Balance = deps.querier.query_wasm_smart(
             snip20_code_hash,
             addr,
@@ -474,7 +472,7 @@ pub fn execute_update_snip721_list(
         return Err(ContractError::Unauthorized {});
     }
     do_update_addr_list(deps, &SNIP721_LIST, to_add, to_remove, |addr, deps| {
-        let snip721_code_hash = CONFIG.load(deps.storage)?.snip721_code_hash;
+        let snip721_code_hash = get_contract_code_hash(deps.querier, addr.clone().to_string())?;
         let _info: secret_toolkit::snip721::query::ContractInfo = deps.querier.query_wasm_smart(
             snip721_code_hash,
             addr,
@@ -554,7 +552,7 @@ pub fn execute_receive_snip20(
     sender: Addr,
     _wrapper: Snip20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
+    let code_hash = get_contract_code_hash(deps.querier, sender.clone().to_string())?;
     let viewing_key = TOKEN_VIEWING_KEY
         .get(deps.storage, &sender)
         .unwrap_or_default();
@@ -572,7 +570,7 @@ pub fn execute_receive_snip20(
         )?;
         let submsg = SubMsg::reply_always(
             gen_viewing_key_msg.to_cosmos_msg(
-                config.snip20_code_hash.clone(),
+                code_hash,
                 sender.clone().to_string(),
                 None,
             )?,
@@ -926,10 +924,10 @@ pub fn query_cw20_balances(
             }
         }
     }
-    let snip20_code_hash = CONFIG.load(deps.storage)?.snip20_code_hash;
     let balances = res
         .into_iter()
         .map(|addr| {
+            let snip20_code_hash = get_contract_code_hash(deps.querier, addr.clone())?;
             let viewing_key = TOKEN_VIEWING_KEY
                 .get(deps.storage, &deps.api.addr_validate(&addr)?)
                 .unwrap_or_default();
@@ -1026,19 +1024,24 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
         ReplyEvent::ProposalModuleInstantiate {} => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
-                let module_info: AnyContractInfo =
-                    from_binary(&res.data.clone().unwrap_or_default())?;
+                let address = parse_reply_address_from_event(res.clone());
+                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
+
                 let total_module_count = TOTAL_PROPOSAL_MODULE_COUNT.load(deps.storage)?;
 
                 let prefix = derive_proposal_module_prefix(total_module_count as usize)?;
                 let prop_module = ProposalModule {
-                    address: module_info.addr.clone(),
+                    address: deps.api.addr_validate(&&address.clone())?,
                     status: ProposalModuleStatus::Enabled,
                     prefix,
-                    code_hash: module_info.code_hash,
+                    code_hash,
                 };
 
-                PROPOSAL_MODULES.insert(deps.storage, &module_info.addr.clone(), &prop_module)?;
+                PROPOSAL_MODULES.insert(
+                    deps.storage,
+                    &deps.api.addr_validate(&&address.clone())?,
+                    &prop_module,
+                )?;
 
                 // Save active and total proposal module counts.
                 ACTIVE_PROPOSAL_MODULE_COUNT
@@ -1054,19 +1057,19 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                 };
 
                 Ok(Response::default()
-                    .add_attribute("prop_module".to_string(), module_info.addr)
+                    .add_attribute("prop_module".to_string(), address)
                     .add_messages(callback_msgs))
             }
         },
         ReplyEvent::VotingModuleInstantiate {} => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
-                let module_info: AnyContractInfo =
-                    from_binary(&res.data.clone().unwrap_or_default())?;
+                let address = parse_reply_address_from_event(res.clone());
+                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
 
                 let voting_module = VotingModuleInfo {
-                    code_hash: module_info.code_hash,
-                    addr: module_info.addr.clone(),
+                    code_hash,
+                    addr: deps.api.addr_validate(&&address.clone())?,
                 };
 
                 VOTING_MODULE.save(deps.storage, &voting_module)?;
@@ -1080,7 +1083,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                 };
 
                 Ok(Response::default()
-                    .add_attribute("voting_module", module_info.addr)
+                    .add_attribute("voting_module", address)
                     .add_messages(callback_msgs))
             }
         },
@@ -1103,13 +1106,13 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
             proposal_modules_instantiate_info,
         } => match msg.result {
             SubMsgResult::Ok(res) => {
-                let query_auth_info: AnyContractInfo =
-                    from_binary(&res.data.clone().unwrap_or_default())?;
+                let address = parse_reply_address_from_event(res);
+                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
                 let msg = update_query_auth(
                     voting_module_instantiate_info.clone(),
                     RawContract {
-                        address: query_auth_info.addr.clone().to_string(),
-                        code_hash: query_auth_info.code_hash.clone(),
+                        address: address.clone(),
+                        code_hash: code_hash.clone(),
                     },
                     env.contract.address.clone().to_string(),
                 )?;
@@ -1123,8 +1126,8 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                         let msg = update_query_auth(
                             info.clone(),
                             RawContract {
-                                address: query_auth_info.addr.to_string(),
-                                code_hash: query_auth_info.code_hash.clone(),
+                                address: address.clone(),
+                                code_hash: code_hash.clone(),
                             },
                             env.contract.address.clone().to_string(),
                         )

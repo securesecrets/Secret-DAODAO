@@ -48,10 +48,6 @@ pub fn instantiate(
 
             Ok(Response::default()
                 .add_attribute("method", "instantiate")
-                .set_data(to_binary(&AnyContractInfo {
-                    addr: env.contract.address,
-                    code_hash: env.contract.code_hash,
-                })?)
                 .add_attribute("nft_contract", address))
         }
         NftRolesContract::New {
@@ -102,12 +98,7 @@ pub fn instantiate(
             };
             CONFIG.save(deps.storage, &config)?;
 
-            Ok(Response::default()
-                .set_data(to_binary(&AnyContractInfo {
-                    addr: env.contract.address,
-                    code_hash: env.contract.code_hash,
-                })?)
-                .add_submessage(submsg))
+            Ok(Response::default().add_submessage(submsg))
         }
     }
 }
