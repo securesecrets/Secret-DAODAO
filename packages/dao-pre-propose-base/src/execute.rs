@@ -395,6 +395,9 @@ where
         match msg {
             QueryMsg::ProposalModule {} => to_binary(&self.proposal_module.load(deps.storage)?),
             QueryMsg::Dao {} => to_binary(&self.dao.load(deps.storage)?),
+            QueryMsg::Info {} => to_binary(&dao_interface::proposal::InfoResponse {
+                info: secret_cw2::get_contract_version(deps.storage)?,
+            }),
             QueryMsg::Config {} => to_binary(&self.config.load(deps.storage)?),
             QueryMsg::DepositInfo { proposal_id } => {
                 let (deposit_info, proposer) =

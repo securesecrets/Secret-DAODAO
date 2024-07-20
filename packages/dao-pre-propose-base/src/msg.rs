@@ -1,5 +1,6 @@
 use cosmwasm_schema::{schemars::JsonSchema, QueryResponses};
 use cw_denom::UncheckedDenom;
+use dao_interface::proposal::InfoResponse;
 use dao_voting::{
     deposit::{CheckedDepositInfo, UncheckedDepositInfo},
     status::Status,
@@ -50,7 +51,7 @@ pub enum ExecuteMsg<ProposalMessage, ExecuteExt> {
     /// will have insufficent balance to return them. In the case of
     /// `cw-proposal-single` this transaction failure will cause the
     /// module to remove the pre-propose module from its proposal hook
-    /// receivers.
+    /// receivers.      
     ///
     /// More likely than not, this should NEVER BE CALLED unless a bug
     /// in this contract or the proposal module it is associated with
@@ -109,6 +110,9 @@ where
     /// with. Returns `Addr`.
     #[returns(dao_interface::state::AnyContractInfo)]
     Dao {},
+    /// Returns contract version info.
+    #[returns(InfoResponse)]
+    Info {},
     /// Gets the module's configuration.
     #[returns(crate::state::Config)]
     Config {},
