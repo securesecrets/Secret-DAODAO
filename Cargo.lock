@@ -35,6 +35,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "080e9890a082662b09c1ad45f567faeeb47f22b5fb23895fbe1e651e718e25ca"
 
 [[package]]
+name = "assert_matches"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -732,6 +738,35 @@ dependencies = [
  "secret-storage-plus 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
  "secret-toolkit",
  "serde",
+]
+
+[[package]]
+name = "cw1"
+version = "2.0.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "schemars 0.8.16",
+ "secret-cosmwasm-std",
+ "serde",
+]
+
+[[package]]
+name = "cw1-whitelist"
+version = "2.0.0"
+dependencies = [
+ "anyhow",
+ "assert_matches",
+ "cosmwasm-schema 1.1.11",
+ "cw1",
+ "derivative",
+ "schemars 0.8.16",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
+ "secret-storage-plus 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
+ "secret-utils 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -1808,9 +1843,9 @@ dependencies = [
 
 [[package]]
 name = "num-traits"
-version = "0.2.17"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39e3200413f237f41ab11ad6d161bc7239c84dcb631773ccd7de3dfe4b5c267c"
+checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
 ]
@@ -1880,9 +1915,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.74"
+version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2de98502f212cfcea8d0bb305bd0f49d7ebdd75b64ba0a68f937d888f4e0d6db"
+checksum = "5e719e8df665df0d1c8fbfd238015744736151d4445ec0836b8e628aae103b77"
 dependencies = [
  "unicode-ident",
 ]

@@ -13,6 +13,7 @@ members = [
   "./contracts/external/dao-migrator/",
   "./contracts/external/cw-payroll-factory/",
   "./contracts/external/cw4-group/",
+  "./contracts/external/cw1-whitelist/",
   "./contracts/proposal/*",
   "./contracts/pre-propose/*",
   "./contracts/staking/*",
@@ -49,6 +50,7 @@ cosm-tome = {version = "0.2",default-features = false}
 cw3 = {version = "1.1",default-features = false}
 cw4 = { path = "./packages/cw4-1.1.2/" ,default-features = false}
 cw4-group = { path = "./contracts/external/cw4-group/" ,default-features = false}
+cw1 ={ path = "./packages/cw1-2.0.0"}
 env_logger = {version = "0.10",default-features = false}
 once_cell = {version = "1.18",default-features = false}
 
@@ -157,3 +159,4 @@ shade-protocol = { git = "https://github.com/securesecrets/shade", rev = "lend-v
 ] }
 shade-multi-test = { git = "https://github.com/securesecrets/shade", rev = "lend-v1",features = [ "query_auth", "admin"  ] }
 query_auth ={ path = "./packages/query_auth/"}
+cw1-whitelist = {path = "./contracts/external/cw1-whitelist-2.0.0"}
