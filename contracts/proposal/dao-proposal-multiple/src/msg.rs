@@ -199,13 +199,6 @@ pub enum QueryMsg {
     /// Returns a voters position on a proposal.
     #[returns(crate::query::VoteResponse)]
     GetVote { proposal_id: u64, auth: Auth },
-    /// Lists all of the votes that have been cast on a proposal.
-    #[returns(crate::query::VoteListResponse)]
-    ListVotes {
-        proposal_id: u64,
-        start_after: Option<String>,
-        limit: Option<u64>,
-    },
     /// Returns the number of proposals that have been created in this module.
     #[returns(::std::primitive::u64)]
     ProposalCount {},

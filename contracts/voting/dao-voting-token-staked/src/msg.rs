@@ -74,11 +74,6 @@ pub enum QueryMsg {
     GetConfig {},
     #[returns(secret_cw_controllers::ClaimsResponse)]
     Claims { auth: Auth },
-    #[returns(ListStakersResponse)]
-    ListStakers {
-        start_after: Option<String>,
-        limit: Option<u32>,
-    },
     #[returns(dao_voting::threshold::ActiveThresholdResponse)]
     ActiveThreshold {},
     #[returns(GetHooksResponse)]

@@ -197,19 +197,6 @@ pub enum QueryMsg {
     /// Returns a voters position on a propsal.
     #[returns(crate::query::VoteResponse)]
     GetVote { proposal_id: u64, auth: Auth },
-    /// Lists all of the votes that have been cast on a
-    /// proposal.
-    #[returns(crate::query::VoteListResponse)]
-    ListVotes {
-        /// The proposal to list the votes of.
-        proposal_id: u64,
-        /// The voter to start listing votes after. Ordering is done
-        /// alphabetically.
-        start_after: Option<String>,
-        /// The maximum number of votes to return in response to this
-        /// query. If no limit is specified a max of 30 are returned.
-        limit: Option<u64>,
-    },
     /// Returns the number of proposals that have been created in this module.
     #[returns(::std::primitive::u64)]
     ProposalCount {},

@@ -41,7 +41,7 @@ use crate::{msg::MigrateMsg, state::CREATION_POLICY};
 use crate::{
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
     proposal::{MultipleChoiceProposal, VoteResult},
-    query::{ProposalListResponse, ProposalResponse, VoteInfo, VoteListResponse, VoteResponse},
+    query::{ProposalListResponse, ProposalResponse, VoteInfo, VoteResponse},
     state::{Config, BALLOTS, CONFIG, PROPOSALS, PROPOSAL_COUNT, PROPOSAL_HOOKS, VOTE_HOOKS},
     ContractError,
 };
@@ -920,11 +920,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::NextProposalId {} => query_next_proposal_id(deps),
         QueryMsg::ProposalCount {} => query_proposal_count(deps),
-        QueryMsg::ListVotes {
-            proposal_id,
-            start_after,
-            limit,
-        } => query_list_votes(deps, proposal_id, start_after, limit),
         QueryMsg::Info {} => query_info(deps),
         QueryMsg::ReverseProposals {
             start_before,
@@ -1083,47 +1078,6 @@ pub fn query_vote(deps: Deps, proposal_id: u64, voter: Addr) -> StdResult<Binary
         rationale: ballot.unwrap().rationale,
     };
     to_binary(&VoteResponse { vote: Some(vote) })
-}
-
-pub fn query_list_votes(
-    deps: Deps,
-    proposal_id: u64,
-    start_after: Option<String>,
-    limit: Option<u64>,
-) -> StdResult<Binary> {
-    let limit = limit.unwrap_or(DEFAULT_LIMIT);
-
-    let mut votes_res: Vec<VoteInfo> = Vec::new();
-    let mut start = start_after.clone();
-
-    let binding = &BALLOTS;
-    let iter = binding.iter(deps.storage)?;
-
-    for item in iter {
-        let ((id, addr), ballot) = item?;
-        // Check if the proposal_id matches the current proposal_id in the iteration
-        if id == proposal_id {
-            if let Some(start_after) = &start {
-                if &addr.to_string() == start_after {
-                    // If we found the start point, reset it to start iterating
-                    start = None;
-                }
-            }
-            if start.is_none() {
-                votes_res.push(VoteInfo {
-                    voter: addr,
-                    vote: ballot.vote,
-                    power: ballot.power,
-                    rationale: ballot.rationale,
-                });
-                if votes_res.len() >= limit.try_into().unwrap() {
-                    break; // Break out of loop if limit reached
-                }
-            }
-        }
-    }
-
-    to_binary(&VoteListResponse { votes: votes_res })
 }
 
 pub fn query_info(deps: Deps) -> StdResult<Binary> {

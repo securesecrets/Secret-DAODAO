@@ -38,24 +38,16 @@ use shade_protocol::{
 };
 
 use crate::msg::{
-    ExecuteMsg, GetHooksResponse, InstantiateMsg, ListStakersResponse, MigrateMsg, QueryMsg,
-    StakerBalanceResponse, TokenInfo,
+    ExecuteMsg, GetHooksResponse, InstantiateMsg, MigrateMsg, QueryMsg, TokenInfo,
 };
 use crate::state::{
     Config, StakedBalancesStore, TotalStakedStore, ACTIVE_THRESHOLD, CLAIMS, CONFIG, DAO, DENOM,
     HOOKS, MAX_CLAIMS, TOKEN_ISSUER_CONTRACT,
 };
-use crate::{error::ContractError, state::STAKED_BALANCES_PRIMARY};
+use crate::error::ContractError;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:dao-voting-token-staked";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-// Settings for query pagination
-const MAX_LIMIT: u32 = 30;
-const DEFAULT_LIMIT: u32 = 10;
-
-// const INSTANTIATE_TOKEN_FACTORY_ISSUER_REPLY_ID: u64 = 0;
-// const FACTORY_EXECUTE_REPLY_ID: u64 = 2;
 
 // We multiply by this when calculating needed power for being active
 // when using active threshold with percent
@@ -414,9 +406,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Denom {} => to_binary(&DenomResponse {
             denom: DENOM.load(deps.storage)?,
         }),
-        QueryMsg::ListStakers { start_after, limit } => {
-            query_list_stakers(deps, start_after, limit)
-        }
         QueryMsg::IsActive {} => query_is_active(deps),
         QueryMsg::ActiveThreshold {} => query_active_threshold(deps),
         QueryMsg::GetHooks {} => to_binary(&query_hooks(deps)?),
@@ -473,40 +462,6 @@ pub fn query_dao(deps: Deps) -> StdResult<Binary> {
 
 pub fn query_claims(deps: Deps, address: Addr) -> StdResult<ClaimsResponse> {
     CLAIMS.query_claims(deps, &address)
-}
-
-pub fn query_list_stakers(
-    deps: Deps,
-    start_after: Option<String>,
-    limit: Option<u32>,
-) -> StdResult<Binary> {
-    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let mut res: Vec<StakerBalanceResponse> = Vec::new();
-
-    let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
-
-    let binding = &STAKED_BALANCES_PRIMARY;
-    let iter = binding.iter(deps.storage)?;
-    for item in iter {
-        let (address, balance) = item?;
-        if let Some(start_after) = &start {
-            if &address == start_after {
-                // If we found the start point, reset it to start iterating
-                start = None;
-            }
-        }
-        if start.is_none() {
-            res.push(StakerBalanceResponse {
-                address: address.to_string(),
-                balance,
-            });
-            if res.len() >= limit {
-                break; // Break out of loop if limit reached
-            }
-        }
-    }
-
-    to_binary(&ListStakersResponse { stakers: res })
 }
 
 pub fn query_is_active(deps: Deps) -> StdResult<Binary> {
