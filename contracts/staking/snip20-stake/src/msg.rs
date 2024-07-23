@@ -65,7 +65,7 @@ pub enum ExecuteAnswer {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub enum ReceiveMsg {
-    Stake { auth: Auth },
+    Stake { auth: Box<Auth> },
     Fund {},
 }
 

@@ -89,19 +89,19 @@ impl<'a> ReplyIds<'a> {
 pub fn parse_reply_address_from_event(res: SubMsgResponse) -> String {
     let mut address = String::new();
     let mut found_address = false;
-    
+
     for event in &res.events {
         if event.ty == "instantiate" {
             for attribute in &event.attributes {
                 if attribute.key == "contract_address" {
-                    address = attribute.value.clone();
+                    address.clone_from(&attribute.value);
                     found_address = true;
                     break;
                 }
             }
         }
         if found_address {
-            break; 
+            break;
         }
     }
     address

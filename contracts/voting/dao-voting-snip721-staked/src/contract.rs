@@ -7,8 +7,8 @@ use cosmwasm_std::{
 };
 use cw_hooks::HookItem;
 use dao_hooks::nft_stake::{stake_nft_hook_msgs, unstake_nft_hook_msgs};
+use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::AnyContractInfo;
-use dao_interface::state::ModuleInstantiateCallback;
 use dao_interface::{nft::NftFactoryCallback, voting::IsActiveResponse};
 use dao_voting::duration::validate_duration;
 use dao_voting::threshold::{
@@ -25,7 +25,6 @@ use shade_protocol::query_auth::helpers::{
     authenticate_permit, authenticate_vk, PermitAuthentication,
 };
 use shade_protocol::Contract;
-use snip721_reference_impl::msg::InstantiateResponse;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, NftContract, QueryMsg};
@@ -65,12 +64,6 @@ impl NftInstantiateMsg {
             NftInstantiateMsg::Snip721(msg) => msg.admin = Some(minter.to_string()),
         }
     }
-
-    // fn to_binary(&self) -> Result<Binary, StdError> {
-    //     match self {
-    //         NftInstantiateMsg::Snip721(msg) => to_binary(&msg),
-    //     }
-    // }
 }
 
 pub fn try_deserialize_nft_instantiate_msg(
@@ -153,10 +146,6 @@ pub fn instantiate(
 
             Ok(Response::default()
                 .add_attribute("method", "instantiate")
-                .set_data(to_binary(&AnyContractInfo {
-                    addr: env.contract.address,
-                    code_hash: env.contract.code_hash,
-                })?)
                 .add_attribute("nft_contract", address))
         }
         NftContract::New {
@@ -208,13 +197,8 @@ pub fn instantiate(
 
             Ok(Response::default()
                 .add_attribute("method", "instantiate")
-                .set_data(to_binary(&AnyContractInfo {
-                    addr: env.contract.address,
-                    code_hash: env.contract.code_hash,
-                })?)
                 .add_submessage(instantiate_msg))
         }
-        // This is unimplemented as submsg implementation works differently in secret network
         NftContract::Factory(binary) => match from_binary(&binary)? {
             WasmMsg::Execute {
                 msg: wasm_msg,
@@ -240,10 +224,6 @@ pub fn instantiate(
                 // setup will happen in the factory.
                 Ok(Response::new()
                     .add_attribute("action", "intantiate")
-                    .set_data(to_binary(&AnyContractInfo {
-                        addr: env.contract.address,
-                        code_hash: env.contract.code_hash,
-                    })?)
                     .add_submessage(SubMsg::reply_on_success(
                         WasmMsg::Execute {
                             contract_addr,
@@ -785,12 +765,13 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             match msg.result {
                 SubMsgResult::Ok(res) => {
                     let dao = DAO.load(deps.storage)?;
-                    let nft_contract_info: InstantiateResponse =
-                        from_binary(&res.data.unwrap_or_default())?;
+                    let address = deps
+                        .api
+                        .addr_validate(&parse_reply_address_from_event(res))?;
 
                     // Save NFT contract to config
                     let mut config = CONFIG.load(deps.storage)?;
-                    config.nft_address = nft_contract_info.contract_address.clone();
+                    config.nft_address = address.clone();
                     CONFIG.save(deps.storage, &config)?;
 
                     let initial_nfts = INITIAL_NFTS.load(deps.storage)?;
@@ -800,10 +781,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                         .iter()
                         .flat_map(|nft| -> Result<SubMsg, ContractError> {
                             Ok(SubMsg::new(WasmMsg::Execute {
-                                contract_addr: nft_contract_info
-                                    .contract_address
-                                    .clone()
-                                    .to_string(),
+                                contract_addr: address.clone().to_string(),
                                 funds: vec![],
                                 msg: nft.clone(),
                                 code_hash: config.nft_code_hash.clone(),
@@ -823,14 +801,14 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     submessages.push(SubMsg::reply_on_success(
                         exec_msg.to_cosmos_msg(
                             config.nft_code_hash.clone(),
-                            nft_contract_info.contract_address.clone().to_string(),
+                            address.clone().to_string(),
                             None,
                         )?,
                         VALIDATE_SUPPLY_REPLY_ID,
                     ));
 
                     Ok(Response::default()
-                        .add_attribute("nft_contract", nft_contract_info.contract_address)
+                        .add_attribute("nft_contract", address)
                         .add_submessages(submessages))
                 }
                 SubMsgResult::Err(_) => Err(ContractError::NftInstantiateError {}),
@@ -869,27 +847,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 )?;
             }
 
-            // On setup success, have the DAO complete the second part of
-            // ownership transfer by accepting ownership in a
-            // ModuleInstantiateCallback.
-
-            // NOTE Can't find how to implement in secret so used this
-
-            let callback = to_binary(&ModuleInstantiateCallback {
-                msgs: vec![CosmosMsg::Wasm(WasmMsg::Execute {
-                    code_hash: collection_code_hash.clone(),
-                    contract_addr: collection_addr.to_string(),
-                    msg: to_binary(&&snip721_reference_impl::msg::ExecuteMsg::ChangeAdmin {
-                        address: DAO.load(deps.storage)?.addr.to_string(),
-                        padding: None,
-                    })?,
-                    funds: vec![],
-                })],
-            })?;
-
-            Ok(Response::new().set_data(callback))
-
-            // Ok(Response::new())
+            Ok(Response::default())
         }
         FACTORY_EXECUTE_REPLY_ID => {
             // Parse reply data

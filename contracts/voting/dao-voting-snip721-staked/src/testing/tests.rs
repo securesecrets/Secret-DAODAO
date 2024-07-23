@@ -432,7 +432,7 @@ fn test_list_staked_nfts() -> anyhow::Result<()> {
     app.update_block(next_block);
 
     let deardrie = "deardrie";
-    let viewing_key_deardrie = create_viewing_key(&mut app, query_auth.clone(), &deardrie);
+    let viewing_key_deardrie = create_viewing_key(&mut app, query_auth.clone(), deardrie);
 
     mint_nft(&mut app, &nft, CREATOR_ADDR, deardrie, "4")?;
     mint_nft(&mut app, &nft, CREATOR_ADDR, deardrie, "5")?;

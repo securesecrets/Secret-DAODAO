@@ -2,11 +2,13 @@ use crate::msg::{AdminListResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 use anyhow::{anyhow, Result};
 use assert_matches::assert_matches;
 use cosmwasm_std::{
-     to_binary, Addr, ContractInfo, CosmosMsg, Empty, QueryRequest, StdError, WasmMsg, WasmQuery
+    to_binary, Addr, ContractInfo, CosmosMsg, Empty, QueryRequest, StdError, WasmMsg, WasmQuery,
 };
 use cw1::Cw1Contract;
-use secret_multi_test::{App, AppResponse, Contract, ContractInstantiationInfo, ContractWrapper, Executor};
 use derivative::Derivative;
+use secret_multi_test::{
+    App, AppResponse, Contract, ContractInstantiationInfo, ContractWrapper, Executor,
+};
 use serde::{de::DeserializeOwned, Serialize};
 
 fn mock_app() -> App {
@@ -40,7 +42,11 @@ impl Suite {
         let owner = Addr::unchecked("owner").to_string();
         let cw1_contract_instantiate_info = app.store_code(contract_cw1());
 
-        Ok(Suite { app, owner, cw1_contract_instantiate_info })
+        Ok(Suite {
+            app,
+            owner,
+            cw1_contract_instantiate_info,
+        })
     }
 
     pub fn instantiate_cw1_contract(&mut self, admins: Vec<String>, mutable: bool) -> Cw1Contract {
@@ -55,7 +61,7 @@ impl Suite {
                 None,
             )
             .unwrap();
-        Cw1Contract(contract.address,contract.code_hash)
+        Cw1Contract(contract.address, contract.code_hash)
     }
 
     pub fn execute<M>(
@@ -86,7 +92,12 @@ impl Suite {
             .map_err(|err| anyhow!(err))
     }
 
-    pub fn query<M>(&self, target_contract: Addr, target_contract_code_hash: String, msg: M) -> Result<AdminListResponse, StdError>
+    pub fn query<M>(
+        &self,
+        target_contract: Addr,
+        target_contract_code_hash: String,
+        msg: M,
+    ) -> Result<AdminListResponse, StdError>
     where
         M: Serialize + DeserializeOwned,
     {
@@ -109,7 +120,15 @@ fn proxy_freeze_message() {
 
     let freeze_msg: ExecuteMsg = ExecuteMsg::Freeze {};
     assert_matches!(
-        suite.execute(ContractInfo { address: first_contract.addr(), code_hash: first_contract.code_hash() }, &second_contract.addr(),second_contract.code_hash(), freeze_msg),
+        suite.execute(
+            ContractInfo {
+                address: first_contract.addr(),
+                code_hash: first_contract.code_hash()
+            },
+            &second_contract.addr(),
+            second_contract.code_hash(),
+            freeze_msg
+        ),
         Ok(_)
     );
 

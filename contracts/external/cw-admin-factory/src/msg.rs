@@ -14,7 +14,7 @@ pub enum ExecuteMsg {
         code_id: u64,
         code_hash: String,
         label: String,
-    }
+    },
 }
 
 #[cw_serde]

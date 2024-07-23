@@ -15,7 +15,6 @@ use cosmwasm_std::{
     to_binary, Addr, BankMsg, Binary, Coin, Decimal, Deps, DepsMut, Env, Fraction, MessageInfo,
     Response, StdError, StdResult, Uint128, WasmMsg,
 };
-use dao_interface::state::AnyContractInfo;
 use secret_cw2::set_contract_version;
 
 use dao_interface::voting;
@@ -84,10 +83,6 @@ pub fn instantiate(
     Ok(Response::default()
         .add_attribute("distribution_height", env.block.height.to_string())
         .add_attribute("voting_contract", voting_contract)
-        .set_data(to_binary(&AnyContractInfo {
-            addr: env.contract.address,
-            code_hash: env.contract.code_hash,
-        })?)
         .add_attribute("total_power", total_power.power))
 }
 

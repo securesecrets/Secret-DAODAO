@@ -918,7 +918,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::VoteHooks {} => to_binary(&VOTE_HOOKS.query_hooks(deps)?),
         QueryMsg::GetVote { proposal_id, auth } => {
             let query_auth = CONFIG.load(deps.storage)?.query_auth;
-            let voter = authenticate(deps, auth, query_auth)?;
+            let voter = authenticate(deps, *auth, query_auth)?;
             to_binary(&query_vote(deps, proposal_id, voter)?)
         }
     }
@@ -1179,14 +1179,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
         ReplyEvent::FailedProposalExecution { proposal_id } => match msg.clone().result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(_) => {
-                // PROPOSALS.update(deps.storage, proposal_id, |prop| match prop {
-                //     Some(mut prop) => {
-                //         prop.status = Status::ExecutionFailed;
-
-                //         Ok(prop)
-                //     }
-                //     None => Err(ContractError::NoSuchProposal { id: proposal_id }),
-                // })?;
                 let proposals = PROPOSALS.get(deps.storage, &proposal_id);
                 if proposals.clone().is_some() {
                     proposals.clone().unwrap().status = Status::ExecutionFailed;

@@ -233,6 +233,7 @@ fn query_claims<T: Into<String>, C: Into<String>, Q: Into<Auth>>(
     result.claims
 }
 
+#[allow(clippy::too_many_arguments)]
 fn stake_tokens(
     app: &mut App,
     staking_addr: &Addr,
@@ -241,7 +242,7 @@ fn stake_tokens(
     snip20_code_hash: String,
     info: MessageInfo,
     amount: Uint128,
-    auth: Auth,
+    auth: Box<Auth>,
 ) -> AnyResult<AppResponse> {
     let msg = secret_toolkit::snip20::HandleMsg::Send {
         amount,
@@ -454,10 +455,10 @@ fn test_staking() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: viewing_key_user1.clone(),
             address: info.clone().sender.into_string(),
-        },
+        }),
     )
     .unwrap();
 
@@ -522,10 +523,10 @@ fn test_staking() {
         snip20_info.code_hash.clone(),
         info.clone(),
         Uint128::new(20),
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: viewing_key_user2.clone(),
             address: info.clone().sender.into_string(),
-        },
+        }),
     )
     .unwrap();
 
@@ -643,10 +644,10 @@ fn text_max_claims() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount1,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: viewing_key_user1.clone(),
             address: info.clone().sender.into_string(),
-        },
+        }),
     )
     .unwrap();
 
@@ -743,10 +744,10 @@ fn test_unstaking_with_claims() {
         snip20_info.code_hash.clone(),
         info.clone(),
         Uint128::new(50),
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: viewing_key_user1.clone(),
             address: info.clone().sender.into_string(),
-        },
+        }),
     )
     .unwrap();
     app.update_block(next_block);
@@ -981,10 +982,10 @@ fn multiple_address_staking() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount1,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: viewing_key_user1.clone(),
             address: ADDR1.to_string().clone(),
-        },
+        }),
     )
     .unwrap();
     app.update_block(next_block);
@@ -1001,10 +1002,10 @@ fn multiple_address_staking() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount1,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: viewing_key_user2.clone(),
             address: ADDR1.to_string().clone(),
-        },
+        }),
     )
     .unwrap();
     app.update_block(next_block);
@@ -1021,10 +1022,10 @@ fn multiple_address_staking() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount1,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: viewing_key_user3.clone(),
             address: ADDR1.to_string().clone(),
-        },
+        }),
     )
     .unwrap();
     app.update_block(next_block);
@@ -1041,10 +1042,10 @@ fn multiple_address_staking() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount1,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: viewing_key_user4.clone(),
             address: ADDR1.to_string().clone(),
-        },
+        }),
     )
     .unwrap();
     app.update_block(next_block);
@@ -1142,10 +1143,10 @@ fn test_simple_unstaking_with_duration() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: viewing_key_user1.clone(),
             address: ADDR1.to_string().clone(),
-        },
+        }),
     )
     .unwrap();
 
@@ -1163,10 +1164,10 @@ fn test_simple_unstaking_with_duration() {
         snip20_info.code_hash.clone(),
         info.clone(),
         amount,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: viewing_key_user2.clone(),
             address: ADDR1.to_string().clone(),
-        },
+        }),
     )
     .unwrap();
     app.update_block(next_block);

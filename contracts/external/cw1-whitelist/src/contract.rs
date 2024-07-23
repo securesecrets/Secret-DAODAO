@@ -119,9 +119,7 @@ fn can_execute(deps: Deps, sender: &str) -> StdResult<bool> {
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::AdminList {} => to_binary(&query_admin_list(deps)?),
-        QueryMsg::CanExecute { sender, msg } => {
-            to_binary(&query_can_execute(deps, sender, msg)?)
-        }
+        QueryMsg::CanExecute { sender, msg } => to_binary(&query_can_execute(deps, sender, msg)?),
     }
 }
 
@@ -153,7 +151,6 @@ mod tests {
     fn instantiate_and_modify_config() {
         let mut deps = mock_dependencies();
 
-       
         let alice = Addr::unchecked("alice").to_string();
         let bob = Addr::unchecked("bob").to_string();
         let carl = Addr::unchecked("carl").to_string();

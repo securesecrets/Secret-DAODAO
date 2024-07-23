@@ -196,7 +196,7 @@ pub enum QueryMsg {
     },
     /// Returns a voters position on a propsal.
     #[returns(crate::query::VoteResponse)]
-    GetVote { proposal_id: u64, auth: Auth },
+    GetVote { proposal_id: u64, auth: Box<Auth> },
     /// Returns the number of proposals that have been created in this module.
     #[returns(::std::primitive::u64)]
     ProposalCount {},

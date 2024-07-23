@@ -35,6 +35,10 @@ serde = { workspace = true }
 secret-cw-controllers = { workspace = true }
 shade-protocol ={ workspace = true }
 dao-utils = {workspace = true}
+cw4 ={ workspace = true }
+query_auth ={ workspace = true }
+dao-voting-cw4 = { workspace = true }
+cw4-group = { workspace = true }
 
 
 [dev-dependencies]

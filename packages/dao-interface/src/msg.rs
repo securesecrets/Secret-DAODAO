@@ -50,6 +50,7 @@ pub struct InstantiateMsg {
     pub dao_uri: Option<String>,
     pub query_auth_code_id: u64,
     pub query_auth_code_hash: String,
+    pub prng_seed: String,
 }
 
 /// Snip20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg

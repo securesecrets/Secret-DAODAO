@@ -8,7 +8,7 @@ use crate::msg::Cw1ExecuteMsg;
 ///
 /// If you wish to persist this, convert to Cw1CanonicalContract via .canonical()
 #[cw_serde]
-pub struct Cw1Contract(pub Addr,pub String);
+pub struct Cw1Contract(pub Addr, pub String);
 
 impl Cw1Contract {
     pub fn addr(&self) -> Addr {
@@ -23,7 +23,7 @@ impl Cw1Contract {
         let msg = Cw1ExecuteMsg::Execute { msgs: msgs.into() };
         Ok(WasmMsg::Execute {
             contract_addr: self.addr().into(),
-            code_hash: self.code_hash().into(),
+            code_hash: self.code_hash(),
             msg: to_binary(&msg)?,
             funds: vec![],
         }

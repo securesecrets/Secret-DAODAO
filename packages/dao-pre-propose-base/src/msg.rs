@@ -1,6 +1,5 @@
 use cosmwasm_schema::{schemars::JsonSchema, QueryResponses};
 use cw_denom::UncheckedDenom;
-use dao_interface::proposal::InfoResponse;
 use dao_voting::{
     deposit::{CheckedDepositInfo, UncheckedDepositInfo},
     status::Status,
@@ -111,7 +110,7 @@ where
     #[returns(dao_interface::state::AnyContractInfo)]
     Dao {},
     /// Returns contract version info.
-    #[returns(InfoResponse)]
+    #[returns(dao_interface::proposal::InfoResponse)]
     Info {},
     /// Gets the module's configuration.
     #[returns(crate::state::Config)]

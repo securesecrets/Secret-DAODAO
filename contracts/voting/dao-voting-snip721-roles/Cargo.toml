@@ -37,6 +37,7 @@ serde ={ workspace = true }
 snip721-roles = { workspace = true }
 shade-protocol ={ workspace = true }
 query_auth ={ workspace = true }
+dao-utils ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

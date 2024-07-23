@@ -189,7 +189,7 @@ fn stake_tokens(
     snip20_contract_info: ContractInfo,
     sender: &str,
     amount: u128,
-    auth: Auth,
+    auth: Box<Auth>,
 ) {
     let msg = snip20_reference_impl::msg::ExecuteMsg::Send {
         recipient: staking_addr.to_string(),
@@ -543,10 +543,10 @@ fn test_existing_snip20() {
         snip20_info,
         CREATOR_ADDR,
         1,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: creator_viewing_key_snip20_stake.clone(),
             address: CREATOR_ADDR.to_string(),
-        },
+        }),
     );
     app.update_block(next_block);
 
@@ -702,10 +702,10 @@ fn test_existing_cw20_existing_staking() {
         snip20_info.clone(),
         CREATOR_ADDR,
         1,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: creator_viewing_key_snip20_stake.clone(),
             address: CREATOR_ADDR.to_string(),
-        },
+        }),
     );
 
     // Expect 1 as creator has now staked 1
@@ -860,10 +860,10 @@ fn test_different_heights() {
         snip20_info.clone(),
         CREATOR_ADDR,
         1,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: creator_viewing_key_snip20_stake.clone(),
             address: CREATOR_ADDR.to_string(),
-        },
+        }),
     );
 
     // Expect 1 as creator has now staked 1
@@ -917,10 +917,10 @@ fn test_different_heights() {
         snip20_info.clone(),
         CREATOR_ADDR,
         1,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: creator_viewing_key_snip20_stake.clone(),
             address: CREATOR_ADDR.to_string(),
-        },
+        }),
     );
 
     // Expect 2 as creator has now staked 2
@@ -1093,10 +1093,10 @@ fn test_active_threshold_absolute_count() {
         snip20_info.clone(),
         CREATOR_ADDR,
         100,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: creator_viewing_key_snip20_stake.clone(),
             address: CREATOR_ADDR.to_string(),
-        },
+        }),
     );
 
     // Active as enough staked
@@ -1194,10 +1194,10 @@ fn test_active_threshold_percent() {
         snip20_info.clone(),
         CREATOR_ADDR,
         60,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: creator_viewing_key_snip20_stake.clone(),
             address: CREATOR_ADDR.to_string(),
-        },
+        }),
     );
     // Active as enough staked
     let is_active: IsActiveResponse = app
@@ -1294,10 +1294,10 @@ fn test_active_threshold_percent_rounds_up() {
         snip20_info.clone(),
         CREATOR_ADDR,
         2,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: creator_viewing_key_snip20_stake.clone(),
             address: CREATOR_ADDR.to_string(),
-        },
+        }),
     );
 
     let is_active: IsActiveResponse = app
@@ -1319,10 +1319,10 @@ fn test_active_threshold_percent_rounds_up() {
         snip20_info.clone(),
         CREATOR_ADDR,
         1,
-        Auth::ViewingKey {
+        Box::new(Auth::ViewingKey {
             key: creator_viewing_key_snip20_stake.clone(),
             address: CREATOR_ADDR.to_string(),
-        },
+        }),
     );
 
     let is_active: IsActiveResponse = app

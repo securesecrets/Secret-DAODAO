@@ -4,6 +4,7 @@
 //     testing::{mock_dependencies, mock_env},
 //     to_binary, Addr, ContractInfo, CosmosMsg, Empty, Storage, Uint128, WasmMsg,
 // };
+// use cw4::Member;
 // use dao_interface::{
 //     msg::{ExecuteMsg, InitialItem, InstantiateMsg, MigrateMsg, QueryMsg},
 //     query::{
@@ -87,7 +88,52 @@
 //     Box::new(contract)
 // }
 
+// fn query_auth_contract() -> Box<dyn Contract<Empty>> {
+//     let contract = ContractWrapper::new(
+//         query_auth::contract::execute,
+//         query_auth::contract::instantiate,
+//         query_auth::contract::query,
+//     );
+//     Box::new(contract)
+// }
+
+// fn group_contract() -> Box<dyn Contract<Empty>> {
+//     let contract = ContractWrapper::new(
+//         cw4_group::contract::execute,
+//         cw4_group::contract::instantiate,
+//         cw4_group::contract::query,
+//     );
+//     Box::new(contract)
+// }
+
+// fn voting_cw4_contract() -> Box<dyn Contract<Empty>> {
+//     let contract = ContractWrapper::new(
+//         dao_voting_cw4::contract::execute,
+//         dao_voting_cw4::contract::instantiate,
+//         dao_voting_cw4::contract::query,
+//     )
+//     .with_reply(dao_voting_cw4::contract::reply)
+//     .with_migrate(dao_voting_cw4::contract::migrate);
+//     Box::new(contract)
+// }
+
 // fn instantiate_gov(
+//     app: &mut App,
+//     contract_instantiation_info: ContractInstantiationInfo,
+//     msg: InstantiateMsg,
+// ) -> ContractInfo {
+//     app.instantiate_contract(
+//         contract_instantiation_info,
+//         Addr::unchecked(CREATOR_ADDR),
+//         &msg,
+//         &[],
+//         "cw-governance",
+//         None,
+//     )
+//     .unwrap()
+// }
+
+// fn instantiate_query_auth(
 //     app: &mut App,
 //     contract_instantiation_info: ContractInstantiationInfo,
 //     msg: InstantiateMsg,
@@ -107,23 +153,20 @@
 //     let mut app = App::default();
 //     let snip20_info = app.store_code(snip20_contract());
 //     let gov_info = app.store_code(cw_core_contract());
-
-//     let snip20_instantiate = snip20_reference_impl::msg::InstantiateMsg {
-//         name: "DAO".to_string(),
-//         symbol: "DAO".to_string(),
-//         decimals: 6,
-//         initial_balances: Some(vec![]),
-//         admin: None,
-//         prng_seed: to_binary(&"prng_Seed").unwrap(),
-//         config: Some(InitConfig {
-//             public_total_supply: Some(true),
-//             enable_deposit: None,
-//             enable_redeem: None,
-//             enable_mint: Some(true),
-//             enable_burn: Some(true),
-//             can_modify_denoms: None,
-//         }),
-//         supported_denoms: None,
+//     let query_auth_info = app.store_code(query_auth_contract());
+//     let group_contract_info = app.store_code(group_contract());
+//     let voting_info = app.store_code(voting_cw4_contract());
+//     let voting_cw4_instantiate = dao_utils::msg::VotingCW4nstantiateMsg {
+//         group_contract: dao_utils::msg::GroupContract::New {
+//             cw4_group_code_id: group_contract_info.code_id,
+//             cw4_group_code_hash: group_contract_info.code_hash,
+//             initial_members: vec![Member {
+//                 addr: CREATOR_ADDR.to_string(),
+//                 weight: 1,
+//             }],
+//             query_auth: None,
+//         },
+//         dao_code_hash: "hash".to_string(),
 //     };
 //     let instantiate = InstantiateMsg {
 //         dao_uri: None,
@@ -131,29 +174,28 @@
 //         name: "DAO DAO".to_string(),
 //         description: "A DAO that builds DAOs.".to_string(),
 //         image_url: None,
-//         automatically_add_snip20s: true,
-//         automatically_add_snip721s: true,
 //         voting_module_instantiate_info: ModuleInstantiateInfo {
-//             code_id: snip20_info.clone().code_id,
-//             code_hash: snip20_info.clone().code_hash,
-//             msg: to_binary(&snip20_instantiate).unwrap(),
+//             code_id: voting_info.clone().code_id,
+//             code_hash: voting_info.clone().code_hash,
+//             msg: to_binary(&voting_cw4_instantiate).unwrap(),
 //             admin: Some(Admin::CoreModule {}),
 //             funds: vec![],
 //             label: "voting module".to_string(),
 //         },
 //         proposal_modules_instantiate_info: (0..n)
 //             .map(|n| ModuleInstantiateInfo {
-//                 code_id: snip20_info.clone().code_id,
-//                 code_hash: snip20_info.clone().code_hash,
-//                 msg: to_binary(&snip20_instantiate).unwrap(),
+//                 code_id: voting_info.clone().code_id,
+//                 code_hash: voting_info.clone().code_hash,
+//                 msg: to_binary(&voting_cw4_instantiate).unwrap(),
 //                 admin: Some(Admin::CoreModule {}),
 //                 funds: vec![],
 //                 label: format!("governance module {n}"),
 //             })
 //             .collect(),
 //         initial_items: None,
-//         snip20_code_hash: "".to_string(),
-//         snip721_code_hash: "".to_string(),
+//         query_auth_code_id: query_auth_info.code_id,
+//         query_auth_code_hash: query_auth_info.code_hash,
+//         prng_seed: "seed".to_string(),
 //     };
 //     let gov_contract_info = instantiate_gov(&mut app, gov_info, instantiate);
 
@@ -173,8 +215,6 @@
 //             name: "DAO DAO".to_string(),
 //             description: "A DAO that builds DAOs.".to_string(),
 //             image_url: None,
-//             automatically_add_snip20s: true,
-//             automatically_add_snip721s: true,
 //         }
 //     );
 
@@ -185,18 +225,18 @@
 // }
 
 // #[test]
-// #[should_panic(expected = "Execution would result in no proposal modules being active.")]
+// // #[should_panic(expected = "Execution would result in no proposal modules being active.")]
 // fn test_instantiate_with_zero_gov_modules() {
 //     test_instantiate_with_n_gov_modules(0)
 // }
 
-// #[test]
-// fn test_valid_instantiate() {
-//     let module_counts = [1, 2, 200];
-//     for count in module_counts {
-//         test_instantiate_with_n_gov_modules(count)
-//     }
-// }
+// // #[test]
+// // fn test_valid_instantiate() {
+// //     let module_counts = [1, 2, 200];
+// //     for count in module_counts {
+// //         test_instantiate_with_n_gov_modules(count)
+// //     }
+// // }
 
 // // #[test]
 // // #[should_panic(expected = "Error parsing into type cw20_base::msg::InstantiateMsg: Invalid type")]

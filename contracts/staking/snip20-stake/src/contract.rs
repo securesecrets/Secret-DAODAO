@@ -16,7 +16,6 @@ use cosmwasm_std::{
 };
 use cw_hooks::HookItem;
 use dao_hooks::stake::{stake_hook_msgs, unstake_hook_msgs};
-use dao_interface::state::AnyContractInfo;
 use dao_voting::duration::validate_duration;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_cw_controllers::ClaimsResponse;
@@ -42,7 +41,7 @@ pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response<Empty>, ContractError> {
@@ -79,10 +78,7 @@ pub fn instantiate(
     BALANCE.save(deps.storage, &Uint128::zero())?;
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    Ok(Response::new().set_data(to_binary(&AnyContractInfo {
-        addr: env.contract.address,
-        code_hash: env.contract.code_hash,
-    })?))
+    Ok(Response::default())
 }
 
 #[entry_point]
@@ -146,7 +142,7 @@ pub fn execute_receive(
     let msg: ReceiveMsg = from_binary(&wrapper.msg.unwrap())?;
     let sender: Addr = deps.api.addr_validate(wrapper.sender.as_ref())?;
     match msg {
-        ReceiveMsg::Stake { auth } => execute_stake(deps, env, sender, wrapper.amount, auth),
+        ReceiveMsg::Stake { auth } => execute_stake(deps, env, sender, wrapper.amount, *auth),
         ReceiveMsg::Fund {} => execute_fund(deps, env, &sender, wrapper.amount),
     }
 }

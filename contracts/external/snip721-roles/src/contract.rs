@@ -8,7 +8,6 @@ use cw4::{
     Member, MemberChangedHookMsg, MemberDiff, MemberListResponse, MemberResponse,
     TotalWeightResponse,
 };
-use dao_interface::state::AnyContractInfo;
 use dao_snip721_extensions::roles::{ExecuteExt, MetadataExt, QueryExt};
 use secret_cw_controllers::HookItem;
 use shade_protocol::basic_staking::{Auth, AuthPermit};
@@ -54,10 +53,6 @@ pub fn instantiate(
 
     Ok(Response::default()
         .add_attribute("contract_name", CONTRACT_NAME)
-        .set_data(to_binary(&AnyContractInfo {
-            addr: env.contract.address,
-            code_hash: env.contract.code_hash,
-        })?)
         .add_attribute("contract_version", CONTRACT_VERSION))
 }
 

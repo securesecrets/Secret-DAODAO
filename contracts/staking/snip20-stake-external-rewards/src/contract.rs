@@ -12,7 +12,6 @@ use crate::ContractError::{
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use dao_interface::state::AnyContractInfo;
 use shade_protocol::basic_staking::Auth;
 
 use crate::msg::Snip20ReceiveMsg;
@@ -34,7 +33,7 @@ pub const PREFIX_REVOKED_PERMITS: &str = "revoked_permits";
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response<Empty>, ContractError> {
@@ -75,10 +74,6 @@ pub fn instantiate(
 
     Ok(Response::new()
         .add_attribute("owner", msg.owner.unwrap_or_else(|| "None".to_string()))
-        .set_data(to_binary(&AnyContractInfo {
-            addr: env.contract.address,
-            code_hash: env.contract.code_hash,
-        })?)
         .add_attribute("staking_contract", config.staking_contract)
         .add_attribute(
             "reward_token",
@@ -630,6 +625,7 @@ mod tests {
         .unwrap()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn stake_tokens<T: Into<String>>(
         app: &mut App,
         staking_addr: &Addr,
@@ -638,7 +634,7 @@ mod tests {
         snip20_code_hash: String,
         sender: T,
         amount: u128,
-        auth: Auth,
+        auth: Box<Auth>,
     ) {
         let msg = Snip20ExecuteMsg::Send {
             recipient: staking_addr.to_string(),
@@ -750,10 +746,10 @@ mod tests {
                 snip20_info.clone().code_hash,
                 coin.address.clone(),
                 coin.amount.u128(),
-                Auth::ViewingKey {
+                Box::new(Auth::ViewingKey {
                     key: viewing_key.clone(),
                     address: coin.address,
-                },
+                }),
             );
         }
         (staking_info, snip20_info, query_auth_info)

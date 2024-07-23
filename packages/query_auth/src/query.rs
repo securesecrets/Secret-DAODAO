@@ -22,7 +22,7 @@ pub fn validate_vk(deps: Deps, user: Addr, key: String) -> StdResult<QueryAnswer
 }
 
 pub fn validate_permit(deps: Deps, permit: QueryPermit) -> StdResult<QueryAnswer> {
-    if permit.params.key != Admin::load(deps.storage)?.0.address.to_string() {
+    if permit.params.key != Admin::load(deps.storage)?.0.address {
         return Err(StdError::generic_err("Invalid permit Key"));
     }
     let user = permit.validate(deps.api, None)?.as_addr(None)?;

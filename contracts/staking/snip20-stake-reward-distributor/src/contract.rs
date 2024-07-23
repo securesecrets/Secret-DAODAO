@@ -6,7 +6,6 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, CosmosMsg, Reply, StdError, SubMsg, SubMsgResult, Uint128,
     WasmMsg,
 };
-use dao_interface::state::AnyContractInfo;
 use secret_toolkit::utils::HandleCallback;
 use snip20_reference_impl::msg::{ExecuteAnswer, QueryAnswer};
 
@@ -76,10 +75,6 @@ pub fn instantiate(
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
-        .set_data(to_binary(&AnyContractInfo {
-            addr: env.contract.address,
-            code_hash: env.contract.code_hash,
-        })?)
         .add_attribute("owner", msg.owner)
         .add_attribute("staking_addr", staking_addr.into_string())
         .add_attribute("reward_token", reward_token.into_string())

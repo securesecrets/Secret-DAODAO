@@ -71,7 +71,7 @@ pub fn instantiate(
             address: env.contract.address.clone(),
             code_hash: env.contract.code_hash.clone(),
         },
-        prng_seed: to_binary(&"seed".to_string())?,
+        prng_seed: to_binary(&msg.prng_seed)?,
     };
 
     let reply_id = REPLY_IDS.add_event(
@@ -569,11 +569,7 @@ pub fn execute_receive_snip20(
             },
         )?;
         let submsg = SubMsg::reply_always(
-            gen_viewing_key_msg.to_cosmos_msg(
-                code_hash,
-                sender.clone().to_string(),
-                None,
-            )?,
+            gen_viewing_key_msg.to_cosmos_msg(code_hash, sender.clone().to_string(), None)?,
             reply_id,
         );
         SNIP20_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
@@ -1031,7 +1027,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
 
                 let prefix = derive_proposal_module_prefix(total_module_count as usize)?;
                 let prop_module = ProposalModule {
-                    address: deps.api.addr_validate(&&address.clone())?,
+                    address: deps.api.addr_validate(&address.clone())?,
                     status: ProposalModuleStatus::Enabled,
                     prefix,
                     code_hash,
@@ -1039,7 +1035,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
 
                 PROPOSAL_MODULES.insert(
                     deps.storage,
-                    &deps.api.addr_validate(&&address.clone())?,
+                    &deps.api.addr_validate(&address.clone())?,
                     &prop_module,
                 )?;
 
@@ -1069,7 +1065,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
 
                 let voting_module = VotingModuleInfo {
                     code_hash,
-                    addr: deps.api.addr_validate(&&address.clone())?,
+                    addr: deps.api.addr_validate(&address.clone())?,
                 };
 
                 VOTING_MODULE.save(deps.storage, &voting_module)?;
