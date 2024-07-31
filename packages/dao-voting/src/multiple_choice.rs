@@ -33,7 +33,7 @@ impl VotingStrategy {
 
 /// A multiple choice vote, picking the desired option
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 #[serde(rename_all = "snake_case")]
 #[derive(Copy)]
 pub struct MultipleChoiceVote {

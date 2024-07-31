@@ -19,7 +19,7 @@ pub struct Votes {
     pub abstain: Uint128,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 #[serde(rename_all = "snake_case")]
 #[derive(Copy)]
 #[repr(u8)]
@@ -27,6 +27,7 @@ pub enum Vote {
     /// Marks support for the proposal.
     Yes,
     /// Marks opposition to the proposal.
+    #[default]
     No,
     /// Marks participation but does not count towards the ratio of
     /// support / opposed.

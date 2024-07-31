@@ -54,7 +54,7 @@ pub struct Config {
 }
 
 // Each ballot stores a chosen vote and corresponding voting power and rationale.
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct Ballot {
     /// The amount of voting power behind the vote.

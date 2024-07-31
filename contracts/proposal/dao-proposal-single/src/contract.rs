@@ -955,8 +955,11 @@ pub fn query_dao(deps: Deps) -> StdResult<Binary> {
 }
 
 pub fn query_proposal(deps: Deps, env: Env, id: u64) -> StdResult<Binary> {
-    let proposal = PROPOSALS.get(deps.storage, &id);
-    to_binary(&proposal.unwrap().into_response(&env.block, id)?)
+    let proposal = PROPOSALS
+        .get(deps.storage, &id)
+        .ok_or(ContractError::NoSuchProposal { id })
+        .unwrap();
+    to_binary(&proposal.into_response(&env.block, id)?)
 }
 
 pub fn query_creation_policy(deps: Deps) -> StdResult<Binary> {
@@ -1016,6 +1019,7 @@ pub fn query_reverse_proposals(
     //     .map(|(id, proposal)| proposal.into_response(&env.block, id))
     //     .collect::<StdResult<Vec<ProposalResponse>>>()?;
 
+    // let max = start_before.map(Bound::exclusive);
     // to_binary(&ProposalListResponse { proposals: props })
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT);
@@ -1057,12 +1061,14 @@ pub fn query_next_proposal_id(deps: Deps) -> StdResult<Binary> {
 }
 
 pub fn query_vote(deps: Deps, proposal_id: u64, voter: Addr) -> StdResult<Binary> {
-    let ballot = BALLOTS.get(deps.storage, &(proposal_id, voter.clone()));
+    let ballot = BALLOTS
+        .get(deps.storage, &(proposal_id, voter.clone()))
+        .unwrap_or_default();
     let vote = VoteInfo {
         voter,
-        vote: ballot.clone().unwrap().vote,
-        power: ballot.clone().unwrap().power,
-        rationale: ballot.unwrap().rationale,
+        vote: ballot.vote,
+        power: ballot.power,
+        rationale: ballot.rationale,
     };
     to_binary(&VoteResponse { vote: Some(vote) })
 }

@@ -6,7 +6,7 @@ use dao_voting::{
     pre_propose::ProposalCreationPolicy, threshold::Threshold, veto::VetoConfig, voting::Vote,
 };
 use schemars::JsonSchema;
-use secret_storage_plus::{Item, Map};
+use secret_storage_plus::Item;
 use secret_toolkit::{serialization::Json, storage::Keymap};
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ use shade_protocol::Contract;
 use crate::proposal::SingleChoiceProposal;
 
 /// A vote cast for a proposal.
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 #[serde(rename_all = "snake_case")]
 pub struct Ballot {
     /// The amount of voting power behind the vote.
@@ -85,4 +85,3 @@ pub const VOTE_HOOKS: Hooks = Hooks::new("vote_hooks");
 pub const CREATION_POLICY: Item<ProposalCreationPolicy> = Item::new("creation_policy");
 pub const DAO: Item<AnyContractInfo> = Item::new("dao");
 pub static REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");
-pub const DUMMY: Map<String, String> = Map::new("d");
