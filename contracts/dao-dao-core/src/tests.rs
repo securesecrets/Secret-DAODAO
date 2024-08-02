@@ -225,18 +225,18 @@
 // }
 
 // #[test]
-// // #[should_panic(expected = "Execution would result in no proposal modules being active.")]
+// #[should_panic(expected = "Execution would result in no proposal modules being active.")]
 // fn test_instantiate_with_zero_gov_modules() {
 //     test_instantiate_with_n_gov_modules(0)
 // }
 
-// // #[test]
-// // fn test_valid_instantiate() {
-// //     let module_counts = [1, 2, 200];
-// //     for count in module_counts {
-// //         test_instantiate_with_n_gov_modules(count)
-// //     }
-// // }
+// #[test]
+// fn test_valid_instantiate() {
+//     let module_counts = [1];
+//     for count in module_counts {
+//         test_instantiate_with_n_gov_modules(count)
+//     }
+// }
 
 // // #[test]
 // // #[should_panic(expected = "Error parsing into type cw20_base::msg::InstantiateMsg: Invalid type")]

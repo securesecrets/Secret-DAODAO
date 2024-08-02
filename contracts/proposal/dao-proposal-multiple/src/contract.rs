@@ -932,7 +932,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetVote { proposal_id, auth } => {
             let query_auth = CONFIG.load(deps.storage)?.query_auth;
             let voter = authenticate(deps, *auth, query_auth)?;
-            to_binary(&query_vote(deps, proposal_id, voter)?)
+            query_vote(deps, proposal_id, voter)
         }
     }
 }
