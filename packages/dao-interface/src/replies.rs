@@ -20,9 +20,15 @@ pub enum ReplyError {
 
 #[cw_serde]
 pub enum ReplyEvent {
-    VotingModuleInstantiate {},
-    ProposalModuleInstantiate {},
-    PreProposalModuleInstantiate {},
+    VotingModuleInstantiate {
+        code_hash: String,
+    },
+    ProposalModuleInstantiate {
+        code_hash: String,
+    },
+    PreProposalModuleInstantiate {
+        code_hash: String,
+    },
     Snip20ModuleInstantiate {},
     Snip20ModuleCreateViewingKey {
         contract_address: String,
@@ -46,6 +52,7 @@ pub enum ReplyEvent {
         /// NOTE: the pre-propose-base package depends on it being the case
         /// that the core module instantiates its proposal module.
         proposal_modules_instantiate_info: Vec<ModuleInstantiateInfo>,
+        code_hash: String,
     },
     InstantiateGroupContract {},
 }
@@ -93,7 +100,7 @@ pub fn parse_reply_address_from_event(res: SubMsgResponse) -> String {
     for event in &res.events {
         if event.ty == "instantiate" {
             for attribute in &event.attributes {
-                if attribute.key == "contract_address" {
+                if attribute.key == "contract_address" || attribute.key == "_contract_addr" {
                     address.clone_from(&attribute.value);
                     found_address = true;
                     break;

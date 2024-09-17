@@ -1,14 +1,13 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg,
+    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, SubMsg,
     SubMsgResult, Uint128,
 };
 use cw4::{MemberListResponse, MemberResponse, TotalWeightResponse};
 use dao_interface::replies::parse_reply_address_from_event;
 // use cw4_group::msg::InstantiateMsg as Cw4GroupInstantiateMsg;
 use dao_interface::state::AnyContractInfo;
-use dao_utils::query::get_contract_code_hash;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 use shade_protocol::basic_staking::Auth;
@@ -90,11 +89,18 @@ pub fn instantiate(
                     Some(info.sender.to_string()),
                     env.contract.address.to_string(),
                     cw4_group_code_id,
-                    cw4_group_code_hash,
+                    cw4_group_code_hash.clone(),
                     None,
                 )?,
                 INSTANTIATE_GROUP_REPLY_ID,
             );
+            GROUP_CONTRACT.save(
+                deps.storage,
+                &AnyContractInfo {
+                    addr: Addr::unchecked(""),
+                    code_hash: cw4_group_code_hash,
+                },
+            )?;
 
             Ok(Response::new()
                 .add_attribute("action", "instantiate")
@@ -212,20 +218,13 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
     match msg.id {
         INSTANTIATE_GROUP_REPLY_ID => match msg.result {
             SubMsgResult::Ok(res) => {
-                let group_contract = GROUP_CONTRACT.may_load(deps.storage)?;
-                if group_contract.is_some() {
+                let mut group_contract = GROUP_CONTRACT.load(deps.storage)?;
+                if group_contract.addr != Addr::unchecked("") {
                     return Err(ContractError::DuplicateGroupContract {});
                 }
                 let address = parse_reply_address_from_event(res);
-                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
-
-                GROUP_CONTRACT.save(
-                    deps.storage,
-                    &AnyContractInfo {
-                        addr: deps.api.addr_validate(&address)?,
-                        code_hash,
-                    },
-                )?;
+                group_contract.addr = deps.api.addr_validate(&address)?;
+                GROUP_CONTRACT.save(deps.storage, &group_contract)?;
 
                 Ok(Response::default().add_attribute("group_contract", address.to_string()))
             }

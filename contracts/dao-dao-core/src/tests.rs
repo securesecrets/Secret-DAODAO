@@ -15,7 +15,7 @@
 //     voting::{InfoResponse, VotingPowerAtHeightResponse},
 // };
 // use secret_cw2::{set_contract_version, ContractVersion};
-// use secret_multi_test::{App, Contract, ContractInstantiationInfo, ContractWrapper, Executor};
+// use secret_multi_test::{next_block, App, Contract, ContractInstantiationInfo, ContractWrapper, Executor};
 // use secret_storage_plus::{Item, Map};
 // use secret_utils::{Duration, Expiration};
 // use snip20_reference_impl::msg::InitConfig;
@@ -149,24 +149,23 @@
 //     .unwrap()
 // }
 
-// fn test_instantiate_with_n_gov_modules(n: usize) {
+// fn test_instantiate_with_gov_modules() -> ContractInfo {
 //     let mut app = App::default();
-//     let snip20_info = app.store_code(snip20_contract());
+//     let module_info = app.store_code(voting_cw4_contract());
+//     let group_contract = app.store_code(group_contract());
 //     let gov_info = app.store_code(cw_core_contract());
 //     let query_auth_info = app.store_code(query_auth_contract());
-//     let group_contract_info = app.store_code(group_contract());
-//     let voting_info = app.store_code(voting_cw4_contract());
-//     let voting_cw4_instantiate = dao_utils::msg::VotingCW4nstantiateMsg {
-//         group_contract: dao_utils::msg::GroupContract::New {
-//             cw4_group_code_id: group_contract_info.code_id,
-//             cw4_group_code_hash: group_contract_info.code_hash,
+//     let module_instantiate = dao_voting_cw4::msg::InstantiateMsg {
+//         group_contract: dao_voting_cw4::msg::GroupContract::New {
+//             cw4_group_code_id: group_contract.code_id,
+//             cw4_group_code_hash: group_contract.code_hash,
 //             initial_members: vec![Member {
 //                 addr: CREATOR_ADDR.to_string(),
 //                 weight: 1,
 //             }],
 //             query_auth: None,
 //         },
-//         dao_code_hash: "hash".to_string(),
+//         dao_code_hash: "dao_code_hash".to_string(),
 //     };
 //     let instantiate = InstantiateMsg {
 //         dao_uri: None,
@@ -175,232 +174,206 @@
 //         description: "A DAO that builds DAOs.".to_string(),
 //         image_url: None,
 //         voting_module_instantiate_info: ModuleInstantiateInfo {
-//             code_id: voting_info.clone().code_id,
-//             code_hash: voting_info.clone().code_hash,
-//             msg: to_binary(&voting_cw4_instantiate).unwrap(),
+//             code_id: module_info.clone().code_id,
+//             code_hash: module_info.clone().code_hash,
+//             msg: to_binary(&module_instantiate).unwrap(),
 //             admin: Some(Admin::CoreModule {}),
 //             funds: vec![],
 //             label: "voting module".to_string(),
 //         },
-//         proposal_modules_instantiate_info: (0..n)
-//             .map(|n| ModuleInstantiateInfo {
-//                 code_id: voting_info.clone().code_id,
-//                 code_hash: voting_info.clone().code_hash,
-//                 msg: to_binary(&voting_cw4_instantiate).unwrap(),
-//                 admin: Some(Admin::CoreModule {}),
-//                 funds: vec![],
-//                 label: format!("governance module {n}"),
-//             })
-//             .collect(),
+//         proposal_modules_instantiate_info: vec![ModuleInstantiateInfo {
+//             code_id: module_info.clone().code_id,
+//             code_hash: module_info.clone().code_hash,
+//             msg: to_binary(&module_instantiate).unwrap(),
+//             admin: Some(Admin::CoreModule {}),
+//             funds: vec![],
+//             label: format!("governance module"),
+//         }],
 //         initial_items: None,
 //         query_auth_code_id: query_auth_info.code_id,
 //         query_auth_code_hash: query_auth_info.code_hash,
 //         prng_seed: "seed".to_string(),
 //     };
+
 //     let gov_contract_info = instantiate_gov(&mut app, gov_info, instantiate);
+//     // app.update_block(next_block);
 
-//     let state: DumpStateResponse = app
-//         .wrap()
-//         .query_wasm_smart(
-//             gov_contract_info.code_hash,
-//             gov_contract_info.address.to_string(),
-//             &QueryMsg::DumpState {},
-//         )
-//         .unwrap();
 
-//     assert_eq!(
-//         state.config,
-//         Config {
-//             dao_uri: None,
-//             name: "DAO DAO".to_string(),
-//             description: "A DAO that builds DAOs.".to_string(),
-//             image_url: None,
-//         }
-//     );
 
-//     assert_eq!(state.proposal_modules.len(), n);
+//     // let state: DumpStateResponse = app
+//     //     .wrap()
+//     //     .query_wasm_smart(
+//     //         gov_contract_info.code_hash.clone(),
+//     //         gov_contract_info.address.clone().to_string(),
+//     //         &QueryMsg::DumpState {},
+//     //     )
+//     //     .unwrap();
 
-//     assert_eq!(state.active_proposal_module_count, n as u32);
-//     assert_eq!(state.total_proposal_module_count, n as u32);
+//     // assert_eq!(
+//     //     state.config,
+//     //     Config {
+//     //         dao_uri: None,
+//     //         name: "DAO DAO".to_string(),
+//     //         description: "A DAO that builds DAOs.".to_string(),
+//     //         image_url: None,
+//     //     }
+//     // );
+
+//     // assert_eq!(state.proposal_modules.len(), 1);
+
+//     // assert_eq!(state.active_proposal_module_count, 1 as u32);
+
+//     // assert_eq!(state.total_proposal_module_count, 1 as u32);
+
+//     gov_contract_info
+// }
+
+
+// fn test_instantiate_with_0_gov_modules() {
+//     let mut app = App::default();
+//     let module_info = app.store_code(voting_cw4_contract());
+//     let group_contract = app.store_code(group_contract());
+//     let gov_info = app.store_code(cw_core_contract());
+//     let query_auth_info = app.store_code(query_auth_contract());
+//     let module_instantiate = dao_voting_cw4::msg::InstantiateMsg {
+//         group_contract: dao_voting_cw4::msg::GroupContract::New {
+//             cw4_group_code_id: group_contract.code_id,
+//             cw4_group_code_hash: group_contract.code_hash,
+//             initial_members: vec![Member {
+//                 addr: CREATOR_ADDR.to_string(),
+//                 weight: 1,
+//             }],
+//             query_auth: None,
+//         },
+//         dao_code_hash: "dao_code_hash".to_string(),
+//     };
+//     let instantiate = InstantiateMsg {
+//         dao_uri: None,
+//         admin: None,
+//         name: "DAO DAO".to_string(),
+//         description: "A DAO that builds DAOs.".to_string(),
+//         image_url: None,
+//         voting_module_instantiate_info: ModuleInstantiateInfo {
+//             code_id: module_info.clone().code_id,
+//             code_hash: module_info.clone().code_hash,
+//             msg: to_binary(&module_instantiate).unwrap(),
+//             admin: Some(Admin::CoreModule {}),
+//             funds: vec![],
+//             label: "voting module".to_string(),
+//         },
+//         proposal_modules_instantiate_info: vec![],
+//         initial_items: None,
+//         query_auth_code_id: query_auth_info.code_id,
+//         query_auth_code_hash: query_auth_info.code_hash,
+//         prng_seed: "seed".to_string(),
+//     };
+//     let _ = instantiate_gov(&mut app, gov_info, instantiate);
 // }
 
 // #[test]
 // #[should_panic(expected = "Execution would result in no proposal modules being active.")]
 // fn test_instantiate_with_zero_gov_modules() {
-//     test_instantiate_with_n_gov_modules(0)
+//     test_instantiate_with_0_gov_modules()
 // }
 
 // #[test]
 // fn test_valid_instantiate() {
-//     let module_counts = [1];
-//     for count in module_counts {
-//         test_instantiate_with_n_gov_modules(count)
-//     }
+//     test_instantiate_with_gov_modules();
 // }
 
-// // #[test]
-// // #[should_panic(expected = "Error parsing into type cw20_base::msg::InstantiateMsg: Invalid type")]
-// // fn test_instantiate_with_submessage_failure() {
-// //     let mut app = App::default();
-// //     let cw20_id = app.store_code(cw20_contract());
-// //     let gov_id = app.store_code(cw_core_contract());
+// #[test]
+// fn test_update_config() {
+//     let mut app = App::default();
+//     let module_info = app.store_code(voting_cw4_contract());
+//     let group_contract = app.store_code(group_contract());
+//     let gov_info = app.store_code(cw_core_contract());
+//     let query_auth_info = app.store_code(query_auth_contract());
+//     let module_instantiate = dao_voting_cw4::msg::InstantiateMsg {
+//         group_contract: dao_voting_cw4::msg::GroupContract::New {
+//             cw4_group_code_id: group_contract.code_id,
+//             cw4_group_code_hash: group_contract.code_hash,
+//             initial_members: vec![Member {
+//                 addr: CREATOR_ADDR.to_string(),
+//                 weight: 1,
+//             }],
+//             query_auth: None,
+//         },
+//         dao_code_hash: "dao_code_hash".to_string(),
+//     };
+//     let instantiate = InstantiateMsg {
+//         dao_uri: None,
+//         admin: None,
+//         name: "DAO DAO".to_string(),
+//         description: "A DAO that builds DAOs.".to_string(),
+//         image_url: None,
+//         voting_module_instantiate_info: ModuleInstantiateInfo {
+//             code_id: module_info.clone().code_id,
+//             code_hash: module_info.clone().code_hash,
+//             msg: to_binary(&module_instantiate).unwrap(),
+//             admin: Some(Admin::CoreModule {}),
+//             funds: vec![],
+//             label: "voting module".to_string(),
+//         },
+//         proposal_modules_instantiate_info: vec![ModuleInstantiateInfo {
+//             code_id: module_info.clone().code_id,
+//             code_hash: module_info.clone().code_hash,
+//             msg: to_binary(&module_instantiate).unwrap(),
+//             admin: Some(Admin::CoreModule {}),
+//             funds: vec![],
+//             label: format!("governance module"),
+//         }],
+//         initial_items: None,
+//         query_auth_code_id: query_auth_info.code_id,
+//         query_auth_code_hash: query_auth_info.code_hash,
+//         prng_seed: "seed".to_string(),
+//     };
 
-// //     let cw20_instantiate = cw20_base::msg::InstantiateMsg {
-// //         name: "DAO".to_string(),
-// //         symbol: "DAO".to_string(),
-// //         decimals: 6,
-// //         initial_balances: vec![],
-// //         mint: None,
-// //         marketing: None,
-// //     };
+//     let gov_contract_info = instantiate_gov(&mut app, gov_info, instantiate);
+//     let modules: Vec<ProposalModule> = app
+//         .wrap()
+//         .query_wasm_smart(
+//             gov_contract_info.code_hash.clone(),
+//             gov_contract_info.address.clone(),
+//             &QueryMsg::ProposalModules {
+//                 start_after: None,
+//                 limit: None,
+//             },
+//         )
+//         .unwrap();
 
-// //     let mut governance_modules = (0..3)
-// //         .map(|n| ModuleInstantiateInfo {
-// //             code_id: cw20_id,
-// //             msg: to_binary(&cw20_instantiate).unwrap(),
-// //             admin: Some(Admin::CoreModule {}),
-// //             funds: vec![],
-// //             label: format!("governance module {n}"),
-// //         })
-// //         .collect::<Vec<_>>();
-// //     governance_modules.push(ModuleInstantiateInfo {
-// //         code_id: cw20_id,
-// //         msg: to_binary("bad").unwrap(),
-// //         admin: Some(Admin::CoreModule {}),
-// //         funds: vec![],
-// //         label: "I have a bad instantiate message".to_string(),
-// //     });
-// //     governance_modules.push(ModuleInstantiateInfo {
-// //         code_id: cw20_id,
-// //         msg: to_binary(&cw20_instantiate).unwrap(),
-// //         admin: Some(Admin::CoreModule {}),
-// //         funds: vec![],
-// //         label: "Everybody knowing
-// // that goodness is good
-// // makes wickedness."
-// //             .to_string(),
-// //     });
+//     assert_eq!(modules.len(), 1);
 
-// //     let instantiate = InstantiateMsg {
-// //         dao_uri: None,
-// //         admin: None,
-// //         name: "DAO DAO".to_string(),
-// //         description: "A DAO that builds DAOs.".to_string(),
-// //         image_url: None,
-// //         automatically_add_cw20s: true,
-// //         automatically_add_cw721s: true,
-// //         voting_module_instantiate_info: ModuleInstantiateInfo {
-// //             code_id: cw20_id,
-// //             msg: to_binary(&cw20_instantiate).unwrap(),
-// //             admin: Some(Admin::CoreModule {}),
-// //             funds: vec![],
-// //             label: "voting module".to_string(),
-// //         },
-// //         proposal_modules_instantiate_info: governance_modules,
-// //         initial_items: None,
-// //     };
-// //     instantiate_gov(&mut app, gov_id, instantiate);
-// // }
+//     let expected_config = Config {
+//         dao_uri: None,
+//         name: "DAO DAO".to_string(),
+//         description: "A DAO that builds DAOs.".to_string(),
+//         image_url: None,
+//     };
 
-// // #[test]
-// // fn test_update_config() {
-// //     let mut app = App::default();
-// //     let govmod_id = app.store_code(sudo_proposal_contract());
-// //     let gov_id = app.store_code(cw_core_contract());
+//     let config: Config = app
+//         .wrap()
+//         .query_wasm_smart(
+//             gov_contract_info.code_hash.clone(),
+//             gov_contract_info.address.clone(),
+//             &QueryMsg::Config {},
+//         )
+//         .unwrap();
 
-// //     let govmod_instantiate = dao_proposal_sudo::msg::InstantiateMsg {
-// //         root: CREATOR_ADDR.to_string(),
-// //     };
+//     println!("here");
 
-// //     let gov_instantiate = InstantiateMsg {
-// //         dao_uri: None,
-// //         admin: None,
-// //         name: "DAO DAO".to_string(),
-// //         description: "A DAO that builds DAOs.".to_string(),
-// //         image_url: None,
-// //         automatically_add_cw20s: true,
-// //         automatically_add_cw721s: true,
-// //         voting_module_instantiate_info: ModuleInstantiateInfo {
-// //             code_id: govmod_id,
-// //             msg: to_binary(&govmod_instantiate).unwrap(),
-// //             admin: Some(Admin::CoreModule {}),
-// //             funds: vec![],
-// //             label: "voting module".to_string(),
-// //         },
-// //         proposal_modules_instantiate_info: vec![ModuleInstantiateInfo {
-// //             code_id: govmod_id,
-// //             msg: to_binary(&govmod_instantiate).unwrap(),
-// //             admin: Some(Admin::CoreModule {}),
-// //             funds: vec![],
-// //             label: "voting module".to_string(),
-// //         }],
-// //         initial_items: None,
-// //     };
+//     assert_eq!(expected_config, config);
 
-// //     let gov_addr = app
-// //         .instantiate_contract(
-// //             gov_id,
-// //             Addr::unchecked(CREATOR_ADDR),
-// //             &gov_instantiate,
-// //             &[],
-// //             "cw-governance",
-// //             None,
-// //         )
-// //         .unwrap();
-
-// //     let modules: Vec<ProposalModule> = app
-// //         .wrap()
-// //         .query_wasm_smart(
-// //             gov_addr.clone(),
-// //             &QueryMsg::ProposalModules {
-// //                 start_after: None,
-// //                 limit: None,
-// //             },
-// //         )
-// //         .unwrap();
-
-// //     assert_eq!(modules.len(), 1);
-
-// //     let expected_config = Config {
-// //         name: "Root DAO".to_string(),
-// //         description: "We love trees and sudo.".to_string(),
-// //         image_url: Some("https://moonphase.is/image.svg".to_string()),
-// //         automatically_add_cw20s: false,
-// //         automatically_add_cw721s: true,
-// //         dao_uri: Some("https://daostar.one/EIP".to_string()),
-// //     };
-
-// //     app.execute_contract(
-// //         Addr::unchecked(CREATOR_ADDR),
-// //         modules[0].clone().address,
-// //         &dao_proposal_sudo::msg::ExecuteMsg::Execute {
-// //             msgs: vec![WasmMsg::Execute {
-// //                 contract_addr: gov_addr.to_string(),
-// //                 funds: vec![],
-// //                 msg: to_binary(&ExecuteMsg::UpdateConfig {
-// //                     config: expected_config.clone(),
-// //                 })
-// //                 .unwrap(),
-// //             }
-// //             .into()],
-// //         },
-// //         &[],
-// //     )
-// //     .unwrap();
-
-// //     let config: Config = app
-// //         .wrap()
-// //         .query_wasm_smart(gov_addr.clone(), &QueryMsg::Config {})
-// //         .unwrap();
-
-// //     assert_eq!(expected_config, config);
-
-// //     let dao_uri: DaoURIResponse = app
-// //         .wrap()
-// //         .query_wasm_smart(gov_addr, &QueryMsg::DaoURI {})
-// //         .unwrap();
-// //     assert_eq!(dao_uri.dao_uri, expected_config.dao_uri);
-// // }
+//     let dao_uri: DaoURIResponse = app
+//         .wrap()
+//         .query_wasm_smart(
+//             gov_contract_info.code_hash,
+//             gov_contract_info.address,
+//             &QueryMsg::DaoURI {},
+//         )
+//         .unwrap();
+//     println!("here");
+//     assert_eq!(dao_uri.dao_uri, expected_config.dao_uri);
+// }
 
 // // fn test_swap_governance(swaps: Vec<(u32, u32)>) {
 // //     let mut app = App::default();

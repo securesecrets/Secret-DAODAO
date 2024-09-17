@@ -16,7 +16,6 @@ use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::{AnyContractInfo, VotingModuleInfo};
 use dao_interface::voting::IsActiveResponse;
 use dao_interface::ReplyEvent;
-use dao_utils::query::get_contract_code_hash;
 use dao_voting::pre_propose::{PreProposeInfo, ProposalCreationPolicy};
 use dao_voting::proposal::{
     SingleChoiceProposeMsg as ProposeMsg, DEFAULT_LIMIT, MAX_PROPOSAL_SIZE,
@@ -1216,11 +1215,10 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     .add_attribute("removed_vote_hook", format!("{0}:{idx}", hook_item.addr)))
             }
         },
-        ReplyEvent::PreProposalModuleInstantiate {} => match msg.result {
+        ReplyEvent::PreProposalModuleInstantiate { code_hash } => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
                 let address = parse_reply_address_from_event(res.clone());
-                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
 
                 CREATION_POLICY.save(
                     deps.storage,

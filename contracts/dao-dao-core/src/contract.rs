@@ -79,6 +79,7 @@ pub fn instantiate(
         ReplyEvent::InstantiateQueryAuth {
             voting_module_instantiate_info: msg.voting_module_instantiate_info.clone(),
             proposal_modules_instantiate_info: msg.proposal_modules_instantiate_info,
+            code_hash: msg.query_auth_code_hash.clone(),
         },
     )?;
 
@@ -337,7 +338,12 @@ pub fn execute_update_voting_module(
     }
 
     let wasm = module.clone().to_cosmos_msg(env.contract.address);
-    let reply_id = REPLY_IDS.add_event(deps.storage, ReplyEvent::VotingModuleInstantiate {})?;
+    let reply_id = REPLY_IDS.add_event(
+        deps.storage,
+        ReplyEvent::VotingModuleInstantiate {
+            code_hash: module.code_hash,
+        },
+    )?;
     let submessage = SubMsg::reply_on_success(wasm, reply_id);
 
     Ok(Response::default()
@@ -390,7 +396,12 @@ pub fn execute_update_proposal_modules(
         .map(|info| {
             let wasm = info.clone().into_wasm_msg(env.contract.address.clone());
             let reply_id = REPLY_IDS
-                .add_event(deps.storage, ReplyEvent::ProposalModuleInstantiate {})
+                .add_event(
+                    deps.storage,
+                    ReplyEvent::ProposalModuleInstantiate {
+                        code_hash: info.code_hash,
+                    },
+                )
                 .unwrap();
             SubMsg::reply_on_success(wasm, reply_id)
         })
@@ -677,7 +688,7 @@ pub fn query_proposal_modules(
 
     let mut res: Vec<ProposalModule> = Vec::new();
     let mut start = start_after.clone();
-    let binding = &PROPOSAL_MODULES;
+    let binding = PROPOSAL_MODULES;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
         let (address, module) = item?;
@@ -820,7 +831,7 @@ pub fn query_list_items(
 ) -> StdResult<Binary> {
     let mut res: Vec<(String, String)> = Vec::new(); // Vector to hold key-value pairs
     let mut start = start_after.clone();
-    let binding = &ITEMS;
+    let binding = ITEMS;
     let iter = binding.iter(deps.storage)?;
 
     for item in iter {
@@ -1017,11 +1028,10 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
     let reply_event = REPLY_IDS.get_event(deps.storage, msg.id)?;
     match reply_event {
-        ReplyEvent::ProposalModuleInstantiate {} => match msg.result {
+        ReplyEvent::ProposalModuleInstantiate { code_hash } => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
                 let address = parse_reply_address_from_event(res.clone());
-                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
 
                 let total_module_count = TOTAL_PROPOSAL_MODULE_COUNT.load(deps.storage)?;
 
@@ -1057,11 +1067,10 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                     .add_messages(callback_msgs))
             }
         },
-        ReplyEvent::VotingModuleInstantiate {} => match msg.result {
+        ReplyEvent::VotingModuleInstantiate { code_hash } => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
                 let address = parse_reply_address_from_event(res.clone());
-                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
 
                 let voting_module = VotingModuleInfo {
                     code_hash,
@@ -1100,10 +1109,10 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
         ReplyEvent::InstantiateQueryAuth {
             voting_module_instantiate_info,
             proposal_modules_instantiate_info,
+            code_hash,
         } => match msg.result {
             SubMsgResult::Ok(res) => {
                 let address = parse_reply_address_from_event(res);
-                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
                 let msg = update_query_auth(
                     voting_module_instantiate_info.clone(),
                     RawContract {
@@ -1112,8 +1121,12 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                     },
                     env.contract.address.clone().to_string(),
                 )?;
-                let reply_id =
-                    REPLY_IDS.add_event(deps.storage, ReplyEvent::VotingModuleInstantiate {})?;
+                let reply_id = REPLY_IDS.add_event(
+                    deps.storage,
+                    ReplyEvent::VotingModuleInstantiate {
+                        code_hash: voting_module_instantiate_info.code_hash,
+                    },
+                )?;
                 let vote_module_msg: SubMsg<Empty> = SubMsg::reply_on_success(msg, reply_id);
 
                 let proposal_module_msgs: Vec<SubMsg<Empty>> = proposal_modules_instantiate_info
@@ -1130,7 +1143,12 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                         .unwrap();
 
                         let reply_id = REPLY_IDS
-                            .add_event(deps.storage, ReplyEvent::ProposalModuleInstantiate {})
+                            .add_event(
+                                deps.storage,
+                                ReplyEvent::ProposalModuleInstantiate {
+                                    code_hash: info.code_hash,
+                                },
+                            )
                             .unwrap();
                         SubMsg::reply_on_success(msg, reply_id)
                     })
@@ -1138,6 +1156,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                 if proposal_module_msgs.is_empty() {
                     return Err(ContractError::NoActiveProposalModules {});
                 }
+
                 Ok(Response::new()
                     .add_attribute("action", "instantiate query_auth with dao as admin")
                     .add_submessage(vote_module_msg)

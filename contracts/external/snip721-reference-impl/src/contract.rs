@@ -35,7 +35,7 @@ use crate::state::{
 use crate::token::{Metadata, Token};
 use crate::{
     expiration::Expiration,
-    msg::{InstantiateResponse, Minters, NftInfo, NumTokens, OwnerOf},
+    msg::{Minters, NftInfo, NumTokens, OwnerOf},
 };
 use crate::{
     inventory::{Inventory, InventoryIter},
@@ -62,7 +62,7 @@ pub const ID_BLOCK_SIZE: u32 = 64;
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
@@ -128,12 +128,7 @@ pub fn instantiate(
     } else {
         Vec::new()
     };
-    Ok(Response::new()
-        .add_messages(messages)
-        .set_data(to_binary(&InstantiateResponse {
-            contract_address: env.contract.address,
-            code_hash: env.contract.code_hash,
-        })?))
+    Ok(Response::new().add_messages(messages))
 }
 
 ///////////////////////////////////// Handle //////////////////////////////////////
