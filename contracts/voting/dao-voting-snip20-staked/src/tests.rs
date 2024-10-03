@@ -4,6 +4,7 @@ use cosmwasm_std::{
     to_binary, Addr, ContractInfo, Decimal, Empty, MessageInfo, Uint128,
 };
 use dao_interface::{
+    msg::InitialBalance,
     state::AnyContractInfo,
     voting::{InfoResponse, IsActiveResponse, VotingPowerAtHeightResponse},
 };
@@ -21,7 +22,6 @@ use snip20_reference_impl::msg::InitialBalance as Snip20InitialBalance;
 use crate::{
     contract::{migrate, CONTRACT_NAME, CONTRACT_VERSION},
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, StakingInfo},
-    snip20_msg::InitialBalance,
 };
 
 const DAO_ADDR: &str = "dao";

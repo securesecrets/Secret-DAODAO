@@ -1,14 +1,15 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, BlockInfo, StdResult, Storage, SubMsg, Uint128};
-use dao_interface::ReplyEvent;
-use dao_voting::{threshold::PercentageThreshold, voting::does_vote_count_pass};
+use cosmwasm_std::{Addr, BlockInfo, StdResult, SubMsg, Uint128};
+use dao_voting::{
+    reply::mask_proposal_execution_proposal_id, threshold::PercentageThreshold,
+    voting::does_vote_count_pass,
+};
 use secret_toolkit::utils::HandleCallback;
 use secret_utils::Expiration;
 
 use crate::{
     config::Config,
     msg::Choice,
-    state::REPLY_IDS,
     tally::{Tally, Winner},
 };
 
@@ -155,7 +156,6 @@ impl Proposal {
     /// submessage to be executed.
     pub(crate) fn set_executed(
         &mut self,
-        store: &mut dyn Storage,
         dao: Addr,
         dao_code_hash: String,
         winner: u32,
@@ -168,15 +168,11 @@ impl Proposal {
         let core_exec = dao_interface::msg::ExecuteMsg::ExecuteProposalHook { msgs };
 
         Ok(if self.close_on_execution_failure {
-            let reply_id = REPLY_IDS.add_event(
-                store,
-                ReplyEvent::FailedProposalExecution {
-                    proposal_id: self.id as u64,
-                },
-            );
+            let masked_id = mask_proposal_execution_proposal_id(self.id as u64);
+
             SubMsg::reply_on_error(
                 core_exec.to_cosmos_msg(dao_code_hash.clone(), dao.clone().to_string(), None)?,
-                reply_id.unwrap(),
+                masked_id,
             )
         } else {
             SubMsg::new(core_exec.to_cosmos_msg(dao_code_hash, dao.to_string(), None)?)

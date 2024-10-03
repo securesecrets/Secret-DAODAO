@@ -18,7 +18,9 @@ members = [
   "./contracts/pre-propose/*",
   "./contracts/staking/*",
   "./contracts/voting/*",
-  "./packages/*"
+  "./packages/*",
+  "./contracts/test/dao-proposal-sudo/",
+  "./contracts/test/dao-voting-snip20-balance/"
   ]
 resolver = "2"
 
@@ -119,7 +121,8 @@ cw20-staked-balance-voting-v1 = { package = "cw20-staked-balance-voting", versio
 cw4-voting-v1 = { package = "cw4-voting", version = "0.1.0",default-features = false }
 stake-cw20-v03 = { package = "stake-cw20", version = "0.2.6",default-features = false }
 voting-v1 = { package = "dao-voting", version = "0.1.0" ,default-features = false}
-
+dao-proposal-sudo = { path = "./contracts/test/dao-proposal-sudo"}
+dao-voting-snip20-balance ={ path = "./contracts/test/dao-voting-snip20-balance"}
 
 secret-toolkit = { version = "0.10.0", default-features = false, features = [
   "utils",

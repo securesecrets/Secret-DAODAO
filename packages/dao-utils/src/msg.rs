@@ -1,5 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Binary, Uint128};
+use dao_interface::msg::InitialBalance;
 use dao_snip721_extensions::roles::MetadataExt;
 use dao_voting::threshold::ActiveThreshold;
 use dao_voting::threshold::PercentageThreshold;
@@ -213,12 +214,6 @@ pub struct Snip20StakedInstantiateMsg {
     pub active_threshold: Option<ActiveThreshold>,
     pub dao_code_hash: String,
     pub query_auth: Option<RawContract>,
-}
-
-#[cw_serde]
-pub struct InitialBalance {
-    pub address: String,
-    pub amount: Uint128,
 }
 
 impl InitCallback for Snip20StakedInstantiateMsg {

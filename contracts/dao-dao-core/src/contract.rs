@@ -2,9 +2,10 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply,
-    Response, StdError, StdResult, SubMsg, SubMsgResult,
+    Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128,
 };
 use dao_interface::replies::parse_reply_address_from_event;
+use dao_interface::state::AnyContractInfo;
 use dao_interface::ReplyEvent;
 use dao_interface::{
     msg::{ExecuteMsg, InitialItem, InstantiateMsg, MigrateMsg, QueryMsg, Snip20ReceiveMsg},
@@ -20,7 +21,6 @@ use dao_interface::{
 };
 use dao_utils::msg::GroupContract;
 use dao_utils::msg::NftRolesContract;
-use dao_utils::query::get_contract_code_hash;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 use secret_toolkit::{serialization::Json, storage::Keymap, utils::HandleCallback};
@@ -33,8 +33,8 @@ use snip20_reference_impl::msg::ExecuteAnswer;
 use crate::query_auth_init::QueryAuthInstantiateMsg;
 use crate::state::{
     ACTIVE_PROPOSAL_MODULE_COUNT, ADMIN, CONFIG, ITEMS, NOMINATED_ADMIN, PAUSED, PROPOSAL_MODULES,
-    REPLY_IDS, SNIP20_LIST, SNIP721_LIST, SUBDAO_LIST, TOKEN_VIEWING_KEY,
-    TOTAL_PROPOSAL_MODULE_COUNT, VOTING_MODULE,
+    QUERY_AUTH, REPLY_IDS, SNIP20_CODE_HASH, SNIP20_LIST, SNIP721_CODE_HASH, SNIP721_LIST,
+    SUBDAO_LIST, TOKEN_VIEWING_KEY, TOTAL_PROPOSAL_MODULE_COUNT, VOTING_MODULE,
 };
 use crate::{error::ContractError, snip20_msg};
 
@@ -108,6 +108,8 @@ pub fn instantiate(
 
     TOTAL_PROPOSAL_MODULE_COUNT.save(deps.storage, &0)?;
     ACTIVE_PROPOSAL_MODULE_COUNT.save(deps.storage, &0)?;
+    SNIP20_CODE_HASH.save(deps.storage, &msg.snip20_code_hash)?;
+    SNIP721_CODE_HASH.save(deps.storage, &msg.snip721_code_hash)?;
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
@@ -138,7 +140,9 @@ pub fn execute(
         }
         ExecuteMsg::Pause { duration } => execute_pause(deps, env, info.sender, duration),
         ExecuteMsg::Receive(msg) => execute_receive_snip20(deps, info.sender, msg),
-        ExecuteMsg::ReceiveNft { sender, .. } => execute_receive_snip721(deps, sender),
+        ExecuteMsg::BatchReceiveNft { sender, from, .. } => {
+            execute_receive_snip721(deps, sender, from)
+        }
         ExecuteMsg::RemoveItem { key } => execute_remove_item(deps, env, info.sender, key),
         ExecuteMsg::SetItem { key, value } => execute_set_item(deps, env, info.sender, key, value),
         ExecuteMsg::UpdateConfig { config } => {
@@ -458,8 +462,8 @@ pub fn execute_update_snip20_list(
         let viewing_key = TOKEN_VIEWING_KEY
             .get(deps.storage, addr)
             .unwrap_or_default();
-        let snip20_code_hash = get_contract_code_hash(deps.querier, addr.to_string())?;
-        let _info: secret_toolkit::snip20::query::Balance = deps.querier.query_wasm_smart(
+        let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
+        let _info: snip20_reference_impl::msg::QueryAnswer = deps.querier.query_wasm_smart(
             snip20_code_hash,
             addr,
             &secret_toolkit::snip20::QueryMsg::Balance {
@@ -483,7 +487,7 @@ pub fn execute_update_snip721_list(
         return Err(ContractError::Unauthorized {});
     }
     do_update_addr_list(deps, &SNIP721_LIST, to_add, to_remove, |addr, deps| {
-        let snip721_code_hash = get_contract_code_hash(deps.querier, addr.clone().to_string())?;
+        let snip721_code_hash = SNIP721_CODE_HASH.load(deps.storage)?;
         let _info: secret_toolkit::snip721::query::ContractInfo = deps.querier.query_wasm_smart(
             snip721_code_hash,
             addr,
@@ -563,7 +567,8 @@ pub fn execute_receive_snip20(
     sender: Addr,
     _wrapper: Snip20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-    let code_hash = get_contract_code_hash(deps.querier, sender.clone().to_string())?;
+    println!("here");
+    let code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
     let viewing_key = TOKEN_VIEWING_KEY
         .get(deps.storage, &sender)
         .unwrap_or_default();
@@ -596,10 +601,16 @@ pub fn execute_receive_snip20(
     }
 }
 
-pub fn execute_receive_snip721(deps: DepsMut, sender: Addr) -> Result<Response, ContractError> {
+pub fn execute_receive_snip721(
+    deps: DepsMut,
+    sender: Addr,
+    from: Addr,
+) -> Result<Response, ContractError> {
     SNIP721_LIST.insert(deps.storage, &sender.clone(), &Empty {})?;
+    println!("sender: {}", sender);
+    println!("from : {}", from);
     Ok(Response::new()
-        .add_attribute("action", "receive_cw721")
+        .add_attribute("action", "receive_snip721")
         .add_attribute("token", sender))
 }
 
@@ -609,11 +620,13 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Admin {} => query_admin(deps),
         QueryMsg::AdminNomination {} => query_admin_nomination(deps),
         QueryMsg::Config {} => query_config(deps),
-        QueryMsg::Cw20TokenList { start_after, limit } => query_cw20_list(deps, start_after, limit),
-        QueryMsg::Cw20Balances { start_after, limit } => {
+        QueryMsg::Snip20TokenList { start_after, limit } => {
+            query_cw20_list(deps, start_after, limit)
+        }
+        QueryMsg::Snip20Balances { start_after, limit } => {
             query_cw20_balances(deps, env, start_after, limit)
         }
-        QueryMsg::Cw721TokenList { start_after, limit } => {
+        QueryMsg::Snip721TokenList { start_after, limit } => {
             query_cw721_list(deps, start_after, limit)
         }
         QueryMsg::DumpState {} => query_dump_state(deps, env),
@@ -637,6 +650,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             query_list_sub_daos(deps, start_after, limit)
         }
         QueryMsg::DaoURI {} => query_dao_uri(deps),
+        QueryMsg::QueryAuthInfo {} => to_binary(&QUERY_AUTH.load(deps.storage)?),
     }
 }
 
@@ -679,32 +693,32 @@ pub fn query_proposal_modules(
     // Even if this does lock up one can determine the existing
     // proposal modules by looking at past transactions on chain.
 
-    // let data = paginate_map_values(
-    //     deps,
-    //     &PROPOSAL_MODULES,
-    //     0,
-    //     PROPOSAL_MODULES.get_len(deps.storage).unwrap_or_default(),
-    // )?;
-
     let mut res: Vec<ProposalModule> = Vec::new();
     let mut start = start_after.clone();
     let binding = PROPOSAL_MODULES;
     let iter = binding.iter(deps.storage)?;
+
     for item in iter {
         let (address, module) = item?;
-        if let Some(start_after) = &start {
+
+        // Check if we've reached the start_after item
+        if let Some(ref start_after) = start {
             if &address == start_after {
-                // If we found the start point, reset it to start iterating
+                // Reset start to None to start collecting results
                 start = None;
+                continue; // Skip adding this item
             }
+            continue; // Skip items until we reach start_after
         }
-        if start.is_none() {
-            res.push(module);
-            if res.len() >= limit.unwrap_or_default() as usize {
-                break; // Break out of loop if limit reached
-            }
+
+        // Once start is None, we can start adding items to the result
+        res.push(module);
+        if res.len() >= limit.unwrap_or(usize::MAX as u32) as usize {
+            // Convert u32 limit to usize
+            break; // Break out of loop if limit is reached
         }
     }
+
     to_binary(&res)
 }
 
@@ -719,22 +733,28 @@ pub fn query_active_proposal_modules(
     let mut start = start_after.clone();
     let binding = &PROPOSAL_MODULES;
     let iter = binding.iter(deps.storage)?;
+
     for item in iter {
         let (address, module) = item?;
-        if let Some(start_after) = &start {
+
+        // Check if we've reached the start_after item
+        if let Some(ref start_after) = start {
             if &address == start_after {
-                // If we found the start point, reset it to start iterating
+                // Reset start to None to start collecting results
                 start = None;
+                continue; // Skip adding this item
             }
+            continue; // Skip items until we reach start_after
         }
-        if start.is_none() {
-            res.push(module);
-            if res.len() >= limit.unwrap_or_default() as usize {
-                break; // Break out of loop if limit reached
-            }
+
+        // Once start is None, we can start adding items to the result
+        res.push(module);
+        if res.len() >= limit.unwrap_or(usize::MAX as u32) as usize {
+            break; // Break out of loop if limit is reached
         }
     }
 
+    // Filter for active modules and apply the limit
     let limit = limit.unwrap_or(res.len() as u32);
 
     to_binary::<Vec<ProposalModule>>(
@@ -829,26 +849,48 @@ pub fn query_list_items(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    let mut res: Vec<(String, String)> = Vec::new(); // Vector to hold key-value pairs
-    let mut start = start_after.clone();
+    // Early return for limit zero
+    if limit == Some(0) {
+        return to_binary(&Vec::<(String, String)>::new());
+    }
+
+    let mut res: Vec<(String, String)> = Vec::new();
     let binding = ITEMS;
     let iter = binding.iter(deps.storage)?;
 
-    for item in iter {
-        let (key, value) = item?;
-        if let Some(start_after) = &start {
-            if &key == start_after {
-                // If we found the start point, reset it to start iterating
-                start = None;
+    // Convert the limit to usize, defaulting to MAX if None
+    let limit_value = limit.unwrap_or(usize::MAX as u32) as usize;
+
+    // Collect all items into a vector
+    let mut items: Vec<(String, String)> = iter.collect::<StdResult<Vec<_>>>()?;
+    items.sort_by(|a, b| b.0.cmp(&a.0)); // Sort in descending order
+
+    let mut collecting = false;
+
+    for (key, value) in items {
+        if let Some(ref start_after_key) = start_after {
+            // If we find the start_after key, begin collecting afterward
+            if key == *start_after_key {
+                collecting = true;
+                continue; // Skip this key
             }
+            if !collecting {
+                continue; // Skip until we find start_after
+            }
+        } else {
+            collecting = true; // Collect all if no start_after is provided
         }
-        if start.is_none() {
-            res.push((key.clone(), value.clone())); // Collect the key-value pair
-            if res.len() >= limit.unwrap_or_default() as usize {
-                break; // Break out of loop if limit reached
-            }
+
+        // Collect the result
+        res.push((key.clone(), value.clone())); // Collect the key-value pair
+
+        // Stop if we reached the limit
+        if res.len() >= limit_value {
+            break; // Break out of loop if limit reached
         }
     }
+
+    // Return the results as binary
     to_binary(&res)
 }
 
@@ -861,21 +903,27 @@ pub fn query_cw20_list(
     let mut start = start_after.clone();
     let binding = &SNIP20_LIST;
     let iter = binding.iter(deps.storage)?;
+
     for item in iter {
         let (addr, _) = item?;
-        if let Some(start_after) = &start {
+
+        // Check if we've reached the start_after item
+        if let Some(ref start_after) = start {
             if &addr == start_after {
-                // If we found the start point, reset it to start iterating
+                // Reset start to None to start collecting results
                 start = None;
+                continue; // Skip adding this item
             }
+            continue; // Skip items until we reach start_after
         }
-        if start.is_none() {
-            res.push(addr);
-            if res.len() >= limit.unwrap_or_default() as usize {
-                break; // Break out of loop if limit reached
-            }
+
+        // Once start is None, we can start adding items to the result
+        res.push(addr);
+        if res.len() >= limit.unwrap_or(usize::MAX as u32) as usize {
+            break; // Break out of loop if limit reached
         }
     }
+
     to_binary(&res)
 }
 
@@ -888,21 +936,27 @@ pub fn query_cw721_list(
     let mut start = start_after.clone();
     let binding = &SNIP721_LIST;
     let iter = binding.iter(deps.storage)?;
+
     for item in iter {
         let (addr, _) = item?;
-        if let Some(start_after) = &start {
+
+        // Check if we've reached the start_after item
+        if let Some(ref start_after) = start {
             if &addr == start_after {
-                // If we found the start point, reset it to start iterating
+                // Reset start to None to start collecting results
                 start = None;
+                continue; // Skip adding this item
             }
+            continue; // Skip items until we reach start_after
         }
-        if start.is_none() {
-            res.push(addr);
-            if res.len() >= limit.unwrap_or_default() as usize {
-                break; // Break out of loop if limit reached
-            }
+
+        // Once start is None, we can start adding items to the result
+        res.push(addr);
+        if res.len() >= limit.unwrap_or(usize::MAX as u32) as usize {
+            break; // Break out of loop if limit reached
         }
     }
+
     to_binary(&res)
 }
 
@@ -916,29 +970,36 @@ pub fn query_cw20_balances(
     let mut start = start_after.clone();
     let binding = &SNIP20_LIST;
     let iter = binding.iter(deps.storage)?;
+
     for item in iter {
         let (addr, _) = item?;
-        if let Some(start_after) = &start {
+
+        // Check if we've reached the start_after item
+        if let Some(ref start_after) = start {
             if &addr == start_after {
-                // If we found the start point, reset it to start iterating
+                // Reset start to None to start collecting results
                 start = None;
+                continue; // Skip adding this item
             }
+            continue; // Skip items until we reach start_after
         }
-        if start.is_none() {
-            res.push(addr.to_string());
-            if res.len() >= limit.unwrap_or_default() as usize {
-                break; // Break out of loop if limit reached
-            }
+
+        // Once start is None, we can start adding items to the result
+        res.push(addr.to_string());
+        if res.len() >= limit.unwrap_or(usize::MAX as u32) as usize {
+            break; // Break out of loop if limit reached
         }
     }
-    let balances = res
+
+    let balances: StdResult<Vec<Snip20BalanceResponse>> = res
         .into_iter()
         .map(|addr| {
-            let snip20_code_hash = get_contract_code_hash(deps.querier, addr.clone())?;
+            let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
             let viewing_key = TOKEN_VIEWING_KEY
                 .get(deps.storage, &deps.api.addr_validate(&addr)?)
                 .unwrap_or_default();
-            let balance: secret_toolkit::snip20::query::Balance = deps.querier.query_wasm_smart(
+            let mut balance_amount = Uint128::zero();
+            let balance: snip20_reference_impl::msg::QueryAnswer = deps.querier.query_wasm_smart(
                 snip20_code_hash.clone(),
                 addr.clone(),
                 &snip20_reference_impl::msg::QueryMsg::Balance {
@@ -946,13 +1007,20 @@ pub fn query_cw20_balances(
                     key: viewing_key,
                 },
             )?;
+            match balance {
+                snip20_reference_impl::msg::QueryAnswer::Balance { amount } => {
+                    balance_amount = amount;
+                }
+                _ => (),
+            }
             Ok(Snip20BalanceResponse {
                 addr,
-                balance: balance.amount,
+                balance: balance_amount,
             })
         })
-        .collect::<StdResult<Vec<_>>>()?;
-    to_binary(&balances)
+        .collect();
+
+    to_binary(&balances?)
 }
 
 pub fn query_list_sub_daos(
@@ -969,19 +1037,24 @@ pub fn query_list_sub_daos(
     let mut start = start_at.clone();
     let binding = &SUBDAO_LIST;
     let iter = binding.iter(deps.storage)?;
+
     for item in iter {
         let (addr, subdao) = item?;
-        if let Some(start_at) = &start {
+
+        // Check if we've reached the start_after item
+        if let Some(ref start_at) = start {
             if &addr == start_at {
-                // If we found the start point, reset it to start iterating
+                // Reset start to None to start collecting results
                 start = None;
+                continue; // Skip adding this item
             }
+            continue; // Skip items until we reach start_after
         }
-        if start.is_none() {
-            subdaos.push((addr, subdao));
-            if subdaos.len() >= limit.unwrap_or_default() as usize {
-                break; // Break out of loop if limit reached
-            }
+
+        // Once start is None, we can start adding items to the result
+        subdaos.push((addr, subdao));
+        if subdaos.len() >= limit.unwrap_or(usize::MAX as u32) as usize {
+            break; // Break out of loop if limit reached
         }
     }
 
@@ -1157,6 +1230,14 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                     return Err(ContractError::NoActiveProposalModules {});
                 }
 
+                QUERY_AUTH.save(
+                    deps.storage,
+                    &AnyContractInfo {
+                        addr: deps.api.addr_validate(&address)?,
+                        code_hash,
+                    },
+                )?;
+
                 Ok(Response::new()
                     .add_attribute("action", "instantiate query_auth with dao as admin")
                     .add_submessage(vote_module_msg)
@@ -1228,6 +1309,16 @@ pub(crate) fn update_query_auth(
 
     // Proposal Condorcet
     if let Ok(msg) = from_binary::<dao_utils::msg::ProposalCondorcetInstantiateMsg>(&info.msg) {
+        return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
+    }
+
+    // Dao propsal Sudo
+    if let Ok(msg) = from_binary::<dao_proposal_sudo::msg::InstantiateMsg>(&info.msg) {
+        return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
+    }
+
+    //Dao voting snip20 balance
+    if let Ok(msg) = from_binary::<dao_voting_snip20_balance::msg::InstantiateMsg>(&info.msg) {
         return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
     }
 

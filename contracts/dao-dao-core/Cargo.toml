@@ -39,6 +39,8 @@ cw4 ={ workspace = true }
 query_auth ={ workspace = true }
 dao-voting-cw4 = { workspace = true }
 cw4-group = { workspace = true }
+dao-proposal-sudo ={ workspace = true }
+dao-voting-snip20-balance ={ workspace = true }
 
 
 [dev-dependencies]

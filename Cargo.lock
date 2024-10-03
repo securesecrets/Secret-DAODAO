@@ -925,8 +925,10 @@ dependencies = [
  "cw4-group",
  "dao-dao-macros",
  "dao-interface",
+ "dao-proposal-sudo",
  "dao-utils",
  "dao-voting-cw4",
+ "dao-voting-snip20-balance",
  "query_auth 0.1.0",
  "schemars 0.8.16",
  "secret-cosmwasm-std",
@@ -1235,6 +1237,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dao-proposal-sudo"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "dao-dao-macros",
+ "dao-interface",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
+ "secret-storage-plus 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
+ "secret-toolkit",
+ "thiserror",
+]
+
+[[package]]
 name = "dao-snip721-extensions"
 version = "2.4.0"
 dependencies = [
@@ -1287,6 +1304,7 @@ dependencies = [
  "cosmwasm-schema 1.1.11",
  "cw-hooks",
  "cw4",
+ "dao-interface",
  "dao-snip721-extensions",
  "dao-voting 2.4.0",
  "schemars 0.8.16",
@@ -1353,6 +1371,24 @@ dependencies = [
  "secret-utils 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
  "serde",
  "shade-protocol",
+ "thiserror",
+]
+
+[[package]]
+name = "dao-voting-snip20-balance"
+version = "2.4.0"
+dependencies = [
+ "cosmwasm-schema 1.1.11",
+ "dao-dao-macros",
+ "dao-interface",
+ "secret-cosmwasm-std",
+ "secret-cw2",
+ "secret-multi-test 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
+ "secret-storage-plus 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
+ "secret-toolkit",
+ "secret-utils 0.13.4 (git+https://github.com/securesecrets/secret-plus-utils?branch=main)",
+ "shade-protocol",
+ "snip20-reference-impl",
  "thiserror",
 ]
 

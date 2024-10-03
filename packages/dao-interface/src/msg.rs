@@ -1,5 +1,5 @@
-use crate::state::Config;
-use crate::{migrate_msg::MigrateParams, query::SubDao, state::ModuleInstantiateInfo};
+use crate::state::{AnyContractInfo, Config};
+use crate::{query::SubDao, state::ModuleInstantiateInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Uint128};
 use schemars::JsonSchema;
@@ -51,6 +51,8 @@ pub struct InstantiateMsg {
     pub query_auth_code_id: u64,
     pub query_auth_code_hash: String,
     pub prng_seed: String,
+    pub snip20_code_hash: String,
+    pub snip721_code_hash: String,
 }
 
 /// Snip20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg
@@ -84,11 +86,13 @@ pub enum ExecuteMsg {
     /// Executed when the contract receives a cw721 token. Depending
     /// on the contract's configuration the contract will
     /// automatically add the token to its treasury.
-    ReceiveNft {
-        /// previous owner of sent token
+    BatchReceiveNft {
+        /// address that sent the tokens.  There is no ReceiveNft field equivalent to this
         sender: Addr,
-        /// token that was sent
-        token_id: String,
+        /// previous owner of sent tokens.  This is equivalent to the ReceiveNft `sender` field
+        from: Addr,
+        /// tokens that were sent
+        token_ids: Vec<String>,
         /// optional message to control receiving logic
         msg: Option<Binary>,
     },
@@ -173,21 +177,21 @@ pub enum QueryMsg {
     /// Gets the token balance for each cw20 registered with the
     /// contract.
     #[returns(Vec<crate::query::Snip20BalanceResponse>)]
-    Cw20Balances {
+    Snip20Balances {
         start_after: Option<String>,
         limit: Option<u32>,
     },
     /// Lists the addresses of the cw20 tokens in this contract's
     /// treasury.
     #[returns(Vec<cosmwasm_std::Addr>)]
-    Cw20TokenList {
+    Snip20TokenList {
         start_after: Option<String>,
         limit: Option<u32>,
     },
     /// Lists the addresses of the cw721 tokens in this contract's
     /// treasury.
     #[returns(Vec<cosmwasm_std::Addr>)]
-    Cw721TokenList {
+    Snip721TokenList {
         start_after: Option<String>,
         limit: Option<u32>,
     },
@@ -251,18 +255,14 @@ pub enum QueryMsg {
     /// Returns the total voting power at a given block height.
     #[returns(crate::voting::TotalPowerAtHeightResponse)]
     TotalPowerAtHeight { height: Option<u64> },
+    #[returns(AnyContractInfo)]
+    QueryAuthInfo {},
 }
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
-pub enum MigrateMsg {
-    FromV1 {
-        dao_uri: Option<String>,
-        params: Option<MigrateParams>,
-    },
-    FromCompatible {},
-}
+pub struct MigrateMsg {}
 
 #[cw_serde]
 pub enum GroupContract {
@@ -282,4 +282,10 @@ pub enum GroupContract {
 pub struct VotingCw4InstantiateMsg {
     pub group_contract: GroupContract,
     pub dao_code_hash: String,
+}
+
+#[cw_serde]
+pub struct InitialBalance {
+    pub address: String,
+    pub amount: Uint128,
 }

@@ -1,16 +1,10 @@
 #![allow(clippy::field_reassign_with_default)] // This is triggered in `#[derive(JsonSchema)]`
 
-use cosmwasm_std::{Binary, Uint128};
+use cosmwasm_std::Binary;
+use dao_interface::msg::InitialBalance;
 use schemars::JsonSchema;
 use secret_toolkit::utils::{HandleCallback, InitCallback};
 use serde::{Deserialize, Serialize};
-
-#[cfg_attr(test, derive(Eq, PartialEq))]
-#[derive(Serialize, Deserialize, Clone, JsonSchema)]
-pub struct InitialBalance {
-    pub address: String,
-    pub amount: Uint128,
-}
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct InstantiateMsg {

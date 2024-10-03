@@ -1,0 +1,33 @@
+[package]
+name = "dao-voting-snip20-balance"
+authors = ["ekez <ekez@withoutdoing.com>"]
+description = "A DAO DAO test contract."
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+version = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+
+[dependencies]
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+secret-storage-plus = { workspace = true }
+secret-cw2 = { workspace = true }
+secret-utils = { workspace = true }
+thiserror = { workspace = true }
+dao-dao-macros = { workspace = true }
+dao-interface = { workspace = true }
+snip20-reference-impl = {  workspace = true}
+shade-protocol ={ workspace = true }
+secret-toolkit ={ workspace = true }
+
+[dev-dependencies]
+secret-multi-test = { workspace = true }

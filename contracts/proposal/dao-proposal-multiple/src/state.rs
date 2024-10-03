@@ -2,7 +2,6 @@ use crate::proposal::MultipleChoiceProposal;
 use cosmwasm_std::{Addr, Uint128};
 use cw_hooks::Hooks;
 use dao_interface::state::AnyContractInfo;
-use dao_interface::ReplyIds;
 use dao_voting::{
     multiple_choice::{MultipleChoiceVote, VotingStrategy},
     pre_propose::ProposalCreationPolicy,
@@ -68,8 +67,8 @@ pub struct Ballot {
 /// The current top level config for the module.
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const PROPOSAL_COUNT: Item<u64> = Item::new("proposal_count");
-pub static PROPOSALS: Keymap<u64, MultipleChoiceProposal, Json> = Keymap::new(b"proposals");
-pub static BALLOTS: Keymap<(u64, Addr), Ballot, Json> = Keymap::new(b"ballots");
+pub const PROPOSALS: Keymap<u64, MultipleChoiceProposal, Json> = Keymap::new(b"proposals");
+pub const BALLOTS: Keymap<(u64, Addr), Ballot, Json> = Keymap::new(b"ballots");
 /// Consumers of proposal state change hooks.
 pub const PROPOSAL_HOOKS: Hooks = Hooks::new("proposal_hooks");
 /// Consumers of vote hooks.
@@ -78,4 +77,4 @@ pub const VOTE_HOOKS: Hooks = Hooks::new("vote_hooks");
 /// proposal module (if any).
 pub const CREATION_POLICY: Item<ProposalCreationPolicy> = Item::new("creation_policy");
 pub const DAO: Item<AnyContractInfo> = Item::new("dao");
-pub static REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");
+pub const PRE_PROPOSE_CODE_HASH: Item<String> = Item::new("ppch");

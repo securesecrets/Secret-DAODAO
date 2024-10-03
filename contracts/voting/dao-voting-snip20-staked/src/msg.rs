@@ -1,13 +1,12 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 use dao_dao_macros::{active_query, cw20_token_query, voting_module_query};
+use dao_interface::msg::InitialBalance;
 use dao_voting::threshold::ActiveThreshold;
 use schemars::JsonSchema;
 use secret_utils::Duration;
 use serde::{Deserialize, Serialize};
 use shade_protocol::utils::asset::RawContract;
-
-use crate::snip20_msg::InitialBalance;
 
 /// Information about the staking contract to be used with this voting
 /// module.

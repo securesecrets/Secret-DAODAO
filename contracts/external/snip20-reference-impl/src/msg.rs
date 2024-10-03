@@ -1,6 +1,8 @@
 #![allow(clippy::field_reassign_with_default)] // This is triggered in `#[derive(JsonSchema)]`
 
+use cosmwasm_schema::cw_serde;
 use schemars::JsonSchema;
+use secret_toolkit::utils::InitCallback;
 use serde::{Deserialize, Serialize};
 
 use crate::batch;
@@ -9,8 +11,7 @@ use crate::transaction_history::{ExtendedTx, Tx};
 use cosmwasm_std::{Addr, Api, Binary, StdError, StdResult, Uint128};
 use secret_toolkit::permit::Permit;
 
-#[cfg_attr(test, derive(Eq, PartialEq))]
-#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[cw_serde]
 pub struct InitialBalance {
     pub address: String,
     pub amount: Uint128,
@@ -32,6 +33,10 @@ impl InstantiateMsg {
     pub fn config(&self) -> InitConfig {
         self.config.clone().unwrap_or_default()
     }
+}
+
+impl InitCallback for InstantiateMsg {
+    const BLOCK_SIZE: usize = 256;
 }
 
 /// This type represents optional configuration values which can be overridden.

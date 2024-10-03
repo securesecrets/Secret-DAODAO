@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -15,7 +13,9 @@ use dao_hooks::vote::new_vote_hooks;
 use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::{AnyContractInfo, VotingModuleInfo};
 use dao_interface::voting::IsActiveResponse;
-use dao_interface::ReplyEvent;
+use dao_voting::reply::{
+    failed_pre_propose_module_hook_id, mask_proposal_execution_proposal_id, TaggedReplyId,
+};
 use dao_voting::veto::{VetoConfig, VetoError};
 use dao_voting::{
     multiple_choice::{
@@ -35,7 +35,7 @@ use shade_protocol::query_auth::helpers::{
 };
 use shade_protocol::Contract;
 
-use crate::state::{Ballot, DAO, REPLY_IDS};
+use crate::state::{Ballot, DAO, PRE_PROPOSE_CODE_HASH};
 use crate::{msg::MigrateMsg, state::CREATION_POLICY};
 use crate::{
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
@@ -72,9 +72,9 @@ pub fn instantiate(
     let (min_voting_period, max_voting_period) =
         validate_voting_period(msg.min_voting_period, msg.max_voting_period)?;
 
-    let (initial_policy, pre_propose_messages) = msg
+    let (initial_policy, pre_propose_messages, code_hash) = msg
         .pre_propose_info
-        .into_initial_policy_and_messages(deps.storage, info.sender.clone(), REPLY_IDS.borrow())?;
+        .into_initial_policy_and_messages(info.sender.clone())?;
 
     // if veto is configured, validate its fields
     if let Some(veto_config) = &msg.veto {
@@ -101,6 +101,7 @@ pub fn instantiate(
     PROPOSAL_COUNT.save(deps.storage, &0)?;
     CONFIG.save(deps.storage, &config)?;
     CREATION_POLICY.save(deps.storage, &initial_policy)?;
+    PRE_PROPOSE_CODE_HASH.save(deps.storage, &code_hash)?;
 
     Ok(Response::default()
         .add_submessages(pre_propose_messages)
@@ -567,17 +568,15 @@ pub fn execute_execute(
                 };
                 match config.close_proposal_on_execution_failure {
                     true => {
-                        let reply_id = REPLY_IDS.add_event(
-                            deps.storage,
-                            ReplyEvent::FailedProposalExecution { proposal_id },
-                        )?;
+                        let masked_proposal_id = mask_proposal_execution_proposal_id(proposal_id);
+
                         Response::default().add_submessage(SubMsg::reply_on_error(
                             execute_message.to_cosmos_msg(
                                 dao_info.code_hash.clone(),
                                 dao_info.addr.clone().to_string(),
                                 None,
                             )?,
-                            reply_id,
+                            masked_proposal_id,
                         ))
                     }
                     false => Response::default().add_message(execute_message.to_cosmos_msg(
@@ -710,11 +709,7 @@ pub fn execute_update_proposal_creation_policy(
         return Err(ContractError::Unauthorized {});
     }
 
-    let (initial_policy, messages) = new_info.into_initial_policy_and_messages(
-        deps.storage,
-        dao_info.addr,
-        REPLY_IDS.borrow(),
-    )?;
+    let (initial_policy, messages, _) = new_info.into_initial_policy_and_messages(dao_info.addr)?;
     CREATION_POLICY.save(deps.storage, &initial_policy)?;
 
     Ok(Response::default()
@@ -985,31 +980,45 @@ pub fn query_list_proposals(
     start_after: Option<u64>,
     limit: Option<u64>,
 ) -> StdResult<Binary> {
-    let limit = limit.unwrap_or(DEFAULT_LIMIT);
-    //   let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    // Use the default limit if none is provided, and convert safely to usize
+    let limit: usize = limit
+        .unwrap_or(DEFAULT_LIMIT)
+        .try_into()
+        .map_err(|_| StdError::generic_err("Limit too large"))?;
+
+    // Early return if the limit is 0
+    if limit == 0 {
+        return to_binary(&ProposalListResponse { proposals: vec![] });
+    }
 
     let mut proposals_res: Vec<ProposalResponse> = Vec::new();
+    let start_after_id = start_after; // Keep track of the start_after value
 
-    let mut start = start_after; // Clone start_after to mutate it if necessary
+    let binding = PROPOSALS;
 
-    let binding = &PROPOSALS;
+    // Get an iterator over the proposals stored
     let iter = binding.iter(deps.storage)?;
+
     for item in iter {
         let (id, proposal) = item?;
-        if let Some(start_after) = &start {
-            if &id == start_after {
-                // If we found the start point, reset it to start iterating
-                start = None;
+
+        // If `start_after` is specified, skip proposals until ID is greater than `start_after`
+        if let Some(start_after_value) = start_after_id {
+            if id <= start_after_value {
+                continue; // Skip this proposal if its ID is less than or equal to start_after
             }
         }
-        if start.is_none() {
-            proposals_res.push(ProposalResponse { id, proposal });
-            if proposals_res.len() >= limit.try_into().unwrap() {
-                break; // Break out of loop if limit reached
-            }
+
+        // Now that we're beyond the start_after point, collect the proposals
+        proposals_res.push(ProposalResponse { id, proposal });
+
+        // Stop if we reach the requested limit
+        if proposals_res.len() >= limit {
+            break;
         }
     }
 
+    // Return the list of proposals
     to_binary(&ProposalListResponse {
         proposals: proposals_res,
     })
@@ -1021,42 +1030,42 @@ pub fn query_reverse_proposals(
     start_before: Option<u64>,
     limit: Option<u64>,
 ) -> StdResult<Binary> {
-    // let limit = limit.unwrap_or(DEFAULT_LIMIT);
-    // let max = start_before.map(Bound::exclusive);
-    // let props: Vec<ProposalResponse> = PROPOSALS
-    //     .range(deps.storage, None, max, cosmwasm_std::Order::Descending)
-    //     .take(limit as usize)
-    //     .collect::<Result<Vec<(u64, SingleChoiceProposal)>, _>>()?
-    //     .into_iter()
-    //     .map(|(id, proposal)| proposal.into_response(&env.block, id))
-    //     .collect::<StdResult<Vec<ProposalResponse>>>()?;
+    // Use the provided limit or fall back to DEFAULT_LIMIT
+    let limit: usize = limit
+        .unwrap_or(DEFAULT_LIMIT)
+        .try_into()
+        .map_err(|_| StdError::generic_err("Limit too large"))?;
 
-    // to_binary(&ProposalListResponse { proposals: props })
-
-    let limit = limit.unwrap_or(DEFAULT_LIMIT);
-    //   let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    // Early return if limit is 0
+    if limit == 0 {
+        return to_binary(&ProposalListResponse { proposals: vec![] });
+    }
 
     let mut proposals_res: Vec<ProposalResponse> = Vec::new();
-
     let binding = &PROPOSALS;
     let iter = binding.iter(deps.storage)?;
+
+    // Iterate in reverse over proposals
     for item in iter.rev() {
         let (id, proposal) = item?;
-        if let Some(start_before) = start_before {
-            if id < start_before {
-                proposals_res.push(ProposalResponse { id, proposal });
-                if proposals_res.len() >= limit as usize {
-                    break; // Break out of loop if limit reached
-                }
+
+        // Skip proposals greater than or equal to start_before
+        if let Some(start_before_value) = start_before {
+            if id >= start_before_value {
+                continue; // Skip this proposal
             }
-        } else {
-            proposals_res.push(ProposalResponse { id, proposal });
-            if proposals_res.len() >= limit as usize {
-                break; // Break out of loop if limit reached
-            }
+        }
+
+        // Collect the proposal into the result set
+        proposals_res.push(ProposalResponse { id, proposal });
+
+        // Stop collecting proposals when the limit is reached
+        if proposals_res.len() >= limit {
+            break;
         }
     }
 
+    // Return the list of proposals as a binary response
     to_binary(&ProposalListResponse {
         proposals: proposals_res,
     })
@@ -1091,10 +1100,94 @@ pub fn query_info(deps: Deps) -> StdResult<Binary> {
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    let repl = REPLY_IDS.get_event(deps.storage, msg.id)?;
+    // let repl = REPLY_IDS.get_event(deps.storage, msg.id)?;
+    // match repl {
+    //     ReplyEvent::FailedProposalExecution { proposal_id } => match msg.clone().result {
+    //         SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+    //         SubMsgResult::Ok(_) => {
+    //             let proposals = PROPOSALS.get(deps.storage, &proposal_id);
+    //             if proposals.clone().is_some() {
+    //                 proposals.clone().unwrap().status = Status::ExecutionFailed;
+    //             } else {
+    //                 return Err(ContractError::NoSuchProposal { id: proposal_id });
+    //             }
+    //             PROPOSALS.insert(deps.storage, &proposal_id, &proposals.unwrap())?;
+
+    //             Ok(Response::new()
+    //                 .add_attribute("proposal_execution_failed", proposal_id.to_string())
+    //                 .add_attribute("error", msg.result.into_result().err().unwrap_or_default()))
+    //         }
+    //     },
+    //     ReplyEvent::FailedProposalHook { idx } => match msg.result {
+    //         SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+    //         SubMsgResult::Ok(_) => {
+    //             let hook_item = PROPOSAL_HOOKS.remove_hook_by_index(deps.storage, idx)?;
+    //             Ok(Response::new().add_attribute(
+    //                 "removed_proposal_hook",
+    //                 format!("{0}:{idx}", hook_item.addr),
+    //             ))
+    //         }
+    //     },
+    //     ReplyEvent::FailedVoteHook { idx } => match msg.result {
+    //         SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+    //         SubMsgResult::Ok(_) => {
+    //             let hook_item = VOTE_HOOKS.remove_hook_by_index(deps.storage, idx)?;
+    //             Ok(Response::new()
+    //                 .add_attribute("removed_vote_hook", format!("{0}:{idx}", hook_item.addr)))
+    //         }
+    //     },
+    //     ReplyEvent::PreProposalModuleInstantiate { code_hash } => match msg.result {
+    //         SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+    //         SubMsgResult::Ok(res) => {
+    //             let address = parse_reply_address_from_event(res.clone());
+
+    //             CREATION_POLICY.save(
+    //                 deps.storage,
+    //                 &ProposalCreationPolicy::Module {
+    //                     addr: deps.api.addr_validate(&address.clone())?,
+    //                     code_hash,
+    //                 },
+    //             )?;
+
+    //             // per the cosmwasm docs, we shouldn't have to forward
+    //             // data like this, yet here we are and it does not work if
+    //             // we do not.
+    //             //
+    //             // <https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply>
+    //             match res.data {
+    //                 Some(data) => Ok(Response::new()
+    //                     .add_attribute("update_pre_propose_module", address.clone().to_string())
+    //                     .set_data(data)),
+    //                 None => Ok(Response::new()
+    //                     .add_attribute("update_pre_propose_module", address.to_string())),
+    //             }
+    //         }
+    //     },
+    //     ReplyEvent::FailedPreProposeModuleHook {} => {
+    //         let addr = match CREATION_POLICY.load(deps.storage)? {
+    //             ProposalCreationPolicy::Anyone {} => {
+    //                 // Something is off if we're getting this
+    //                 // reply and we don't have a pre-propose
+    //                 // module installed. This should be
+    //                 // unreachable.
+    //                 return Err(ContractError::InvalidReplyID { id: msg.id });
+    //             }
+    //             ProposalCreationPolicy::Module { addr, code_hash: _ } => {
+    //                 // If we are here, our pre-propose module has
+    //                 // errored while receiving a proposal
+    //                 // hook. Rest in peace pre-propose module.
+    //                 CREATION_POLICY.save(deps.storage, &ProposalCreationPolicy::Anyone {})?;
+    //                 addr
+    //             }
+    //         };
+    //         Ok(Response::new().add_attribute("failed_prepropose_hook", format!("{addr}")))
+    //     }
+    //     _ => Err(ContractError::UnknownReplyID {}),
+    // }
+
+    let repl = TaggedReplyId::new(msg.id)?;
     match repl {
-        ReplyEvent::FailedProposalExecution { proposal_id } => match msg.clone().result {
-            SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+        TaggedReplyId::FailedProposalExecution(proposal_id) => match msg.result {
             SubMsgResult::Ok(_) => {
                 let proposals = PROPOSALS.get(deps.storage, &proposal_id);
                 if proposals.clone().is_some() {
@@ -1108,9 +1201,10 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     .add_attribute("proposal_execution_failed", proposal_id.to_string())
                     .add_attribute("error", msg.result.into_result().err().unwrap_or_default()))
             }
-        },
-        ReplyEvent::FailedProposalHook { idx } => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+        },
+
+        TaggedReplyId::FailedProposalHook(idx) => match msg.result {
             SubMsgResult::Ok(_) => {
                 let hook_item = PROPOSAL_HOOKS.remove_hook_by_index(deps.storage, idx)?;
                 Ok(Response::new().add_attribute(
@@ -1118,20 +1212,22 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     format!("{0}:{idx}", hook_item.addr),
                 ))
             }
-        },
-        ReplyEvent::FailedVoteHook { idx } => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+        },
+
+        TaggedReplyId::FailedVoteHook(idx) => match msg.result {
             SubMsgResult::Ok(_) => {
                 let hook_item = VOTE_HOOKS.remove_hook_by_index(deps.storage, idx)?;
                 Ok(Response::new()
                     .add_attribute("removed_vote_hook", format!("{0}:{idx}", hook_item.addr)))
             }
-        },
-        ReplyEvent::PreProposalModuleInstantiate { code_hash } => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
-            SubMsgResult::Ok(res) => {
-                let address = parse_reply_address_from_event(res.clone());
+        },
 
+        TaggedReplyId::PreProposeModuleInstantiation => match msg.result {
+            SubMsgResult::Ok(sub_msg_response) => {
+                let address = parse_reply_address_from_event(sub_msg_response.clone());
+                let code_hash = PRE_PROPOSE_CODE_HASH.load(deps.storage)?;
                 CREATION_POLICY.save(
                     deps.storage,
                     &ProposalCreationPolicy::Module {
@@ -1145,35 +1241,42 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 // we do not.
                 //
                 // <https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply>
-                match res.data {
-                    Some(data) => Ok(Response::new()
-                        .add_attribute("update_pre_propose_module", address.clone().to_string())
-                        .set_data(data)),
-                    None => Ok(Response::new()
-                        .add_attribute("update_pre_propose_module", address.to_string())),
-                }
+                // match sub_msg_response.data {
+                //     Some(data) => Ok(Response::new()
+                //         .add_attribute("update_pre_propose_module", address.clone().to_string())
+                //         .set_data(data)),
+                //     None => Ok(Response::new()
+                //         .add_attribute("update_pre_propose_module", address.to_string())),
+                // }
+                Ok(Response::new().add_attribute("update_pre_propose_module", address.to_string()))
             }
+            SubMsgResult::Err(_) => todo!(),
         },
-        ReplyEvent::FailedPreProposeModuleHook {} => {
-            let addr = match CREATION_POLICY.load(deps.storage)? {
-                ProposalCreationPolicy::Anyone {} => {
-                    // Something is off if we're getting this
-                    // reply and we don't have a pre-propose
-                    // module installed. This should be
-                    // unreachable.
-                    return Err(ContractError::InvalidReplyID { id: msg.id });
-                }
-                ProposalCreationPolicy::Module { addr, code_hash: _ } => {
-                    // If we are here, our pre-propose module has
-                    // errored while receiving a proposal
-                    // hook. Rest in peace pre-propose module.
-                    CREATION_POLICY.save(deps.storage, &ProposalCreationPolicy::Anyone {})?;
-                    addr
-                }
-            };
-            Ok(Response::new().add_attribute("failed_prepropose_hook", format!("{addr}")))
-        }
-        _ => Err(ContractError::UnknownReplyID {}),
+
+        TaggedReplyId::FailedPreProposeModuleHook => match msg.result {
+            SubMsgResult::Ok(_) => {
+                let addr = match CREATION_POLICY.load(deps.storage)? {
+                    ProposalCreationPolicy::Anyone {} => {
+                        // Something is off if we're getting this
+                        // reply and we don't have a pre-propose
+                        // module installed. This should be
+                        // unreachable.
+                        return Err(ContractError::InvalidReplyID {
+                            id: failed_pre_propose_module_hook_id(),
+                        });
+                    }
+                    ProposalCreationPolicy::Module { addr, .. } => {
+                        // If we are here, our pre-propose module has
+                        // errored while receiving a proposal
+                        // hook. Rest in peace pre-propose module.
+                        CREATION_POLICY.save(deps.storage, &ProposalCreationPolicy::Anyone {})?;
+                        addr
+                    }
+                };
+                Ok(Response::new().add_attribute("failed_prepropose_hook", format!("{addr}")))
+            }
+            SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
+        },
     }
 }
 

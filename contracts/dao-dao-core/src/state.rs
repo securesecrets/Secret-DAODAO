@@ -1,4 +1,5 @@
 use cosmwasm_std::{Addr, Empty};
+use dao_interface::state::AnyContractInfo;
 use dao_interface::ReplyIds;
 use dao_interface::{
     query::SubDao,
@@ -63,3 +64,8 @@ pub const SUBDAO_LIST: Keymap<Addr, SubDao, Json> = Keymap::new(b"sub_daos");
 pub const TOKEN_VIEWING_KEY: Keymap<Addr, String, Json> = Keymap::new(b"token_viewing_key");
 
 pub const REPLY_IDS: ReplyIds = ReplyIds::new(b"reply_ids", b"reply_ids_count");
+
+pub const QUERY_AUTH: Item<AnyContractInfo> = Item::new("query_auth");
+
+pub const SNIP20_CODE_HASH: Item<String> = Item::new("snip20_code_hash");
+pub const SNIP721_CODE_HASH: Item<String> = Item::new("snip721_code_hash");

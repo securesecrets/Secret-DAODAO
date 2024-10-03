@@ -113,20 +113,13 @@ fn execute_migration_v1_v2(
         .proposal_params
         .clone()
         .into_iter()
-        .map(|(addr, proposal_params)| {
+        .map(|(addr, _proposal_params)| {
             (
                 addr,
                 CodeIdPair::new(
                     v1_code_ids_and_hashes.proposal_single,
                     v2_code_ids_and_hashes.proposal_single,
-                    MigrationMsgs::DaoProposalSingle(
-                        dao_proposal_single::msg::MigrateMsg::FromV1 {
-                            close_proposal_on_execution_failure: proposal_params
-                                .close_proposal_on_execution_failure,
-                            pre_propose_info: proposal_params.pre_propose_info,
-                            veto: proposal_params.veto,
-                        },
-                    ),
+                    MigrationMsgs::DaoProposalSingle(dao_proposal_single::msg::MigrateMsg {}),
                 ),
             )
         })

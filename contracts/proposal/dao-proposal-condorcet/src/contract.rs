@@ -6,7 +6,7 @@ use cosmwasm_std::{
 };
 
 use dao_interface::state::AnyContractInfo;
-use dao_interface::ReplyEvent;
+use dao_voting::reply::TaggedReplyId;
 use dao_voting::voting::{get_total_power, get_voting_power};
 use secret_cw2::set_contract_version;
 use shade_protocol::basic_staking::Auth;
@@ -15,7 +15,7 @@ use crate::config::UncheckedConfig;
 use crate::error::ContractError;
 use crate::msg::{Choice, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::proposal::{Proposal, ProposalResponse, Status};
-use crate::state::{next_proposal_id, CONFIG, DAO, PROPOSAL, REPLY_IDS, TALLY, VOTE};
+use crate::state::{next_proposal_id, CONFIG, DAO, PROPOSAL, TALLY, VOTE};
 use crate::tally::Tally;
 use crate::vote::Vote;
 
@@ -223,12 +223,11 @@ fn execute_execute(
         .unwrap()
         .update_status(&env.block, &tally.clone().unwrap())
     {
-        let msgs = proposal.clone().unwrap().set_executed(
-            deps.storage,
-            dao.addr,
-            dao.code_hash.clone(),
-            winner,
-        )?;
+        let msgs =
+            proposal
+                .clone()
+                .unwrap()
+                .set_executed(dao.addr, dao.code_hash.clone(), winner)?;
         PROPOSAL.insert(deps.storage, &proposal_id, &proposal.clone().unwrap())?;
 
         Ok(Response::default()
@@ -307,9 +306,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    let repl = REPLY_IDS.get_event(deps.storage, msg.id)?;
+    let repl = TaggedReplyId::new(msg.id)?;
     match repl {
-        ReplyEvent::FailedProposalExecution { proposal_id } => match msg.clone().result {
+        TaggedReplyId::FailedProposalExecution(proposal_id) => match msg.clone().result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(_) => {
                 let proposal = PROPOSAL.get(deps.storage, &(proposal_id as u32));

@@ -1,5 +1,6 @@
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, Snip20TokenInfo, StakingInfo};
+use crate::snip20_msg::InitConfig;
 use crate::state::{
     ACTIVE_THRESHOLD, DAO, QUERY_AUTH, STAKING_CONTRACT, STAKING_CONTRACT_CODE_HASH,
     STAKING_CONTRACT_CODE_ID, STAKING_CONTRACT_UNSTAKING_DURATION, TOKEN_CONTRACT,
@@ -11,6 +12,7 @@ use cosmwasm_std::{
     to_binary, Addr, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
     SubMsg, SubMsgResult, Uint128, Uint256,
 };
+use dao_interface::msg::InitialBalance;
 use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::AnyContractInfo;
 use dao_interface::voting::IsActiveResponse;
@@ -173,7 +175,7 @@ pub fn instantiate(
             // Add DAO initial balance to initial_balances vector if defined.
             if let Some(initial_dao_balance) = initial_dao_balance {
                 if initial_dao_balance > Uint128::zero() {
-                    let intitial_balance = snip20_msg::InitialBalance {
+                    let intitial_balance = InitialBalance {
                         address: info.sender.to_string(),
                         amount: initial_dao_balance,
                     };
@@ -192,7 +194,14 @@ pub fn instantiate(
                 decimals,
                 admin: Some(info.sender.clone().to_string()),
                 prng_seed: to_binary(&"snip20")?,
-                config: None,
+                config: Some(InitConfig {
+                    public_total_supply: Some(true),
+                    enable_deposit: Some(true),
+                    enable_redeem: Some(true),
+                    enable_mint: Some(true),
+                    enable_burn: Some(true),
+                    can_modify_denoms: Some(true),
+                }),
                 supported_denoms: None,
                 initial_balances: Some(initial_balances),
             };
