@@ -228,7 +228,6 @@ pub fn query_member(deps: Deps, addr: Addr, height: Option<u64>) -> StdResult<Me
     }
 }
 
-// settings for pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
 
@@ -237,38 +236,47 @@ pub fn query_list_members(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<MemberListResponse> {
+    // Determine the limit, ensuring it's between DEFAULT_LIMIT and MAX_LIMIT
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
 
-    let mut res_members: Vec<Member> = Vec::new();
+    let mut res_members: Vec<Member> = Vec::with_capacity(limit); // Pre-allocate capacity
 
-    let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
-
-    let binding = &MEMBERS_PRIMARY;
+    let binding = MEMBERS_PRIMARY;
     let iter = binding.iter(deps.storage)?;
+
+    // Convert `start_after` to Option<&str> for comparison without unnecessary cloning
+    let mut start_found = start_after.is_none();
+
     for item in iter {
         let (address, weight) = item?;
-        if let Some(start_after) = &start {
-            if &address == start_after {
-                // If we found the start point, reset it to start iterating
-                start = None;
+
+        // Skip items until we find the one *after* `start_after`
+        if let Some(ref start_after_addr) = start_after {
+            if !start_found {
+                // Check if the current address matches the start_after value
+                if &address == start_after_addr {
+                    start_found = true; // We've found the start_after value, start collecting from the next item
+                }
+                continue;
             }
         }
-        if start.is_none() {
-            res_members.push(Member {
-                addr: address.to_string(),
-                weight,
-            });
-            if res_members.len() >= limit {
-                break; // Break out of loop if limit reached
-            }
+
+        // Once we've found the start or if no `start_after` was provided, collect the items
+        res_members.push(Member {
+            addr: address.to_string(),
+            weight,
+        });
+
+        // Break when we've collected enough members
+        if res_members.len() >= limit {
+            break;
         }
     }
 
-    let response = MemberListResponse {
+    // Return the list of members
+    Ok(MemberListResponse {
         members: res_members,
-    };
-
-    Ok(response)
+    })
 }
 
 pub fn authenticate(deps: Deps, auth: Auth, query_auth: Contract) -> StdResult<Addr> {

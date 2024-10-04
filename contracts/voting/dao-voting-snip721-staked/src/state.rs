@@ -29,17 +29,17 @@ pub const INITIAL_NFTS: Item<Vec<Binary>> = Item::new("initial_nfts");
 /// The set of NFTs currently staked by each address. The existence of
 /// an `(address, token_id)` pair implies that `address` has staked
 /// `token_id`.
-pub static STAKED_NFTS_PER_OWNER: Keymap<(Addr, String), Empty, Json> = Keymap::new(b"snpw");
+pub const STAKED_NFTS_PER_OWNER: Keymap<(Addr, String), Empty, Json> = Keymap::new(b"snpw");
 
-/// The number of NFTs staked by an address as a function of block
-/// height.
-pub static NFT_BALANCES_PRIMARY: Keymap<Addr, Uint128, Json> = Keymap::new(b"nft_balances_primary");
-pub static NFT_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128, Json> =
+/// The number of NFTs staked by an address as a function of block height.
+pub const NFT_BALANCES_PRIMARY: Keymap<Addr, Uint128> = Keymap::new(b"nft_balances_primary");
+pub const NFT_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128> =
     Keymap::new(b"nft_balances_snapshot");
-pub static USER_STAKED_NFT_AT_HEIGHT: Keymap<Addr, Vec<u64>, Json> =
-    Keymap::new(b"user_Staked_Nft_at_height");
+pub const USER_STAKED_NFT_AT_HEIGHT: Keymap<Addr, Vec<u64>> =
+    Keymap::new(b"user_staked_nft_at_height");
 
 pub struct NftBalancesStore {}
+
 impl NftBalancesStore {
     // Function to store a value at a specific block height
     pub fn save(
@@ -48,27 +48,31 @@ impl NftBalancesStore {
         key: Addr,
         value: Uint128,
     ) -> StdResult<()> {
-        let primary = NFT_BALANCES_PRIMARY.get(store, &key.clone());
+        let primary = NFT_BALANCES_PRIMARY.get(store, &key);
+
         if primary.is_none() {
-            NFT_BALANCES_PRIMARY.insert(store, &key.clone(), &value)?;
+            // If no previous balance, store the initial balance
+            NFT_BALANCES_PRIMARY.insert(store, &key, &value)?;
             NFT_BALANCES_SNAPSHOT.insert(store, &(block_height, key.clone()), &Uint128::zero())?;
-            USER_STAKED_NFT_AT_HEIGHT.insert(store, &key.clone(), &vec![block_height])?;
+            USER_STAKED_NFT_AT_HEIGHT.insert(store, &key, &vec![block_height])?;
         } else {
-            let mut user_staked_height =
-                USER_STAKED_NFT_AT_HEIGHT.get(store, &key.clone()).unwrap();
+            // If a balance exists, create a snapshot and update the balance
+            let mut user_staked_height = USER_STAKED_NFT_AT_HEIGHT.get(store, &key).unwrap();
             NFT_BALANCES_SNAPSHOT.insert(store, &(block_height, key.clone()), &primary.unwrap())?;
-            NFT_BALANCES_PRIMARY.insert(store, &key.clone(), &value)?;
+            NFT_BALANCES_PRIMARY.insert(store, &key, &value)?;
             user_staked_height.push(block_height);
-            USER_STAKED_NFT_AT_HEIGHT.insert(store, &key.clone(), &user_staked_height)?;
+            USER_STAKED_NFT_AT_HEIGHT.insert(store, &key, &user_staked_height)?;
         }
 
         Ok(())
     }
 
+    // Load the current NFT balance for a specific address
     pub fn load(store: &dyn Storage, key: Addr) -> Uint128 {
         NFT_BALANCES_PRIMARY.get(store, &key).unwrap_or_default()
     }
 
+    // Load the NFT balance at a specific block height, falling back to the most recent balance if not found
     pub fn may_load_at_height(
         store: &dyn Storage,
         key: Addr,
@@ -76,38 +80,47 @@ impl NftBalancesStore {
     ) -> StdResult<Option<Uint128>> {
         let snapshot_key = (height, key.clone());
 
-        let snapshot_value = NFT_BALANCES_SNAPSHOT.get(store, &snapshot_key);
-        if snapshot_value.is_none() {
-            Ok(NFT_BALANCES_PRIMARY.get(store, &key))
+        // Try loading the snapshot balance at the given block height
+        if let Some(snapshot_value) = NFT_BALANCES_SNAPSHOT.get(store, &snapshot_key) {
+            Ok(Some(snapshot_value))
         } else {
-            let x = USER_STAKED_NFT_AT_HEIGHT.get(store, &key).unwrap();
-            let id = match x.binary_search(&height) {
+            // Fall back to the most recent snapshot before the height
+            let user_staked_heights = USER_STAKED_NFT_AT_HEIGHT
+                .get(store, &key)
+                .unwrap_or_default();
+            let id = match user_staked_heights.binary_search(&height) {
                 Ok(index) => Some(index),
                 Err(_) => None,
             };
-            // return Ok(Some(Uint128::new(x.len() as u128)));
-            if id.unwrap() == (x.len() - 1) {
-                Ok(NFT_BALANCES_PRIMARY.get(store, &key))
+
+            // If it's the last height, return the current primary balance
+            if let Some(index) = id {
+                if index == user_staked_heights.len() - 1 {
+                    return Ok(NFT_BALANCES_PRIMARY.get(store, &key));
+                }
+                // Otherwise, return the balance at the next height
+                let next_height = user_staked_heights[index + 1];
+                Ok(NFT_BALANCES_SNAPSHOT.get(store, &(next_height, key.clone())))
             } else {
-                let snapshot_value =
-                    NFT_BALANCES_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize], key.clone()));
-                Ok(snapshot_value)
+                Ok(NFT_BALANCES_PRIMARY.get(store, &key))
             }
         }
     }
 }
 
-/// The number of NFTs staked with this contract as a function of
-/// block height.
+/// The number of NFTs staked with this contract as a function of block height.
 pub const TOTAL_STAKED_NFTS_PRIMARY: Item<Uint128> = Item::new("tsnP");
-pub static TOTAL_STAKED_NFTS_SNAPSHOT: Keymap<u64, Uint128, Json> = Keymap::new(b"tsns");
+pub const TOTAL_STAKED_NFTS_SNAPSHOT: Keymap<u64, Uint128> = Keymap::new(b"tsns");
 pub const TOTAL_STAKED_NFTS_AT_HEIGHTS: Item<Vec<u64>> = Item::new("tsnah");
 
 pub struct StakedNftsTotalStore {}
+
 impl StakedNftsTotalStore {
     // Function to store a value at a specific block height
     pub fn save(store: &mut dyn Storage, block_height: u64, value: Uint128) -> StdResult<()> {
         let primary = TOTAL_STAKED_NFTS_PRIMARY.load(store).unwrap_or_default();
+
+        // Insert or update the primary total staked NFTs
         if primary.is_zero() {
             TOTAL_STAKED_NFTS_PRIMARY.save(store, &value)?;
             TOTAL_STAKED_NFTS_SNAPSHOT.insert(store, &block_height, &Uint128::zero())?;
@@ -123,29 +136,30 @@ impl StakedNftsTotalStore {
         Ok(())
     }
 
+    // Load the current total staked NFTs
     pub fn load(store: &dyn Storage) -> Uint128 {
         TOTAL_STAKED_NFTS_PRIMARY.load(store).unwrap_or_default()
     }
 
+    // Load the total staked NFTs at a specific block height, falling back to the most recent total if not found
     pub fn may_load_at_height(store: &dyn Storage, height: u64) -> StdResult<Option<Uint128>> {
-        let snapshot_key = height;
-
-        let snapshot_value = TOTAL_STAKED_NFTS_SNAPSHOT.get(store, &snapshot_key);
-        if snapshot_value.is_none() {
-            Ok(Some(TOTAL_STAKED_NFTS_PRIMARY.load(store)?))
+        // Check for a snapshot at the given block height
+        if let Some(snapshot_value) = TOTAL_STAKED_NFTS_SNAPSHOT.get(store, &height) {
+            Ok(Some(snapshot_value))
         } else {
-            let x = TOTAL_STAKED_NFTS_AT_HEIGHTS.load(store).unwrap();
-            let id = match x.binary_search(&height) {
-                Ok(index) => Some(index),
-                Err(_) => None,
-            };
-            // return Ok(Some(Uint128::new(x.len() as u128)));
-            if id.unwrap() == (x.len() - 1) {
-                Ok(Some(TOTAL_STAKED_NFTS_PRIMARY.load(store)?))
-            } else {
-                let snapshot_value =
-                    TOTAL_STAKED_NFTS_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize]));
-                Ok(snapshot_value)
+            // Fall back to the current primary total staked NFTs
+            let total_current = TOTAL_STAKED_NFTS_PRIMARY.load(store)?;
+            let heights = TOTAL_STAKED_NFTS_AT_HEIGHTS.load(store).unwrap_or_default();
+
+            // Determine the position in the heights array
+            match heights.binary_search(&height) {
+                Ok(index) if index == heights.len() - 1 => Ok(Some(total_current)),
+                Ok(index) => {
+                    // Return the snapshot value at the next height
+                    let next_height = heights[index + 1];
+                    Ok(TOTAL_STAKED_NFTS_SNAPSHOT.get(store, &next_height))
+                }
+                Err(_) => Ok(Some(total_current)), // If height not found, return current total
             }
         }
     }

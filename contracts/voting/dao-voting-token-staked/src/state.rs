@@ -27,12 +27,13 @@ pub const DAO: Item<AnyContractInfo> = Item::new("dao");
 pub const DENOM: Item<String> = Item::new("denom");
 
 /// Keeps track of staked balances by address over time
-pub static STAKED_BALANCES_PRIMARY: Keymap<Addr, Uint128> = Keymap::new(b"staked_balances_primary");
-pub static STAKED_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128> =
+pub const STAKED_BALANCES_PRIMARY: Keymap<Addr, Uint128> = Keymap::new(b"staked_balances_primary");
+pub const STAKED_BALANCES_SNAPSHOT: Keymap<(u64, Addr), Uint128> =
     Keymap::new(b"staked_balances_snapshot");
-pub static USER_STAKED_AT_HEIGHT: Keymap<Addr, Vec<u64>> = Keymap::new(b"user_Staked_at_height");
+pub const USER_STAKED_AT_HEIGHT: Keymap<Addr, Vec<u64>> = Keymap::new(b"user_staked_at_height");
 
 pub struct StakedBalancesStore {}
+
 impl StakedBalancesStore {
     // Function to store a value at a specific block height
     pub fn save(
@@ -41,58 +42,65 @@ impl StakedBalancesStore {
         key: Addr,
         value: Uint128,
     ) -> StdResult<()> {
-        let primary = STAKED_BALANCES_PRIMARY.get(store, &key.clone());
-        if primary.is_none() {
-            STAKED_BALANCES_PRIMARY.insert(store, &key.clone(), &value)?;
+        // Get the current primary balance for the address
+        let primary_balance = STAKED_BALANCES_PRIMARY.get(store, &key).unwrap_or_default();
+
+        // If there's no primary balance, initialize it
+        if primary_balance.is_zero() {
+            STAKED_BALANCES_PRIMARY.insert(store, &key, &value)?;
             STAKED_BALANCES_SNAPSHOT.insert(
                 store,
                 &(block_height, key.clone()),
                 &Uint128::zero(),
             )?;
-            USER_STAKED_AT_HEIGHT.insert(store, &key.clone(), &vec![block_height])?;
+            USER_STAKED_AT_HEIGHT.insert(store, &key, &vec![block_height])?;
         } else {
-            let mut user_staked_height = USER_STAKED_AT_HEIGHT.get(store, &key.clone()).unwrap();
+            // Update the existing balance
             STAKED_BALANCES_SNAPSHOT.insert(
                 store,
                 &(block_height, key.clone()),
-                &primary.unwrap(),
+                &primary_balance,
             )?;
-            STAKED_BALANCES_PRIMARY.insert(store, &key.clone(), &value)?;
+            STAKED_BALANCES_PRIMARY.insert(store, &key, &value)?;
+
+            // Update the list of staked heights for the user
+            let mut user_staked_height = USER_STAKED_AT_HEIGHT.get(store, &key).unwrap();
             user_staked_height.push(block_height);
-            USER_STAKED_AT_HEIGHT.insert(store, &key.clone(), &user_staked_height)?;
+            USER_STAKED_AT_HEIGHT.insert(store, &key, &user_staked_height)?;
         }
 
         Ok(())
     }
 
+    // Load the current staked balance for an address
     pub fn load(store: &dyn Storage, key: Addr) -> Uint128 {
         STAKED_BALANCES_PRIMARY.get(store, &key).unwrap_or_default()
     }
 
+    // Load the staked balance at a specific block height, falling back to the current balance if not found
     pub fn may_load_at_height(
         store: &dyn Storage,
         key: Addr,
         height: u64,
     ) -> StdResult<Option<Uint128>> {
+        // Check for a snapshot at the given height
         let snapshot_key = (height, key.clone());
+        if let Some(snapshot_value) = STAKED_BALANCES_SNAPSHOT.get(store, &snapshot_key) {
+            return Ok(Some(snapshot_value));
+        }
 
-        let snapshot_value = STAKED_BALANCES_SNAPSHOT.get(store, &snapshot_key);
-        if snapshot_value.is_none() {
-            Ok(STAKED_BALANCES_PRIMARY.get(store, &key))
-        } else {
-            let x = USER_STAKED_AT_HEIGHT.get(store, &key).unwrap();
-            let id = match x.binary_search(&height) {
-                Ok(index) => Some(index),
-                Err(_) => None,
-            };
-            // return Ok(Some(Uint128::new(x.len() as u128)));
-            if id.unwrap() == (x.len() - 1) {
-                Ok(STAKED_BALANCES_PRIMARY.get(store, &key))
-            } else {
-                let snapshot_value =
-                    STAKED_BALANCES_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize], key.clone()));
-                Ok(snapshot_value)
+        // If no snapshot exists, check the primary balance
+        let primary_balance = STAKED_BALANCES_PRIMARY.get(store, &key).unwrap_or_default();
+        let staked_heights = USER_STAKED_AT_HEIGHT.get(store, &key).unwrap_or_default();
+
+        // Check the index of the height in the staked heights
+        match staked_heights.binary_search(&height) {
+            Ok(index) if index == staked_heights.len() - 1 => Ok(Some(primary_balance)), // Last index
+            Ok(index) => {
+                let next_height = staked_heights[index + 1];
+                Ok(STAKED_BALANCES_SNAPSHOT.get(store, &(next_height, key)))
             }
+            Err(_) => Ok(Some(primary_balance)), // Height not found, return current balance
         }
     }
 }
@@ -100,51 +108,60 @@ impl StakedBalancesStore {
 /// Keeps track of staked total over time
 pub const STAKED_TOTAL_PRIMARY: Item<Uint128> = Item::new("staked_balances_primary");
 pub static STAKED_TOTAL_SNAPSHOT: Keymap<u64, Uint128> = Keymap::new(b"staked_balances_snapshot");
-pub const STAKED_TOTAL_AT_HEIGHTS: Item<Vec<u64>> = Item::new("user_Staked_at_height");
+pub const STAKED_TOTAL_AT_HEIGHTS: Item<Vec<u64>> = Item::new("user_staked_at_height");
 
 pub struct TotalStakedStore {}
+
 impl TotalStakedStore {
     // Function to store a value at a specific block height
     pub fn save(store: &mut dyn Storage, block_height: u64, value: Uint128) -> StdResult<()> {
-        let primary = STAKED_TOTAL_PRIMARY.load(store).unwrap_or_default();
-        if primary.is_zero() {
+        // Load the current total staked amount
+        let primary_total = STAKED_TOTAL_PRIMARY.load(store).unwrap_or_default();
+
+        // If there is no staked total, initialize it
+        if primary_total.is_zero() {
             STAKED_TOTAL_PRIMARY.save(store, &value)?;
             STAKED_TOTAL_SNAPSHOT.insert(store, &block_height, &Uint128::zero())?;
             STAKED_TOTAL_AT_HEIGHTS.save(store, &vec![block_height])?;
         } else {
-            let mut user_staked_height = STAKED_TOTAL_AT_HEIGHTS.load(store).unwrap_or_default();
-            STAKED_TOTAL_SNAPSHOT.insert(store, &block_height, &primary)?;
+            // Update existing totals
+            let mut user_staked_heights = STAKED_TOTAL_AT_HEIGHTS.load(store).unwrap_or_default();
+            STAKED_TOTAL_SNAPSHOT.insert(store, &block_height, &primary_total)?;
             STAKED_TOTAL_PRIMARY.save(store, &value)?;
-            user_staked_height.push(block_height);
-            STAKED_TOTAL_AT_HEIGHTS.save(store, &user_staked_height)?;
+            user_staked_heights.push(block_height);
+            STAKED_TOTAL_AT_HEIGHTS.save(store, &user_staked_heights)?;
         }
 
         Ok(())
     }
 
+    // Load the current total staked amount
     pub fn load(store: &dyn Storage) -> Uint128 {
         STAKED_TOTAL_PRIMARY.load(store).unwrap_or_default()
     }
 
+    // Load the staked total at a specific block height, falling back to the current total if not found
     pub fn may_load_at_height(store: &dyn Storage, height: u64) -> StdResult<Option<Uint128>> {
-        let snapshot_key = height;
+        // Check for a snapshot at the given height
+        let snapshot_value = STAKED_TOTAL_SNAPSHOT.get(store, &height);
 
-        let snapshot_value = STAKED_TOTAL_SNAPSHOT.get(store, &snapshot_key);
-        if snapshot_value.is_none() {
-            Ok(Some(STAKED_TOTAL_PRIMARY.load(store).unwrap_or_default()))
-        } else {
-            let x = STAKED_TOTAL_AT_HEIGHTS.load(store).unwrap_or_default();
-            let id = match x.binary_search(&height) {
-                Ok(index) => Some(index),
-                Err(_) => None,
-            };
-            // return Ok(Some(Uint128::new(x.len() as u128)));
-            if id.unwrap() == (x.len() - 1) {
-                Ok(Some(STAKED_TOTAL_PRIMARY.load(store).unwrap_or_default()))
-            } else {
-                let snapshot_value = STAKED_TOTAL_SNAPSHOT.get(store, &(x[id.unwrap() + 1_usize]));
-                Ok(snapshot_value)
+        // If a snapshot exists, return it
+        if let Some(value) = snapshot_value {
+            return Ok(Some(value));
+        }
+
+        // If no snapshot exists, check the primary total
+        let primary_total = STAKED_TOTAL_PRIMARY.load(store).unwrap_or_default();
+        let staked_heights = STAKED_TOTAL_AT_HEIGHTS.load(store).unwrap_or_default();
+
+        // Check the index of the height in the staked heights
+        match staked_heights.binary_search(&height) {
+            Ok(index) if index == staked_heights.len() - 1 => Ok(Some(primary_total)), // Last index
+            Ok(index) => {
+                let next_height = staked_heights[index + 1];
+                Ok(STAKED_TOTAL_SNAPSHOT.get(store, &next_height))
             }
+            Err(_) => Ok(Some(primary_total)), // Height not found, return current total
         }
     }
 }

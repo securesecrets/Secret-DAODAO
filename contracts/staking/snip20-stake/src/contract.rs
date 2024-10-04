@@ -482,7 +482,7 @@ pub fn query_list_stakers(
 
     let mut start = start_after.clone(); // Clone start_after to mutate it if necessary
 
-    let binding = &STAKED_BALANCES_PRIMARY;
+    let binding = STAKED_BALANCES_PRIMARY;
     let iter = binding.iter(deps.storage)?;
     for item in iter {
         let (address, stake) = item?;
