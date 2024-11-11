@@ -130,15 +130,22 @@ impl CheckedDenom {
         match self {
             CheckedDenom::Native(denom) => Ok(querier.query_balance(who, denom)?.amount),
             CheckedDenom::Snip20(address, code_hash) => {
-                let balance: secret_toolkit::snip20::Balance = querier.query_wasm_smart(
+                let mut res = Uint128::zero();
+                let balance: snip20_reference_impl::msg::QueryAnswer = querier.query_wasm_smart(
                     code_hash,
                     address,
-                    &secret_toolkit::snip20::QueryMsg::Balance {
+                    &snip20_reference_impl::msg::QueryMsg::Balance {
                         address: who.to_string(),
                         key,
                     },
                 )?;
-                Ok(balance.amount)
+                match balance {
+                    snip20_reference_impl::msg::QueryAnswer::Balance { amount } => {
+                        res = amount;
+                    }
+                    _ => (),
+                }
+                Ok(res)
             }
         }
     }
@@ -159,11 +166,13 @@ impl CheckedDenom {
             CheckedDenom::Snip20(address, code_hash) => WasmMsg::Execute {
                 contract_addr: address.to_string(),
                 code_hash: code_hash.to_string(),
-                msg: to_binary(&secret_toolkit::snip20::HandleMsg::Transfer {
+                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Transfer {
                     recipient: who.to_string(),
                     amount,
                     memo: None,
                     padding: None,
+                    decoys: None,
+                    entropy: None,
                 })?,
                 funds: vec![],
             }

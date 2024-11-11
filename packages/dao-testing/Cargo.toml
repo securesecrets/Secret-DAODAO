@@ -18,7 +18,7 @@ test-tube = []
 # compiled. There is no good way to remove a member from a workspace
 # conditionally. As such, we don't compile anything here if we're
 # targeting wasm.
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[dependencies]
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 secret-multi-test = { workspace = true }
@@ -46,3 +46,7 @@ dao-voting-snip721-roles = { workspace = true }
 dao-voting-token-staked = { workspace = true }
 query_auth ={ workspace = true }
 shade-protocol = { workspace = true }
+dao-pre-propose-multiple = { workspace = true }
+dao-pre-propose-single = { workspace = true }
+dao-proposal-condorcet = { workspace = true }
+dao-proposal-single = { workspace = true }

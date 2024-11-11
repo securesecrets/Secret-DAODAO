@@ -40,3 +40,8 @@ dao-proposal-single = { workspace = true, features = ["library"] }
 dao-voting = { workspace = true }
 dao-voting-cw4 = { workspace = true }
 dao-voting-snip20-staked = { workspace = true }
+snip20-reference-impl = { workspace = true }
+snip721-reference-impl = { workspace = true }
+cw4 ={ workspace = true}
+query_auth ={ workspace = true}
+shade-protocol = {workspace =  true}

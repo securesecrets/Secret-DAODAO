@@ -20,7 +20,7 @@ members = [
   "./contracts/voting/*",
   "./packages/*",
   "./contracts/test/dao-proposal-sudo/",
-  "./contracts/test/dao-voting-snip20-balance/"
+  "./contracts/test/dao-voting-snip20-balance/",
   ]
 resolver = "2"
 
@@ -108,7 +108,7 @@ dao-voting-cw4 = { path = "./contracts/voting/dao-voting-cw4", version = "2.4.0"
 dao-voting-snip721-roles = { path = "./contracts/voting/dao-voting-snip721-roles", version = "2.4.0" ,default-features = false}
 dao-voting-snip721-staked = { path = "./contracts/voting/dao-voting-snip721-staked", version = "2.4.0",default-features = false }
 dao-voting-token-staked = { path = "./contracts/voting/dao-voting-token-staked", version = "2.4.0",default-features = false }
-dao-testing ={ path = "./packages/dao-testing/"}
+dao-testing = { path = "./packages/dao-testing", version = "2.4.0" }
 dao-utils ={ path = "./packages/dao-utils/"}
 # v1 dependencies. used for state migrations.
 cw-core-v1 = { package = "cw-core", version = "0.1.0" ,default-features = false}

@@ -138,8 +138,10 @@ where
         msg: ProposalMessage,
     ) -> Result<Response, PreProposeError> {
         self.check_can_submit(deps.as_ref(), auth)?;
+        println!("here1");
 
         let config = self.config.load(deps.storage)?;
+        println!("here2");
 
         let deposit_messages = if let Some(ref deposit_info) = config.deposit_info {
             deposit_info.check_native_deposit_paid(&info)?;
@@ -147,8 +149,10 @@ where
         } else {
             vec![]
         };
+        println!("here3");
 
         let proposal_module_info = self.proposal_module.load(deps.storage)?;
+        println!("here4");
 
         // Snapshot the deposit using the ID of the proposal that we
         // will create.
@@ -157,11 +161,14 @@ where
             proposal_module_info.addr.clone().to_string(),
             &dao_interface::proposal::Query::NextProposalId {},
         )?;
+        println!("here5");
+
         self.deposits.insert(
             deps.storage,
             &next_id,
             &(config.deposit_info, info.sender.clone()),
         )?;
+        println!("here6");
 
         let propose_messsage = WasmMsg::Execute {
             contract_addr: proposal_module_info.addr.into_string(),
@@ -169,6 +176,7 @@ where
             msg: to_binary(&msg)?,
             funds: vec![],
         };
+        println!("here7");
 
         let hooks_msgs =
             self.proposal_submitted_hooks
@@ -181,6 +189,8 @@ where
                     };
                     Ok(SubMsg::new(execute))
                 })?;
+
+        println!("here8");
 
         Ok(Response::default()
             .add_attribute("method", "execute_propose")

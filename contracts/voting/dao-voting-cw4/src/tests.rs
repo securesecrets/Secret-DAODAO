@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     from_binary,
     testing::{mock_dependencies, mock_env, mock_info},
-    to_binary, Addr, ContractInfo, CosmosMsg, Empty, MessageInfo, Uint128, WasmMsg,
+    to_binary, Addr, ContractInfo, Empty, MessageInfo, Uint128,
 };
 use dao_interface::{
     state::AnyContractInfo,
@@ -777,63 +777,189 @@ fn test_power_at_height() {
     assert_eq!(total_voting_power.height, app.block_info().height - 1);
 }
 
+// #[test]
+// fn test_migrate() {
+//     let mut app = App::default();
+
+//     let initial_members = vec![
+//         cw4::Member {
+//             addr: ADDR1.to_string(),
+//             weight: 1,
+//         },
+//         cw4::Member {
+//             addr: ADDR2.to_string(),
+//             weight: 1,
+//         },
+//         cw4::Member {
+//             addr: ADDR3.to_string(),
+//             weight: 1,
+//         },
+//     ];
+
+//     let query_auth = instantiate_query_auth(&mut app);
+
+//     let viewing_key = create_viewing_key(
+//         &mut app,
+//         ContractInfo {
+//             address: query_auth.address.clone(),
+//             code_hash: query_auth.code_hash.clone(),
+//         },
+//         mock_info(ADDR1, &[]),
+//     );
+
+//     // Instantiate with no members, error
+//     let voting_info = app.store_code(voting_contract());
+//     let cw4_info = app.store_code(cw4_contract());
+//     let msg = InstantiateMsg {
+//         group_contract: GroupContract::New {
+//             cw4_group_code_id: cw4_info.code_id,
+//             cw4_group_code_hash: cw4_info.code_hash,
+//             initial_members,
+//             query_auth: Some(RawContract::new(
+//                 &query_auth.address.to_string(),
+//                 &query_auth.code_hash.to_string(),
+//             )),
+//         },
+//         dao_code_hash: "todo!()".into(),
+//     };
+//     let voting_contract_info = app
+//         .instantiate_contract(
+//             voting_info.clone(),
+//             Addr::unchecked(DAO_ADDR),
+//             &msg,
+//             &[],
+//             "voting module",
+//             Some(DAO_ADDR.to_string()),
+//         )
+//         .unwrap();
+
+//     let power: VotingPowerAtHeightResponse = app
+//         .wrap()
+//         .query_wasm_smart(
+//             voting_contract_info.code_hash.clone(),
+//             voting_contract_info.address.clone(),
+//             &QueryMsg::VotingPowerAtHeight {
+//                 auth: Auth::ViewingKey {
+//                     key: viewing_key.clone(),
+//                     address: ADDR1.into(),
+//                 },
+//                 height: None,
+//             },
+//         )
+//         .unwrap();
+
+//     app.execute(
+//         Addr::unchecked(DAO_ADDR),
+//         CosmosMsg::Wasm(WasmMsg::Migrate {
+//             contract_addr: voting_contract_info.address.clone().to_string(),
+//             code_id: voting_info.code_id,
+//             code_hash: voting_contract_info.code_hash.clone(),
+//             msg: to_binary(&MigrateMsg {}).unwrap(),
+//         }),
+//     )
+//     .unwrap();
+
+//     let new_power: VotingPowerAtHeightResponse = app
+//         .wrap()
+//         .query_wasm_smart(
+//             voting_contract_info.code_hash,
+//             voting_contract_info.address,
+//             &QueryMsg::VotingPowerAtHeight {
+//                 auth: Auth::ViewingKey {
+//                     key: viewing_key,
+//                     address: ADDR1.into(),
+//                 },
+//                 height: None,
+//             },
+//         )
+//         .unwrap();
+
+//     assert_eq!(new_power, power)
+// }
+
 #[test]
-fn test_migrate() {
+fn test_duplicate_member() {
     let mut app = App::default();
-
-    let initial_members = vec![
-        cw4::Member {
-            addr: ADDR1.to_string(),
-            weight: 1,
-        },
-        cw4::Member {
-            addr: ADDR2.to_string(),
-            weight: 1,
-        },
-        cw4::Member {
-            addr: ADDR3.to_string(),
-            weight: 1,
-        },
-    ];
-
-    let query_auth = instantiate_query_auth(&mut app);
-
-    let viewing_key = create_viewing_key(
-        &mut app,
-        ContractInfo {
-            address: query_auth.address.clone(),
-            code_hash: query_auth.code_hash.clone(),
-        },
-        mock_info(ADDR1, &[]),
-    );
-
-    // Instantiate with no members, error
+    let (_voting_addr, _query_auth) = setup_test_case(&mut app);
     let voting_info = app.store_code(voting_contract());
     let cw4_info = app.store_code(cw4_contract());
+    // Instantiate with members but have a duplicate
+    // Total weight is actually 69 but ADDR3 appears twice.
     let msg = InstantiateMsg {
         group_contract: GroupContract::New {
             cw4_group_code_id: cw4_info.code_id,
             cw4_group_code_hash: cw4_info.code_hash,
-            initial_members,
-            query_auth: Some(RawContract::new(
-                &query_auth.address.to_string(),
-                &query_auth.code_hash.to_string(),
-            )),
+            initial_members: vec![
+                cw4::Member {
+                    addr: ADDR3.to_string(), // same address above
+                    weight: 19,
+                },
+                cw4::Member {
+                    addr: ADDR1.to_string(),
+                    weight: 25,
+                },
+                cw4::Member {
+                    addr: ADDR2.to_string(),
+                    weight: 25,
+                },
+                cw4::Member {
+                    addr: ADDR3.to_string(),
+                    weight: 19,
+                },
+            ],
+            query_auth: None,
         },
-        dao_code_hash: "todo!()".into(),
+        dao_code_hash: "".into(),
     };
-    let voting_contract_info = app
+    // Previous versions voting power was 100, due to no dedup.
+    // Now we error
+    // Bug busted : )
+    let _voting_addr = app
         .instantiate_contract(
-            voting_info.clone(),
+            voting_info,
             Addr::unchecked(DAO_ADDR),
             &msg,
             &[],
             "voting module",
-            Some(DAO_ADDR.to_string()),
+            None,
+        )
+        .unwrap_err();
+}
+
+#[test]
+fn test_zero_voting_power() {
+    let mut app = App::default();
+    let (voting_contract_info, query_auth_info) = setup_test_case(&mut app);
+    let viewing_key = create_viewing_key(
+        &mut app,
+        ContractInfo {
+            address: query_auth_info.address.clone(),
+            code_hash: query_auth_info.code_hash.clone(),
+        },
+        mock_info(ADDR4, &[]),
+    );
+
+    let viewing_key_addr1 = create_viewing_key(
+        &mut app,
+        ContractInfo {
+            address: query_auth_info.address.clone(),
+            code_hash: query_auth_info.code_hash.clone(),
+        },
+        mock_info(ADDR1, &[]),
+    );
+    app.update_block(next_block);
+
+    let cw4_contract_info: AnyContractInfo = app
+        .wrap()
+        .query_wasm_smart(
+            voting_contract_info.code_hash.clone(),
+            voting_contract_info.address.clone(),
+            &QueryMsg::GroupContract {},
         )
         .unwrap();
 
-    let power: VotingPowerAtHeightResponse = app
+    // check that ADDR4 weight is 0
+    let addr4_voting_power: VotingPowerAtHeightResponse = app
         .wrap()
         .query_wasm_smart(
             voting_contract_info.code_hash.clone(),
@@ -841,153 +967,71 @@ fn test_migrate() {
             &QueryMsg::VotingPowerAtHeight {
                 auth: Auth::ViewingKey {
                     key: viewing_key.clone(),
+                    address: ADDR4.into(),
+                },
+                height: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(addr4_voting_power.power, Uint128::new(0));
+    assert_eq!(addr4_voting_power.height, app.block_info().height);
+
+    // Update ADDR1's weight to 0
+    let msg = cw4_group::msg::ExecuteMsg::UpdateMembers {
+        remove: vec![],
+        add: vec![cw4::Member {
+            addr: ADDR1.to_string(),
+            weight: 0,
+        }],
+    };
+    app.execute_contract(
+        Addr::unchecked(DAO_ADDR),
+        &ContractInfo {
+            address: cw4_contract_info.addr,
+            code_hash: cw4_contract_info.code_hash,
+        },
+        &msg,
+        &[],
+    )
+    .unwrap();
+
+    // Check ADDR1's power is now 0
+    let addr1_voting_power: VotingPowerAtHeightResponse = app
+        .wrap()
+        .query_wasm_smart(
+            voting_contract_info.code_hash.clone(),
+            voting_contract_info.address.clone(),
+            &QueryMsg::VotingPowerAtHeight {
+                auth: Auth::ViewingKey {
+                    key: viewing_key_addr1,
                     address: ADDR1.into(),
                 },
                 height: None,
             },
         )
         .unwrap();
+    assert_eq!(addr1_voting_power.power, Uint128::new(0u128));
+    assert_eq!(addr1_voting_power.height, app.block_info().height);
 
-    app.execute(
-        Addr::unchecked(DAO_ADDR),
-        CosmosMsg::Wasm(WasmMsg::Migrate {
-            contract_addr: voting_contract_info.address.clone().to_string(),
-            code_id: voting_info.code_id,
-            code_hash: voting_contract_info.code_hash.clone(),
-            msg: to_binary(&MigrateMsg {}).unwrap(),
-        }),
-    )
-    .unwrap();
-
-    let new_power: VotingPowerAtHeightResponse = app
+    // Check total power is now 2
+    let total_voting_power: TotalPowerAtHeightResponse = app
         .wrap()
         .query_wasm_smart(
             voting_contract_info.code_hash,
             voting_contract_info.address,
-            &QueryMsg::VotingPowerAtHeight {
-                auth: Auth::ViewingKey {
-                    key: viewing_key,
-                    address: ADDR1.into(),
-                },
-                height: None,
-            },
+            &QueryMsg::TotalPowerAtHeight { height: None },
         )
         .unwrap();
-
-    assert_eq!(new_power, power)
+    assert_eq!(total_voting_power.power, Uint128::new(2u128));
+    assert_eq!(total_voting_power.height, app.block_info().height);
 }
 
-// #[test]
-// fn test_duplicate_member() {
-//     let mut app = App::default();
-//     let _voting_addr = setup_test_case(&mut app);
-//     let voting_info = app.store_code(voting_contract());
-//     let cw4_info = app.store_code(cw4_contract());
-//     // Instantiate with members but have a duplicate
-//     // Total weight is actually 69 but ADDR3 appears twice.
-//     let msg = InstantiateMsg {
-//         group_contract: GroupContract::New {
-//             cw4_group_code_id: cw4_info,
-//             initial_members: vec![
-//                 cw4::Member {
-//                     addr: ADDR3.to_string(), // same address above
-//                     weight: 19,
-//                 },
-//                 cw4::Member {
-//                     addr: ADDR1.to_string(),
-//                     weight: 25,
-//                 },
-//                 cw4::Member {
-//                     addr: ADDR2.to_string(),
-//                     weight: 25,
-//                 },
-//                 cw4::Member {
-//                     addr: ADDR3.to_string(),
-//                     weight: 19,
-//                 },
-//             ],
-//         },
-//     };
-//     // Previous versions voting power was 100, due to no dedup.
-//     // Now we error
-//     // Bug busted : )
-//     let _voting_addr = app
-//         .instantiate_contract(
-//             voting_info,
-//             Addr::unchecked(DAO_ADDR),
-//             &msg,
-//             &[],
-//             "voting module",
-//             None,
-//         )
-//         .unwrap_err();
-// }
-
-// #[test]
-// fn test_zero_voting_power() {
-//     let mut app = App::default();
-//     let voting_contract_info = setup_test_case(&mut app);
-//     app.update_block(next_block);
-
-//     let cw4_contract_info: Addr = app
-//         .wrap()
-//         .query_wasm_smart(voting_contract_info.clone(), &QueryMsg::GroupContract {})
-//         .unwrap();
-
-//     // check that ADDR4 weight is 0
-//     let addr4_voting_power: VotingPowerAtHeightResponse = app
-//         .wrap()
-//         .query_wasm_smart(
-//             voting_contract_info.clone(),
-//             &QueryMsg::VotingPowerAtHeight {
-//                 address: ADDR4.to_string(),
-//                 height: None,
-//             },
-//         )
-//         .unwrap();
-//     assert_eq!(addr4_voting_power.power, Uint128::new(0));
-//     assert_eq!(addr4_voting_power.height, app.block_info().height);
-
-//     // Update ADDR1's weight to 0
-//     let msg = cw4_group::msg::ExecuteMsg::UpdateMembers {
-//         remove: vec![],
-//         add: vec![cw4::Member {
-//             addr: ADDR1.to_string(),
-//             weight: 0,
-//         }],
-//     };
-//     app.execute_contract(Addr::unchecked(DAO_ADDR), cw4_contract_info, &msg, &[])
-//         .unwrap();
-
-//     // Check ADDR1's power is now 0
-//     let addr1_voting_power: VotingPowerAtHeightResponse = app
-//         .wrap()
-//         .query_wasm_smart(
-//             voting_contract_info.clone(),
-//             &QueryMsg::VotingPowerAtHeight {
-//                 address: ADDR1.to_string(),
-//                 height: None,
-//             },
-//         )
-//         .unwrap();
-//     assert_eq!(addr1_voting_power.power, Uint128::new(0u128));
-//     assert_eq!(addr1_voting_power.height, app.block_info().height);
-
-//     // Check total power is now 2
-//     let total_voting_power: TotalPowerAtHeightResponse = app
-//         .wrap()
-//         .query_wasm_smart(voting_contract_info, &QueryMsg::TotalPowerAtHeight { height: None })
-//         .unwrap();
-//     assert_eq!(total_voting_power.power, Uint128::new(2u128));
-//     assert_eq!(total_voting_power.height, app.block_info().height);
-// }
-
-// #[test]
-// pub fn test_migrate_update_version() {
-//     let mut deps = mock_dependencies();
-//     cw2::set_contract_version(&mut deps.storage, "my-contract", "1.0.0").unwrap();
-//     migrate(deps.as_mut(), mock_env(), MigrateMsg {}).unwrap();
-//     let version = cw2::get_contract_version(&deps.storage).unwrap();
-//     assert_eq!(version.version, CONTRACT_VERSION);
-//     assert_eq!(version.contract, CONTRACT_NAME);
-// }
+#[test]
+pub fn test_migrate_update_version() {
+    let mut deps = mock_dependencies();
+    secret_cw2::set_contract_version(&mut deps.storage, "my-contract", "1.0.0").unwrap();
+    migrate(deps.as_mut(), mock_env(), MigrateMsg {}).unwrap();
+    let version = secret_cw2::get_contract_version(&deps.storage).unwrap();
+    assert_eq!(version.version, CONTRACT_VERSION);
+    assert_eq!(version.contract, CONTRACT_NAME);
+}

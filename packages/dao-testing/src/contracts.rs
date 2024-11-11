@@ -1,5 +1,4 @@
 use cosmwasm_std::Empty;
-
 use dao_pre_propose_multiple as cppm;
 use dao_pre_propose_single as cpps;
 use secret_multi_test::{Contract, ContractWrapper};

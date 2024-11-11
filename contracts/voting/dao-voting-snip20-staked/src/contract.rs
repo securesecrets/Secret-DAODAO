@@ -390,6 +390,7 @@ pub fn query_is_active(deps: Deps) -> StdResult<Binary> {
                 staking_contract.addr,
                 &snip20_stake::msg::QueryMsg::TotalStakedAtHeight { height: None },
             )?;
+
         match threshold {
             ActiveThreshold::AbsoluteCount { count } => to_binary(&IsActiveResponse {
                 active: actual_power.total >= count,

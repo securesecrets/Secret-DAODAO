@@ -91,60 +91,60 @@ where
     Ok(items)
 }
 
-/// Same as `paginate_map` but for use with `SnapshotMap`.
-#[cfg(feature = "iterator")]
-pub fn paginate_snapshot_map<'a, 'b, K, V, R: 'static>(
-    deps: Deps,
-    map: &SnapshotMap<'a, K, V>,
-    start_after: Option<K>,
-    limit: Option<u32>,
-    order: Order,
-) -> StdResult<Vec<(R, V)>>
-where
-    K: Bounder<'a> + KeyDeserialize<Output = R> + 'b,
-    V: serde::de::DeserializeOwned + serde::Serialize,
-{
-    let (range_min, range_max) = match order {
-        Order::Ascending => (start_after.map(Bound::exclusive), None),
-        Order::Descending => (None, start_after.map(Bound::exclusive)),
-    };
+// /// Same as `paginate_map` but for use with `SnapshotMap`.
+// #[cfg(feature = "iterator")]
+// pub fn paginate_snapshot_map<'a, 'b, K, V, R: 'static>(
+//     deps: Deps,
+//     map: &SnapshotMap<'a, K, V>,
+//     start_after: Option<K>,
+//     limit: Option<u32>,
+//     order: Order,
+// ) -> StdResult<Vec<(R, V)>>
+// where
+//     K: Bounder<'a> + KeyDeserialize<Output = R> + 'b,
+//     V: serde::de::DeserializeOwned + serde::Serialize,
+// {
+//     let (range_min, range_max) = match order {
+//         Order::Ascending => (start_after.map(Bound::exclusive), None),
+//         Order::Descending => (None, start_after.map(Bound::exclusive)),
+//     };
 
-    let items = map.range(deps.storage, range_min, range_max, order);
-    match limit {
-        Some(limit) => Ok(items
-            .take(limit.try_into().unwrap())
-            .collect::<StdResult<_>>()?),
-        None => Ok(items.collect::<StdResult<_>>()?),
-    }
-}
+//     let items = map.range(deps.storage, range_min, range_max, order);
+//     match limit {
+//         Some(limit) => Ok(items
+//             .take(limit.try_into().unwrap())
+//             .collect::<StdResult<_>>()?),
+//         None => Ok(items.collect::<StdResult<_>>()?),
+//     }
+// }
 
-/// Same as `paginate_map` but only returns the keys. For use with
-/// `SnaphotMap`.
-#[cfg(feature = "iterator")]
-pub fn paginate_snapshot_map_keys<'a, 'b, K, V, R: 'static>(
-    deps: Deps,
-    map: &SnapshotMap<'a, K, V>,
-    start_after: Option<K>,
-    limit: Option<u32>,
-    order: Order,
-) -> StdResult<Vec<R>>
-where
-    K: Bounder<'a> + KeyDeserialize<Output = R> + 'b,
-    V: serde::de::DeserializeOwned + serde::Serialize,
-{
-    let (range_min, range_max) = match order {
-        Order::Ascending => (start_after.map(Bound::exclusive), None),
-        Order::Descending => (None, start_after.map(Bound::exclusive)),
-    };
+// /// Same as `paginate_map` but only returns the keys. For use with
+// /// `SnaphotMap`.
+// #[cfg(feature = "iterator")]
+// pub fn paginate_snapshot_map_keys<'a, 'b, K, V, R: 'static>(
+//     deps: Deps,
+//     map: &SnapshotMap<'a, K, V>,
+//     start_after: Option<K>,
+//     limit: Option<u32>,
+//     order: Order,
+// ) -> StdResult<Vec<R>>
+// where
+//     K: Bounder<'a> + KeyDeserialize<Output = R> + 'b,
+//     V: serde::de::DeserializeOwned + serde::Serialize,
+// {
+//     let (range_min, range_max) = match order {
+//         Order::Ascending => (start_after.map(Bound::exclusive), None),
+//         Order::Descending => (None, start_after.map(Bound::exclusive)),
+//     };
 
-    let items = map.keys(deps.storage, range_min, range_max, order);
-    match limit {
-        Some(limit) => Ok(items
-            .take(limit.try_into().unwrap())
-            .collect::<StdResult<_>>()?),
-        None => Ok(items.collect::<StdResult<_>>()?),
-    }
-}
+//     let items = map.keys(deps.storage, range_min, range_max, order);
+//     match limit {
+//         Some(limit) => Ok(items
+//             .take(limit.try_into().unwrap())
+//             .collect::<StdResult<_>>()?),
+//         None => Ok(items.collect::<StdResult<_>>()?),
+//     }
+// }
 
 // #[cfg(test)]
 // mod tests {
