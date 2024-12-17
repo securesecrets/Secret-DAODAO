@@ -23,7 +23,7 @@ secret-storage-plus  = { workspace = true }
 secret-utils         = { workspace = true }
 thiserror        = { workspace = true }
 secret-cw2              = { workspace = true }
-snip20-reference-impl             = { workspace = true }
+snip20-base             = { workspace = true }
 dao-interface    = { workspace = true }
 
 dao-dao-core           = { workspace = true, features = ["library"] }

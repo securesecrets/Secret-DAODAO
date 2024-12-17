@@ -501,7 +501,7 @@ mod tests {
     use cw_ownable::{Action, Ownership, OwnershipError};
     use secret_utils::Duration;
     use shade_protocol::basic_staking::Auth;
-    use snip20_reference_impl::msg::{ExecuteMsg as Snip20ExecuteMsg, InitialBalance, QueryAnswer};
+    use snip20_base::msg::{ExecuteMsg as Snip20ExecuteMsg, InitialBalance, QueryAnswer};
 
     use secret_multi_test::{
         next_block, App, BankSudo, Contract, ContractWrapper, Executor, SudoMsg,
@@ -535,9 +535,9 @@ mod tests {
 
     pub fn contract_snip20() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
-            snip20_reference_impl::contract::execute,
-            snip20_reference_impl::contract::instantiate,
-            snip20_reference_impl::contract::query,
+            snip20_base::contract::execute,
+            snip20_base::contract::instantiate,
+            snip20_base::contract::query,
         );
         Box::new(contract)
     }
@@ -557,7 +557,7 @@ mod tests {
 
     fn instantiate_snip20(app: &mut App, initial_balances: Vec<InitialBalance>) -> ContractInfo {
         let snip20_info = app.store_code(contract_snip20());
-        let msg = snip20_reference_impl::msg::InstantiateMsg {
+        let msg = snip20_base::msg::InstantiateMsg {
             name: String::from("Test"),
             symbol: String::from("TEST"),
             decimals: 6,
@@ -683,7 +683,7 @@ mod tests {
         contract_info: ContractInfo,
         info: MessageInfo,
     ) -> String {
-        let msg = snip20_reference_impl::msg::ExecuteMsg::CreateViewingKey {
+        let msg = snip20_base::msg::ExecuteMsg::CreateViewingKey {
             entropy: "entropy".to_string(),
             padding: None,
         };
@@ -691,9 +691,9 @@ mod tests {
             .execute_contract(info.sender, &contract_info, &msg, &[])
             .unwrap();
         let mut viewing_key = String::new();
-        let data: snip20_reference_impl::msg::ExecuteAnswer =
+        let data: snip20_base::msg::ExecuteAnswer =
             from_binary(&res.data.unwrap()).unwrap();
-        if let snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } = data {
+        if let snip20_base::msg::ExecuteAnswer::CreateViewingKey { key } = data {
             viewing_key = key;
         };
         viewing_key
@@ -790,8 +790,8 @@ mod tests {
         address: String,
         key: String,
     ) -> Uint128 {
-        let msg = snip20_reference_impl::msg::QueryMsg::Balance { address, key };
-        let result: snip20_reference_impl::msg::QueryAnswer = app
+        let msg = snip20_base::msg::QueryMsg::Balance { address, key };
+        let result: snip20_base::msg::QueryAnswer = app
             .wrap()
             .query_wasm_smart(snip20_info.code_hash, snip20_info.address.to_string(), &msg)
             .unwrap();
@@ -1522,7 +1522,7 @@ mod tests {
             },
         })
         .unwrap();
-        let fund_msg = snip20_reference_impl::msg::ExecuteMsg::Send {
+        let fund_msg = snip20_base::msg::ExecuteMsg::Send {
             recipient: reward_contract_info.clone().address.into_string(),
             recipient_code_hash: Some(reward_contract_info.clone().code_hash),
             amount: Uint128::new(100),
@@ -1592,7 +1592,7 @@ mod tests {
             },
         })
         .unwrap();
-        let fund_msg = snip20_reference_impl::msg::ExecuteMsg::Send {
+        let fund_msg = snip20_base::msg::ExecuteMsg::Send {
             recipient: reward_contract_info.clone().address.into_string(),
             recipient_code_hash: Some(reward_contract_info.clone().code_hash),
             amount: Uint128::new(100),

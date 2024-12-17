@@ -4,6 +4,7 @@ use cosmwasm_std::{
 };
 
 use cw_hooks::HookItem;
+use dao_utils::query::get_contract_code_hash;
 use secret_cw2::set_contract_version;
 
 use cw_denom::UncheckedDenom;
@@ -48,13 +49,13 @@ where
             deps.storage,
             &AnyContractInfo {
                 addr: info.sender.clone(),
-                code_hash: msg.proposal_module_code_hash.clone(),
+                code_hash: get_contract_code_hash(deps.querier, info.sender.clone().into()).unwrap_or_default(),
             },
         )?;
 
         // Query the proposal module for its DAO.
         let dao_info: AnyContractInfo = deps.querier.query_wasm_smart(
-            msg.proposal_module_code_hash.clone(),
+            get_contract_code_hash(deps.querier, info.sender.clone().into()).unwrap_or_default(),
             info.sender.clone(),
             &CwCoreQuery::Dao {},
         )?;

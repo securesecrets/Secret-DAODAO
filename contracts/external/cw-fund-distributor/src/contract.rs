@@ -296,7 +296,7 @@ fn get_snip20_claim_wasm_messages(
             messages.push(WasmMsg::Execute {
                 contract_addr: token_info.address.to_string(),
                 code_hash: token_info.code_hash,
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Transfer {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Transfer {
                     recipient: sender.to_string(),
                     amount: entitlement,
                     memo: None,

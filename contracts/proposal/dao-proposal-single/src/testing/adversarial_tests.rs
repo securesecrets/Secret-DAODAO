@@ -359,7 +359,6 @@ pub fn test_executed_prop_state_remains_after_vote_swing() {
             false,
         ),
         close_proposal_on_execution_failure: true,
-        dao_code_hash: "".to_string(),
         query_auth: None,
     };
 
@@ -556,7 +555,6 @@ pub fn test_passed_prop_state_remains_after_vote_swing() {
             false,
         ),
         close_proposal_on_execution_failure: true,
-        dao_code_hash: "".into(),
         query_auth: None,
     };
 
@@ -635,7 +633,7 @@ pub fn test_passed_prop_state_remains_after_vote_swing() {
     );
 
     // if the proposal passes, it should mint 100_000_000 tokens to "threshold"
-    let msg = snip20_reference_impl::msg::ExecuteMsg::Mint {
+    let msg = snip20_base::msg::ExecuteMsg::Mint {
         recipient: "threshold".to_string(),
         amount: Uint128::new(100_000_000),
         memo: None,

@@ -258,17 +258,17 @@ pub(crate) fn query_balance_cw20<
     address: U,
     key: K,
 ) -> Uint128 {
-    let msg = snip20_reference_impl::msg::QueryMsg::Balance {
+    let msg = snip20_base::msg::QueryMsg::Balance {
         address: address.into(),
         key: key.into(),
     };
     let mut balance_amount = Uint128::zero();
-    let result: snip20_reference_impl::msg::QueryAnswer = app
+    let result: snip20_base::msg::QueryAnswer = app
         .wrap()
         .query_wasm_smart(code_hash, contract_addr, &msg)
         .unwrap();
     match result {
-        snip20_reference_impl::msg::QueryAnswer::Balance { amount } => {
+        snip20_base::msg::QueryAnswer::Balance { amount } => {
             balance_amount = amount;
         }
         _ => (),

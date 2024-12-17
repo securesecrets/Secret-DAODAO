@@ -425,7 +425,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                             vec![CosmosMsg::Wasm(WasmMsg::Execute {
                                 contract_addr: denom.to_string(),
                                 code_hash: code_hash.clone(),
-                                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Send {
+                                msg: to_binary(&snip20_base::msg::ExecuteMsg::Send {
                                     recipient: contract_addr.to_string(),
                                     recipient_code_hash: Some(code_hash),
                                     amount: vest.total(),

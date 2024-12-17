@@ -133,7 +133,6 @@ where
         allow_revoting: false,
         close_proposal_on_execution_failure: true,
         pre_propose_info,
-        dao_code_hash: "".into(),
         query_auth: None,
     };
 
@@ -178,7 +177,7 @@ where
                 address: token_addr.clone(),
                 code_hash: code_hash.clone(),
             },
-            &snip20_reference_impl::msg::ExecuteMsg::IncreaseAllowance {
+            &snip20_base::msg::ExecuteMsg::IncreaseAllowance {
                 spender: pre_propose_module.address.clone().to_string(),
                 amount,
                 expiration: None,

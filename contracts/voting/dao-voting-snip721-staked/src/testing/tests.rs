@@ -51,11 +51,9 @@ fn test_instantiate_with_new_cw721_collection() -> anyhow::Result<()> {
             &InstantiateMsg {
                 nft_contract: NftContract::Existing {
                     address: nft.address.to_string(),
-                    code_hash: nft.code_hash.clone(),
                 },
                 unstaking_duration: None,
                 active_threshold: None,
-                dao_code_hash: "dao_code_hash".to_string(),
                 query_auth: Some(RawContract {
                     code_hash: query_auth.code_hash.clone(),
                     address: query_auth.address.clone().to_string(),
@@ -604,7 +602,6 @@ fn test_instantiate_with_invalid_duration_fails() {
                 unstaking_duration: None,
                 active_threshold: None,
                 query_auth: None,
-                dao_code_hash: "".to_string(),
             },
             &[],
             "snip721_voting",
@@ -660,7 +657,6 @@ fn test_instantiate_zero_active_threshold_count() {
                 count: Uint128::zero(),
             }),
             query_auth: None,
-            dao_code_hash: "".to_string(),
         },
         &[],
         "snip721_voting",
@@ -682,14 +678,12 @@ fn test_instantiate_invalid_active_threshold_count_existing_nft() {
         &InstantiateMsg {
             nft_contract: NftContract::Existing {
                 address: nft.address.to_string(),
-                code_hash: nft.code_hash,
             },
             unstaking_duration: None,
             active_threshold: Some(ActiveThreshold::AbsoluteCount {
                 count: Uint128::new(100),
             }),
             query_auth: None,
-            dao_code_hash: "".to_string(),
         },
         &[],
         "snip721_voting",
@@ -718,13 +712,11 @@ fn test_active_threshold_absolute_count() {
             &InstantiateMsg {
                 nft_contract: NftContract::Existing {
                     address: nft.address.to_string(),
-                    code_hash: nft.code_hash.clone(),
                 },
                 unstaking_duration: None,
                 active_threshold: Some(ActiveThreshold::AbsoluteCount {
                     count: Uint128::new(3),
                 }),
-                dao_code_hash: "dao_code_hash".to_string(),
                 query_auth: Some(RawContract {
                     code_hash: query_auth.code_hash.clone(),
                     address: query_auth.address.clone().to_string(),
@@ -789,13 +781,11 @@ fn test_active_threshold_percent() {
             &InstantiateMsg {
                 nft_contract: NftContract::Existing {
                     address: nft.address.to_string(),
-                    code_hash: nft.code_hash.clone(),
                 },
                 unstaking_duration: None,
                 active_threshold: Some(ActiveThreshold::Percentage {
                     percent: Decimal::percent(20),
                 }),
-                dao_code_hash: "dao_code_hash".to_string(),
                 query_auth: Some(RawContract {
                     code_hash: query_auth.code_hash.clone(),
                     address: query_auth.address.clone().to_string(),
@@ -862,13 +852,11 @@ fn test_active_threshold_percent_rounds_up() {
             &InstantiateMsg {
                 nft_contract: NftContract::Existing {
                     address: nft.address.to_string(),
-                    code_hash: nft.code_hash.clone(),
                 },
                 unstaking_duration: None,
                 active_threshold: Some(ActiveThreshold::Percentage {
                     percent: Decimal::percent(50),
                 }),
-                dao_code_hash: "dao_code_hash".to_string(),
                 query_auth: Some(RawContract {
                     code_hash: query_auth.code_hash.clone(),
                     address: query_auth.address.clone().to_string(),
@@ -942,11 +930,9 @@ fn test_update_active_threshold() {
             &InstantiateMsg {
                 nft_contract: NftContract::Existing {
                     address: nft.address.to_string(),
-                    code_hash: nft.code_hash.clone(),
                 },
                 unstaking_duration: None,
                 active_threshold: None,
-                dao_code_hash: "dao_code_hash".to_string(),
                 query_auth: Some(RawContract {
                     code_hash: query_auth.code_hash.clone(),
                     address: query_auth.address.clone().to_string(),
@@ -1024,13 +1010,11 @@ fn test_active_threshold_percentage_gt_100() {
         &InstantiateMsg {
             nft_contract: NftContract::Existing {
                 address: nft.address.to_string(),
-                code_hash: nft.code_hash.clone(),
             },
             unstaking_duration: None,
             active_threshold: Some(ActiveThreshold::Percentage {
                 percent: Decimal::percent(120),
             }),
-            dao_code_hash: "dao_code_hash".to_string(),
             query_auth: Some(RawContract {
                 code_hash: query_auth.code_hash.clone(),
                 address: query_auth.address.clone().to_string(),
@@ -1067,13 +1051,11 @@ fn test_active_threshold_percentage_lte_0() {
         &InstantiateMsg {
             nft_contract: NftContract::Existing {
                 address: nft.address.to_string(),
-                code_hash: nft.code_hash.clone(),
             },
             unstaking_duration: None,
             active_threshold: Some(ActiveThreshold::Percentage {
                 percent: Decimal::percent(0),
             }),
-            dao_code_hash: "dao_code_hash".to_string(),
             query_auth: Some(RawContract {
                 code_hash: query_auth.code_hash.clone(),
                 address: query_auth.address.clone().to_string(),
@@ -1129,7 +1111,6 @@ fn test_invalid_instantiate_msg() {
                     count: Uint128::zero(),
                 }),
                 query_auth: None,
-                dao_code_hash: "".to_string(),
             },
             &[],
             "snip721_voting",
@@ -1174,7 +1155,6 @@ fn test_no_initial_nfts_fails() {
                     count: Uint128::zero(),
                 }),
                 query_auth: None,
-                dao_code_hash: "".to_string(),
             },
             &[],
             "snip721_voting",

@@ -5,9 +5,9 @@ use secret_multi_test::{Contract, ContractWrapper};
 
 pub fn snip20_base_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        snip20_reference_impl::contract::execute,
-        snip20_reference_impl::contract::instantiate,
-        snip20_reference_impl::contract::query,
+        snip20_base::contract::execute,
+        snip20_base::contract::instantiate,
+        snip20_base::contract::query,
     );
     Box::new(contract)
 }

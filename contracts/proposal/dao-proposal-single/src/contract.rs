@@ -13,6 +13,7 @@ use dao_hooks::vote::new_vote_hooks;
 use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::{AnyContractInfo, VotingModuleInfo};
 use dao_interface::voting::IsActiveResponse;
+use dao_utils::query::get_contract_code_hash;
 use dao_voting::pre_propose::{PreProposeInfo, ProposalCreationPolicy};
 use dao_voting::proposal::{
     SingleChoiceProposeMsg as ProposeMsg, DEFAULT_LIMIT, MAX_PROPOSAL_SIZE,
@@ -63,7 +64,7 @@ pub fn instantiate(
     DAO.save(
         deps.storage,
         &AnyContractInfo {
-            code_hash: msg.dao_code_hash,
+            code_hash: get_contract_code_hash(deps.querier, info.sender.clone().into()).unwrap_or_default(),
             addr: info.sender.clone(),
         },
     )?;
@@ -1153,14 +1154,13 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 // we do not.
                 //
                 // <https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply>
-                // match sub_msg_response.data {
-                //     Some(data) => Ok(Response::new()
-                //         .add_attribute("update_pre_propose_module", address.clone().to_string())
-                //         .set_data(data)),
-                //     None => Ok(Response::new()
-                //         .add_attribute("update_pre_propose_module", address.to_string())),
-                // }
-                Ok(Response::new().add_attribute("update_pre_propose_module", address.to_string()))
+                match sub_msg_response.data {
+                    Some(data) => Ok(Response::new()
+                        .add_attribute("update_pre_propose_module", address.clone().to_string())
+                        .set_data(data)),
+                    None => Ok(Response::new()
+                        .add_attribute("update_pre_propose_module", address.to_string())),
+                }
             }
             SubMsgResult::Err(_) => todo!(),
         },

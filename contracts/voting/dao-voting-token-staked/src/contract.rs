@@ -15,6 +15,7 @@ use dao_interface::{
         DenomResponse, IsActiveResponse, TotalPowerAtHeightResponse, VotingPowerAtHeightResponse,
     },
 };
+use dao_utils::query::get_contract_code_hash;
 use dao_voting::{
     duration::validate_duration,
     threshold::{
@@ -72,8 +73,8 @@ pub fn instantiate(
     DAO.save(
         deps.storage,
         &AnyContractInfo {
-            addr: info.sender,
-            code_hash: msg.dao_code_hash,
+            addr: info.sender.clone(),
+            code_hash: get_contract_code_hash(deps.querier, info.sender.into_string()).unwrap_or_default(),
         },
     )?;
 

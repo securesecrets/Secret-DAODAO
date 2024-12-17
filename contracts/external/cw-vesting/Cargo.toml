@@ -27,7 +27,7 @@ secret-storage-plus = { workspace = true }
 secret-utils = { workspace = true }
 cw-wormhole = { workspace = true }
 secret-cw2 = { workspace = true }
-snip20-reference-impl = { workspace = true }
+snip20-base = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 wynd-utils = { workspace = true }
@@ -37,5 +37,5 @@ dao-interface ={ workspace = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 secret-multi-test = { workspace = true }
-snip20-reference-impl = { workspace = true }
+snip20-base = { workspace = true }
 # dao-testing = { workspace = true }

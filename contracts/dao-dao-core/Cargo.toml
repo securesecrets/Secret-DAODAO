@@ -28,7 +28,7 @@ dao-dao-macros = { workspace = true }
 cw-paginate-storage = { workspace = true }
 cw-core-v1 = { workspace = true, features = ["library"] }
 secret-toolkit = { workspace = true }
-snip20-reference-impl = { workspace = true }
+snip20-base = { workspace = true }
 snip721-reference-impl = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
@@ -37,13 +37,12 @@ shade-protocol ={ workspace = true }
 dao-utils = {workspace = true}
 cw4 ={ workspace = true }
 query_auth ={ workspace = true }
-dao-voting-cw4 = { workspace = true }
 cw4-group = { workspace = true }
 dao-proposal-sudo ={ workspace = true }
-dao-voting-snip20-balance ={ workspace = true }
 
 
 [dev-dependencies]
 secret-multi-test = { workspace = true, features = ["stargate"] }
 # dao-proposal-sudo = { workspace = true }
-# dao-voting-snip20-balance = { workspace = true }
+dao-voting-snip20-balance = { workspace = true }
+dao-voting-cw4 = { workspace = true }

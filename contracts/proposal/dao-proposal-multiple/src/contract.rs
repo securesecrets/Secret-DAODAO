@@ -13,6 +13,7 @@ use dao_hooks::vote::new_vote_hooks;
 use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::{AnyContractInfo, VotingModuleInfo};
 use dao_interface::voting::IsActiveResponse;
+use dao_utils::query::get_contract_code_hash;
 use dao_voting::reply::{
     failed_pre_propose_module_hook_id, mask_proposal_execution_proposal_id, TaggedReplyId,
 };
@@ -64,7 +65,7 @@ pub fn instantiate(
     DAO.save(
         deps.storage,
         &AnyContractInfo {
-            code_hash: msg.dao_code_hash,
+            code_hash: get_contract_code_hash(deps.querier, info.sender.clone().into()).unwrap_or_default(),
             addr: info.sender.clone(),
         },
     )?;

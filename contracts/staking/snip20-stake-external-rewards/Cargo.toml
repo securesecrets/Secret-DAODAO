@@ -36,7 +36,7 @@ cw20-stake-external-rewards-v1 = { workspace = true }
 cw20-013 = { package = "cw20", version = "0.13" }
 shade-protocol ={ workspace = true }
 query_auth ={ workspace = true }
-snip20-reference-impl = { workspace = true }
+snip20-base = { workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }

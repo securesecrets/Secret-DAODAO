@@ -48,11 +48,9 @@ pub(crate) fn setup_test(unstaking_duration: Option<Duration>) -> CommonTest {
             &InstantiateMsg {
                 nft_contract: NftContract::Existing {
                     address: nft.address.to_string(),
-                    code_hash: nft.code_hash.clone(),
                 },
                 unstaking_duration,
                 active_threshold: None,
-                dao_code_hash: "dao_code_hash".to_string(),
                 query_auth: Some(RawContract {
                     address: query_auth.address.to_string(),
                     code_hash: query_auth.code_hash.clone(),

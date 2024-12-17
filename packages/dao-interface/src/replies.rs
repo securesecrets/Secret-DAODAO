@@ -20,15 +20,9 @@ pub enum ReplyError {
 
 #[cw_serde]
 pub enum ReplyEvent {
-    VotingModuleInstantiate {
-        code_hash: String,
-    },
-    ProposalModuleInstantiate {
-        code_hash: String,
-    },
-    PreProposalModuleInstantiate {
-        code_hash: String,
-    },
+    VotingModuleInstantiate {},
+    ProposalModuleInstantiate {},
+    PreProposalModuleInstantiate {},
     Snip20ModuleInstantiate {},
     Snip20ModuleCreateViewingKey {
         contract_address: String,
@@ -52,7 +46,6 @@ pub enum ReplyEvent {
         /// NOTE: the pre-propose-base package depends on it being the case
         /// that the core module instantiates its proposal module.
         proposal_modules_instantiate_info: Vec<ModuleInstantiateInfo>,
-        code_hash: String,
     },
     InstantiateGroupContract {},
 }

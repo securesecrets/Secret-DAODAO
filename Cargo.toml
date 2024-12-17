@@ -3,7 +3,7 @@ exclude = ["ci/configs/", "wasmvm/libwasmvm"]
 members = [
   "./contracts/dao-dao-core",
   "./contracts/external/cw-admin-factory",
-  "./contracts/external/snip20-reference-impl",
+  "./contracts/external/snip20-base",
   "./contracts/external/snip721-reference-impl",
   "./contracts/external/snip721-roles/",
   "./contracts/external/snip721-roles-impl/",
@@ -136,10 +136,9 @@ secret-toolkit = { version = "0.10.0", default-features = false, features = [
 
 secret-cw-controllers = { path = "./packages/controllers/",default-features = false }
 secret-storage-plus = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4", branch = "main"}
-secret-multi-test = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4", branch = "main"}
+secret-multi-test = { git = "https://github.com/kent-3/secret-plus-utils", branch = "protobuf-fix"}
 secret-utils = { git = "https://github.com/securesecrets/secret-plus-utils", version = "0.13.4", branch = "main" }
 secret-cw2 = { git = "https://github.com/securesecrets/secret-plus-utils", version = "1.0.1", branch = "main"}
-
 cosmwasm-std = { package = "secret-cosmwasm-std", version = "1.1.11", features = [
   "stargate",
   "staking",
@@ -152,7 +151,7 @@ schemars = {version = "0.8.12",default-features = false}
 serde = { version = "1.0.158", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.21" ,default-features = false}
 cosmwasm-schema = { git = "https://github.com/scrtlabs/cosmwasm/", branch = "secret",default-features = false }
-snip20-reference-impl = { path = "./contracts/external/snip20-reference-impl/",default-features = false }
+snip20-base = { path = "./contracts/external/snip20-base",default-features = false }
 snip721-reference-impl = { path = "./contracts/external/snip721-reference-impl/" ,default-features = false}
 snip721-roles-impl = { path = "./contracts/external/snip721-roles-impl/" ,default-features = false}
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }

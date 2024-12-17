@@ -24,7 +24,7 @@ use secret_multi_test::{
 use secret_utils::Duration;
 use shade_protocol::basic_staking::Auth;
 use shade_protocol::utils::asset::RawContract;
-use snip20_reference_impl::msg::{InitConfig, InitialBalance};
+use snip20_base::msg::{InitConfig, InitialBalance};
 
 use crate::contract::*;
 const CREATOR_ADDR: &str = "creator";
@@ -59,15 +59,6 @@ pub fn dao_voting_cw4_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-pub fn snip721_base_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        snip721_reference_impl::contract::execute,
-        snip721_reference_impl::contract::instantiate,
-        snip721_reference_impl::contract::query,
-    );
-    Box::new(contract)
-}
-
 pub fn query_auth_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
         query_auth::contract::execute,
@@ -87,8 +78,6 @@ pub fn instantiate_with_cw4_groups_governance(
 ) -> ContractInfo {
     let cw4_info = app.store_code(cw4_group_contract());
     let votemod_info = app.store_code(dao_voting_cw4_contract());
-    let snip20_info = app.store_code(snip20_base_contract());
-    let snip721_info = app.store_code(snip721_base_contract());
     let query_auth = app.store_code(query_auth_contract());
     let initial_weights = initial_weights.unwrap_or_default();
 
@@ -128,7 +117,6 @@ pub fn instantiate_with_cw4_groups_governance(
                     initial_members: initial_weights,
                     query_auth: None,
                 },
-                dao_code_hash: core_info.code_hash.clone(),
             })
             .unwrap(),
             admin: Some(Admin::CoreModule {}),
@@ -147,8 +135,6 @@ pub fn instantiate_with_cw4_groups_governance(
         query_auth_code_id: query_auth.code_id,
         query_auth_code_hash: query_auth.code_hash,
         prng_seed: "seed".into(),
-        snip20_code_hash: snip20_info.code_hash,
-        snip721_code_hash: snip721_info.code_hash,
     };
 
     let addr = app
@@ -185,9 +171,9 @@ fn cw_pre_propose_base_proposal_single() -> Box<dyn Contract<Empty>> {
 
 fn snip20_base_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        snip20_reference_impl::contract::execute,
-        snip20_reference_impl::contract::instantiate,
-        snip20_reference_impl::contract::query,
+        snip20_base::contract::execute,
+        snip20_base::contract::instantiate,
+        snip20_base::contract::query,
     );
     Box::new(contract)
 }
@@ -196,9 +182,7 @@ fn get_default_proposal_module_instantiate(
     app: &mut App,
     deposit_info: Option<UncheckedDepositInfo>,
     open_proposal_submission: bool,
-    proposal_module_code_hash: String,
     query_auth: ContractInfo,
-    dao_code_hash: String,
 ) -> cpm::msg::InstantiateMsg {
     let pre_propose_info = app.store_code(cw_pre_propose_base_proposal_single());
 
@@ -218,7 +202,6 @@ fn get_default_proposal_module_instantiate(
                     deposit_info,
                     open_proposal_submission,
                     extension: Empty::default(),
-                    proposal_module_code_hash,
                 })
                 .unwrap(),
                 admin: Some(Admin::CoreModule {}),
@@ -228,7 +211,6 @@ fn get_default_proposal_module_instantiate(
         },
         close_proposal_on_execution_failure: false,
         veto: None,
-        dao_code_hash,
         query_auth: Some(RawContract::new(
             &query_auth.address.into_string(),
             &query_auth.code_hash,
@@ -238,7 +220,7 @@ fn get_default_proposal_module_instantiate(
 
 fn instantiate_snip20_base_default(app: &mut App) -> ContractInfo {
     let snip20_info = app.store_code(snip20_base_contract());
-    let snip20_instantiate = snip20_reference_impl::msg::InstantiateMsg {
+    let snip20_instantiate = snip20_base::msg::InstantiateMsg {
         name: "snip20 token".to_string(),
         symbol: "sniptwenty".to_string(),
         decimals: 6,
@@ -311,7 +293,7 @@ fn create_viewing_key(app: &mut App, contract_info: ContractInfo, sender: &str) 
 }
 
 fn create_viewing_key_snip20(app: &mut App, contract_info: ContractInfo, addr: &str) -> String {
-    let msg = snip20_reference_impl::msg::ExecuteMsg::CreateViewingKey {
+    let msg = snip20_base::msg::ExecuteMsg::CreateViewingKey {
         entropy: "entropy".to_string(),
         padding: None,
     };
@@ -319,8 +301,8 @@ fn create_viewing_key_snip20(app: &mut App, contract_info: ContractInfo, addr: &
         .execute_contract(Addr::unchecked(addr), &contract_info, &msg, &[])
         .unwrap();
     let mut viewing_key = String::new();
-    let data: snip20_reference_impl::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
-    if let snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } = data {
+    let data: snip20_base::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
+    if let snip20_base::msg::ExecuteAnswer::CreateViewingKey { key } = data {
         viewing_key = key;
     };
     viewing_key
@@ -344,9 +326,7 @@ fn setup_default_test(
         app,
         deposit_info,
         open_proposal_submission,
-        cpm_nfo.code_hash.clone(),
         query_auth.clone(),
-        core_info.code_hash.clone(),
     );
 
     let core_contract_info = instantiate_with_cw4_groups_governance(
@@ -534,7 +514,7 @@ fn increase_allowance(
     app.execute_contract(
         Addr::unchecked(sender),
         &snip20_contract_info,
-        &snip20_reference_impl::msg::ExecuteMsg::IncreaseAllowance {
+        &snip20_base::msg::ExecuteMsg::IncreaseAllowance {
             spender: receiver.to_string(),
             amount,
             expiration: None,
@@ -552,16 +532,16 @@ fn get_balance_snip20<T: Into<String>, C: Into<String>, U: Into<String>, K: Into
     address: U,
     key: K,
 ) -> Uint128 {
-    let msg = snip20_reference_impl::msg::QueryMsg::Balance {
+    let msg = snip20_base::msg::QueryMsg::Balance {
         address: address.into(),
         key: key.into(),
     };
-    let result: snip20_reference_impl::msg::QueryAnswer = app
+    let result: snip20_base::msg::QueryAnswer = app
         .wrap()
         .query_wasm_smart(code_hash, contract_addr, &msg)
         .unwrap();
     let mut balance = Uint128::zero();
-    if let snip20_reference_impl::msg::QueryAnswer::Balance { amount } = result {
+    if let snip20_base::msg::QueryAnswer::Balance { amount } = result {
         balance = amount;
     }
     balance
@@ -1614,7 +1594,6 @@ fn test_instantiate_with_zero_native_deposit() {
                         }),
                         open_proposal_submission: false,
                         extension: Empty::default(),
-                        proposal_module_code_hash: cpm_info.code_hash.clone(),
                     })
                     .unwrap(),
                     admin: Some(Admin::CoreModule {}),
@@ -1624,7 +1603,6 @@ fn test_instantiate_with_zero_native_deposit() {
             },
             close_proposal_on_execution_failure: false,
             veto: None,
-            dao_code_hash: core_info.code_hash.clone(),
             query_auth: None,
         }
     };
@@ -1687,7 +1665,6 @@ fn test_instantiate_with_zero_cw20_deposit() {
                         }),
                         open_proposal_submission: false,
                         extension: Empty::default(),
-                        proposal_module_code_hash: cpm_info.code_hash.clone(),
                     })
                     .unwrap(),
                     admin: Some(Admin::CoreModule {}),
@@ -1697,7 +1674,6 @@ fn test_instantiate_with_zero_cw20_deposit() {
             },
             close_proposal_on_execution_failure: false,
             veto: None,
-            dao_code_hash: core_info.code_hash.clone(),
             query_auth: None,
         }
     };

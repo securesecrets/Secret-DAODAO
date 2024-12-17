@@ -45,6 +45,21 @@ pub struct AnyContractInfo {
     pub code_hash: String,
 }
 
+impl Default for AnyContractInfo {
+    fn default() -> Self {
+        AnyContractInfo {
+            addr: Addr::unchecked(""),
+            code_hash: String::new(),
+        }
+    }
+}
+
+impl AnyContractInfo {
+    pub fn new(addr: Addr, code_hash: String) -> Self {
+        AnyContractInfo { addr, code_hash }
+    }
+}
+
 /// The status of a proposal module.
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]

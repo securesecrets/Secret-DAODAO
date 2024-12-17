@@ -16,7 +16,6 @@ pub struct InstantiateMsg<InstantiateExt> {
     /// proposals in the DAO. Otherwise, any address may create a
     /// proposal so long as they pay the deposit.
     pub open_proposal_submission: bool,
-    pub proposal_module_code_hash: String,
     /// Extension for instantiation. The default implementation will
     /// do nothing with this data.
     pub extension: InstantiateExt,

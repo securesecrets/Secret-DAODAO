@@ -2,7 +2,7 @@ use cosmwasm_std::{Addr, ContractInfo, Empty, Uint128};
 use dao_interface::voting::InfoResponse;
 use secret_cw2::ContractVersion;
 use secret_multi_test::{App, Contract, ContractInstantiationInfo, ContractWrapper, Executor};
-use snip20_reference_impl::msg::InitialBalance;
+use snip20_base::msg::InitialBalance;
 
 use crate::msg::{InstantiateMsg, QueryMsg};
 
@@ -11,9 +11,9 @@ const CREATOR_ADDR: &str = "creator";
 
 fn snip20_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        snip20_reference_impl::contract::execute,
-        snip20_reference_impl::contract::instantiate,
-        snip20_reference_impl::contract::query,
+        snip20_base::contract::execute,
+        snip20_base::contract::instantiate,
+        snip20_base::contract::query,
     );
     Box::new(contract)
 }

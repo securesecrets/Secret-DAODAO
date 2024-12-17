@@ -8,16 +8,16 @@ use cosmwasm_std::{from_binary, to_binary, Addr, ContractInfo, Empty, Uint128};
 use cw_ownable::{Action, Expiration, Ownership, OwnershipError};
 use secret_multi_test::{next_block, App, Contract, ContractWrapper, Executor};
 use shade_protocol::utils::asset::RawContract;
-use snip20_reference_impl::msg::InitialBalance;
+use snip20_base::msg::InitialBalance;
 
 const OWNER: &str = "owner";
 const OWNER2: &str = "owner2";
 
 pub fn cw20_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        snip20_reference_impl::contract::execute,
-        snip20_reference_impl::contract::instantiate,
-        snip20_reference_impl::contract::query,
+        snip20_base::contract::execute,
+        snip20_base::contract::instantiate,
+        snip20_base::contract::query,
     );
     Box::new(contract)
 }
@@ -53,7 +53,7 @@ fn distributor_contract() -> Box<dyn Contract<Empty>> {
 
 fn instantiate_snip20(app: &mut App, initial_balances: Vec<InitialBalance>) -> ContractInfo {
     let contract_info = app.store_code(cw20_contract());
-    let msg = snip20_reference_impl::msg::InstantiateMsg {
+    let msg = snip20_base::msg::InstantiateMsg {
         name: String::from("Test"),
         symbol: String::from("TEST"),
         decimals: 6,
@@ -141,16 +141,16 @@ fn get_balance_snip20<T: Into<String>, C: Into<String>, U: Into<String>, K: Into
     address: U,
     key: K,
 ) -> Uint128 {
-    let msg = snip20_reference_impl::msg::QueryMsg::Balance {
+    let msg = snip20_base::msg::QueryMsg::Balance {
         address: address.into(),
         key: key.into(),
     };
-    let result: snip20_reference_impl::msg::QueryAnswer = app
+    let result: snip20_base::msg::QueryAnswer = app
         .wrap()
         .query_wasm_smart(code_hash, contract_addr, &msg)
         .unwrap();
     let mut balance = Uint128::zero();
-    if let snip20_reference_impl::msg::QueryAnswer::Balance { amount } = result {
+    if let snip20_base::msg::QueryAnswer::Balance { amount } = result {
         balance = amount;
     }
     balance
@@ -175,7 +175,7 @@ fn get_owner(app: &App, contract: &Addr, code_hash: String) -> Ownership<Addr> {
 }
 
 fn create_viewing_key_snip20(app: &mut App, contract_info: ContractInfo, addr: Addr) -> String {
-    let msg = snip20_reference_impl::msg::ExecuteMsg::CreateViewingKey {
+    let msg = snip20_base::msg::ExecuteMsg::CreateViewingKey {
         entropy: "entropy".to_string(),
         padding: None,
     };
@@ -183,8 +183,8 @@ fn create_viewing_key_snip20(app: &mut App, contract_info: ContractInfo, addr: A
         .execute_contract(addr, &contract_info, &msg, &[])
         .unwrap();
     let mut viewing_key = String::new();
-    let data: snip20_reference_impl::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
-    if let snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } = data {
+    let data: snip20_base::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
+    if let snip20_base::msg::ExecuteAnswer::CreateViewingKey { key } = data {
         viewing_key = key;
     };
     viewing_key
@@ -361,7 +361,7 @@ fn test_distribute() {
 
     let distributor_contract_info = instantiate_distributor(&mut app, msg);
 
-    let msg = snip20_reference_impl::msg::ExecuteMsg::Transfer {
+    let msg = snip20_base::msg::ExecuteMsg::Transfer {
         recipient: distributor_contract_info.clone().address.to_string(),
         amount: Uint128::from(1000u128),
         memo: None,
@@ -669,7 +669,7 @@ fn test_withdraw() {
     };
     let distributor_contract_info = instantiate_distributor(&mut app, msg);
 
-    let msg = snip20_reference_impl::msg::ExecuteMsg::Transfer {
+    let msg = snip20_base::msg::ExecuteMsg::Transfer {
         recipient: distributor_contract_info.clone().address.to_string(),
         amount: Uint128::from(1000u128),
         memo: None,
@@ -795,7 +795,7 @@ fn test_dao_deploy() {
     )
     .unwrap();
 
-    let msg = snip20_reference_impl::msg::ExecuteMsg::Transfer {
+    let msg = snip20_base::msg::ExecuteMsg::Transfer {
         recipient: distributor_contract_info.clone().address.to_string(),
         amount: Uint128::from(1000u128),
         memo: None,

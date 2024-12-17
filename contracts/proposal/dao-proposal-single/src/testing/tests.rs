@@ -536,7 +536,7 @@ fn test_proposal_message_execution() {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -757,7 +757,7 @@ fn test_proposal_message_timelock_execution() -> anyhow::Result<()> {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -968,7 +968,7 @@ fn test_open_proposal_veto_unauthorized() {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -1076,7 +1076,7 @@ fn test_open_proposal_veto_with_early_veto_flag_disabled() {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -1179,7 +1179,7 @@ fn test_open_proposal_veto_with_no_timelock() {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -1290,7 +1290,7 @@ fn test_vetoed_proposal_veto() {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -1421,7 +1421,7 @@ fn test_open_proposal_veto_early() {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -1538,7 +1538,7 @@ fn test_timelocked_proposal_veto_unauthorized() -> anyhow::Result<()> {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -1699,7 +1699,7 @@ fn test_timelocked_proposal_veto_expired_timelock() -> anyhow::Result<()> {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -1840,7 +1840,7 @@ fn test_timelocked_proposal_execute_no_early_exec() -> anyhow::Result<()> {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -1985,7 +1985,7 @@ fn test_timelocked_proposal_execute_early() -> anyhow::Result<()> {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -2144,7 +2144,7 @@ fn test_timelocked_proposal_execute_active_timelock_unauthorized() -> anyhow::Re
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -2295,7 +2295,7 @@ fn test_timelocked_proposal_execute_expired_timelock_not_vetoer() -> anyhow::Res
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -2460,7 +2460,7 @@ fn test_proposal_message_timelock_veto() -> anyhow::Result<()> {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -2678,7 +2678,7 @@ fn test_proposal_message_timelock_early_execution() -> anyhow::Result<()> {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -2842,7 +2842,7 @@ fn test_proposal_message_timelock_veto_before_passed() {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -2987,7 +2987,7 @@ fn test_veto_only_members_execute_proposal() -> anyhow::Result<()> {
             WasmMsg::Execute {
                 contract_addr: gov_token_info.addr.clone().to_string(),
                 code_hash: gov_token_info.code_hash.clone(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Mint {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Mint {
                     recipient: CREATOR_ADDR.to_string(),
                     amount: Uint128::new(10_000_000),
                     memo: None,
@@ -3508,7 +3508,7 @@ fn test_cant_execute_not_member_when_proposal_created() {
             address: gov_token_info.addr.clone(),
             code_hash: gov_token_info.code_hash.clone(),
         },
-        &snip20_reference_impl::msg::ExecuteMsg::Send {
+        &snip20_base::msg::ExecuteMsg::Send {
             recipient: staking_contract.addr.clone().to_string(),
             recipient_code_hash: Some(staking_contract.code_hash.clone()),
             amount: Uint128::new(10_000_000),
@@ -4217,7 +4217,7 @@ fn test_active_threshold_absolute() {
         .unwrap();
     assert!(matches!(err, ContractError::InactiveDao {}));
 
-    let msg = snip20_reference_impl::msg::ExecuteMsg::Send {
+    let msg = snip20_base::msg::ExecuteMsg::Send {
         recipient: staking_contract.addr.clone().to_string(),
         amount: Uint128::new(100),
         msg: Some(
@@ -4378,7 +4378,7 @@ fn test_active_threshold_percent() {
         .unwrap();
     assert!(matches!(err, ContractError::InactiveDao {}));
 
-    let msg = snip20_reference_impl::msg::ExecuteMsg::Send {
+    let msg = snip20_base::msg::ExecuteMsg::Send {
         recipient: staking_contract.addr.clone().to_string(),
         amount: Uint128::new(20_000_000),
         msg: Some(
@@ -5637,7 +5637,6 @@ fn test_proposal_count_initialized_to_zero() {
             allow_revoting: false,
             pre_propose_info,
             close_proposal_on_execution_failure: true,
-            dao_code_hash: "todo!()".into(),
             query_auth: None,
         },
         Some(vec![

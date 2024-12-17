@@ -11,7 +11,7 @@ version = { workspace = true }
 cosmwasm-std = {workspace=true}
 cosmwasm-storage = {workspace=true}
 cosmwasm-schema = { workspace = true }
-snip20-reference-impl ={ workspace = true}
+snip20-base ={ workspace = true}
 thiserror = { workspace = true }
 secret-toolkit = { workspace = true }
 

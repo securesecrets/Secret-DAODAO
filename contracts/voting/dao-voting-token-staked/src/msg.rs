@@ -38,7 +38,6 @@ pub struct InstantiateMsg {
     /// The number or percentage of tokens that must be staked
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
-    pub dao_code_hash: String,
     pub query_auth: Option<RawContract>,
 }
 

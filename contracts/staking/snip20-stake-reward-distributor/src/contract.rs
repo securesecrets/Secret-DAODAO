@@ -3,11 +3,10 @@ use std::cmp::min;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, CosmosMsg, Reply, StdError, SubMsg, SubMsgResult, Uint128,
-    WasmMsg,
+    from_slice, to_binary, Addr, CosmosMsg, Reply, StdError, SubMsg, SubMsgResult, Uint128, WasmMsg
 };
 use secret_toolkit::utils::HandleCallback;
-use snip20_reference_impl::msg::{ExecuteAnswer, QueryAnswer};
+use snip20_base::msg::{ExecuteAnswer, QueryAnswer};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InfoResponse, InstantiateMsg, MigrateMsg, QueryMsg};
@@ -178,7 +177,7 @@ pub fn execute_update_owner(
 }
 
 pub fn validate_snip20(deps: Deps, snip20_addr: Addr, snip20_code_hash: String) -> bool {
-    let response: Result<snip20_reference_impl::msg::QueryAnswer, StdError> =
+    let response: Result<snip20_base::msg::QueryAnswer, StdError> =
         deps.querier.query_wasm_smart(
             snip20_code_hash,
             snip20_addr,
@@ -208,7 +207,7 @@ fn get_distribution_msg(deps: Deps, env: &Env) -> Result<CosmosMsg, ContractErro
 
     let pending_rewards: Uint128 = config.reward_rate * Uint128::new(block_diff.into());
 
-    let balance_info: snip20_reference_impl::msg::QueryAnswer = deps.querier.query_wasm_smart(
+    let balance_info: snip20_base::msg::QueryAnswer = deps.querier.query_wasm_smart(
         config.reward_token_code_hash.clone(),
         config.reward_token.clone(),
         &secret_toolkit::snip20::QueryMsg::Balance {
@@ -348,22 +347,23 @@ fn query_info(deps: Deps, env: Env) -> StdResult<InfoResponse> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
     match msg.id {
-        EXECUTE_TOKEN_VIEWING_KEY_ID => {
-            match msg.result {
-                SubMsgResult::Ok(res) => {
-                    // let mut token_viewing_key=TOKEN_VIEWING_KEY.load(deps.storage).unwrap_or_default();
-                    let data: snip20_reference_impl::msg::ExecuteAnswer =
-                        from_binary(&res.data.unwrap())?;
-                    let mut viewing_key = String::new();
-                    if let ExecuteAnswer::CreateViewingKey { key } = data {
-                        viewing_key = key;
-                    }
-                    TOKEN_VIEWING_KEY.save(deps.storage, &viewing_key)?;
-                    Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
-                }
-                SubMsgResult::Err(_) => Err(ContractError::TokenExecuteError {}),
+        EXECUTE_TOKEN_VIEWING_KEY_ID => match msg.result {
+            SubMsgResult::Ok(res) => {
+                let raw_data = res.data.ok_or_else(|| StdError::generic_err("No data returned"))?;
+        
+                // Extract JSON payload starting from the '{' character
+                let json_data = &raw_data.0[raw_data.0.iter().position(|&b| b == b'{').unwrap_or(0)..];
+                let key = match from_slice::<ExecuteAnswer>(json_data)? {
+                    ExecuteAnswer::CreateViewingKey { key } => key,
+                    _ => return Err(ContractError::Std(StdError::generic_err("Unexpected response type"))),
+                };
+        
+                TOKEN_VIEWING_KEY.save(deps.storage, &key)?;
+                Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
             }
-        }
+            SubMsgResult::Err(_) => Err(ContractError::Std(StdError::generic_err("Token execution error"))),
+        },
         _ => Err(ContractError::UnknownReplyId { id: msg.id }),
+        
     }
 }

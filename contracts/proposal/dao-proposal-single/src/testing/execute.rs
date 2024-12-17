@@ -10,7 +10,7 @@ use dao_voting::{
     proposal::SingleChoiceProposeMsg as ProposeMsg, voting::Vote,
 };
 use shade_protocol::basic_staking::Auth;
-use snip20_reference_impl::msg::InitialBalance;
+use snip20_base::msg::InitialBalance;
 
 use crate::{
     msg::{ExecuteMsg, QueryMsg},
@@ -63,7 +63,7 @@ pub(crate) fn make_proposal(
                                 address: addr,
                                 code_hash,
                             },
-                            &snip20_reference_impl::msg::ExecuteMsg::IncreaseAllowance {
+                            &snip20_base::msg::ExecuteMsg::IncreaseAllowance {
                                 spender: pre_propose.to_string(),
                                 amount,
                                 expiration: None,
@@ -346,7 +346,7 @@ pub(crate) fn mint_snip20s(
             address: snip20_contract.clone(),
             code_hash: snip20_contract_code_hash.clone(),
         },
-        &snip20_reference_impl::msg::ExecuteMsg::Mint {
+        &snip20_base::msg::ExecuteMsg::Mint {
             recipient: receiver.to_string(),
             amount: Uint128::new(amount),
             memo: None,
@@ -361,7 +361,7 @@ pub(crate) fn mint_snip20s(
 
 pub(crate) fn instantiate_sni20_base_default(app: &mut App) -> ContractInfo {
     let snip20_info = app.store_code(snip20_base_contract());
-    let snip20_instantiate = snip20_reference_impl::msg::InstantiateMsg {
+    let snip20_instantiate = snip20_base::msg::InstantiateMsg {
         name: "snip20 token".to_string(),
         symbol: "sniptwenty".to_string(),
         decimals: 6,
@@ -605,7 +605,7 @@ pub(crate) fn create_snip20_viewing_key(
     contract_info: ContractInfo,
     info: MessageInfo,
 ) -> String {
-    let msg = snip20_reference_impl::msg::ExecuteMsg::CreateViewingKey {
+    let msg = snip20_base::msg::ExecuteMsg::CreateViewingKey {
         entropy: "entropy".to_string(),
         padding: None,
     };
@@ -613,8 +613,8 @@ pub(crate) fn create_snip20_viewing_key(
         .execute_contract(info.sender, &contract_info, &msg, &[])
         .unwrap();
     let mut viewing_key = String::new();
-    let data: snip20_reference_impl::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
-    if let snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } = data {
+    let data: snip20_base::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
+    if let snip20_base::msg::ExecuteAnswer::CreateViewingKey { key } = data {
         viewing_key = key;
     };
     viewing_key

@@ -31,7 +31,7 @@ secret-toolkit = { workspace = true }
 secret-storage-plus = { workspace = true}
 secret-cw-controllers = { workspace = true }
 secret-cw2 = { workspace = true }
-snip20-reference-impl ={ workspace=true }
+snip20-base ={ workspace=true }
 schemars={ workspace=true }
 shade-protocol = { workspace = true}
 query_auth ={ workspace = true }

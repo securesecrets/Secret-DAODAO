@@ -26,7 +26,6 @@ pub struct UncheckedConfig {
     pub voting_period: Duration,
     pub min_voting_period: Option<Duration>,
     pub close_proposals_on_execution_failure: bool,
-    pub dao_code_hash: String,
 }
 
 impl InitCallback for ProposalCondorcetInstantiateMsg {
@@ -70,10 +69,6 @@ pub struct ProposalMultipleInstantiateMsg {
     /// During this period an oversight account (`veto.vetoer`) can
     /// veto the proposal.
     pub veto: Option<VetoConfig>,
-
-    // dao code hash
-    pub dao_code_hash: String,
-
     pub query_auth: Option<RawContract>,
 }
 
@@ -120,9 +115,6 @@ pub struct ProposalSingleInstantiateMsg {
     /// During this period an oversight account (`veto.vetoer`) can
     /// veto the proposal.
     pub veto: Option<VetoConfig>,
-    /// Code hash of dao
-    pub dao_code_hash: String,
-
     pub query_auth: Option<RawContract>,
 }
 
@@ -134,7 +126,6 @@ impl InitCallback for ProposalSingleInstantiateMsg {
 pub enum GroupContract {
     Existing {
         address: String,
-        code_hash: String,
     },
     New {
         cw4_group_code_id: u64,
@@ -147,7 +138,6 @@ pub enum GroupContract {
 #[cw_serde]
 pub struct VotingCW4nstantiateMsg {
     pub group_contract: GroupContract,
-    pub dao_code_hash: String,
 }
 
 impl InitCallback for VotingCW4nstantiateMsg {
@@ -161,8 +151,6 @@ pub enum StakingInfo {
     Existing {
         /// Address of an already instantiated staking contract.
         staking_contract_address: String,
-        /// code hash of an already instantiated staking contract.
-        staking_contract_code_hash: String,
     },
     New {
         /// Code ID for staking contract to instantiate.
@@ -184,8 +172,6 @@ pub enum Snip20TokenInfo {
     Existing {
         /// Address of an already instantiated cw20 token contract.
         address: String,
-        /// Code hash of an already instantiated cw20 token contract.
-        code_hash: String,
         /// Information about the staking contract to use.
         staking_contract: StakingInfo,
     },
@@ -212,7 +198,6 @@ pub struct Snip20StakedInstantiateMsg {
     /// The number or percentage of tokens that must be staked
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
-    pub dao_code_hash: String,
     pub query_auth: Option<RawContract>,
 }
 
@@ -240,8 +225,6 @@ pub enum NftRolesContract {
     Existing {
         /// Address of an already instantiated snip721-weighted-roles token contract.
         address: String,
-        /// code hash of an already instantiated snip721-weighted-roles token contract.
-        code_hash: String,
     },
     New {
         /// Code ID for snip721 roles  contract.
@@ -277,7 +260,6 @@ pub enum NftRolesContract {
 pub struct Snip721RolesInstantiateMsg {
     /// Info about the associated NFT contract
     pub nft_contract: NftRolesContract,
-    pub dao_code_hash: String,
 }
 
 impl InitCallback for Snip721RolesInstantiateMsg {
@@ -291,8 +273,6 @@ pub enum NftContract {
     Existing {
         /// Address of an already instantiated snip721 or sg721 token contract.
         address: String,
-        /// code hash of an already instantiated snip721 or sg721 token contract.
-        code_hash: String,
     },
     /// Creates a new NFT collection used for staking and governance.
     New {
@@ -325,9 +305,6 @@ pub struct Snip721StakedInstantiateMsg {
     /// The number or percentage of tokens that must be staked
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
-
-    pub dao_code_hash: String,
-
     pub query_auth: Option<RawContract>,
 }
 
@@ -344,7 +321,6 @@ pub struct TokenStakedInstantiateMsg {
     /// The number or percentage of tokens that must be staked
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
-    pub dao_code_hash: String,
     pub query_auth: Option<RawContract>,
 }
 
@@ -360,5 +336,33 @@ pub enum TokenInfo {
 }
 
 impl InitCallback for TokenStakedInstantiateMsg {
+    const BLOCK_SIZE: usize = 256;
+}
+
+
+#[cw_serde]
+pub enum DaoVotingSnip20BalanceTokenInfo {
+    Existing {
+        address: String,
+        code_hash: String,
+    },
+    New {
+        code_id: u64,
+        code_hash: String,
+        label: String,
+        name: String,
+        symbol: String,
+        decimals: u8,
+        initial_balances: Vec<snip20_base::msg::InitialBalance>,
+    },
+}
+
+#[cw_serde]
+pub struct DaoVotingSnip20BalanceInstantiateMsg {
+    pub token_info: DaoVotingSnip20BalanceTokenInfo,
+    pub dao_code_hash: String,
+}
+
+impl InitCallback for DaoVotingSnip20BalanceInstantiateMsg {
     const BLOCK_SIZE: usize = 256;
 }

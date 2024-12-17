@@ -1,5 +1,5 @@
 mod adversarial_tests;
-mod contracts;
+pub mod contracts;
 mod do_votes;
 mod execute;
 mod instantiate;

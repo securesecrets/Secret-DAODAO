@@ -6,7 +6,6 @@ use shade_protocol::utils::asset::RawContract;
 pub enum GroupContract {
     Existing {
         address: String,
-        code_hash: String,
     },
     New {
         cw4_group_code_id: u64,
@@ -19,7 +18,6 @@ pub enum GroupContract {
 #[cw_serde]
 pub struct InstantiateMsg {
     pub group_contract: GroupContract,
-    pub dao_code_hash: String,
 }
 
 #[cw_serde]

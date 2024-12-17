@@ -52,9 +52,7 @@ fn test_use_existing_nft_contract() {
             &InstantiateMsg {
                 nft_contract: NftRolesContract::Existing {
                     address: snip721_info.address.clone().to_string(),
-                    code_hash: snip721_info.code_hash.clone(),
                 },
-                dao_code_hash: "".into(),
             },
             &[],
             "cw721_voting",

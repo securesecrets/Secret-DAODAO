@@ -60,11 +60,11 @@ impl TokenInfo {
                 } else {
                     let contract_addr = deps.api.addr_validate(&contract_addr)?;
                     // Make sure we are dealing with a cw20.
-                    let _: snip20_reference_impl::msg::QueryAnswer =
+                    let _: snip20_base::msg::QueryAnswer =
                         deps.querier.query_wasm_smart(
                             code_hash.clone(),
                             contract_addr.clone(),
-                            &snip20_reference_impl::msg::QueryMsg::TokenInfo {},
+                            &snip20_base::msg::QueryMsg::TokenInfo {},
                         )?;
                     Ok(CheckedTokenInfo::Snip20 {
                         contract_addr,
@@ -92,7 +92,7 @@ impl CheckedTokenInfo {
             } => WasmMsg::Execute {
                 contract_addr: contract_addr.into_string(),
                 code_hash,
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Transfer {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Transfer {
                     recipient: recipient.to_string(),
                     amount,
                     memo: None,
@@ -146,7 +146,7 @@ mod tests {
                 funds: vec![],
                 contract_addr: "ekez_token".to_string(),
                 code_hash: "ekez_token_code_hash".to_string(),
-                msg: to_binary(&snip20_reference_impl::msg::ExecuteMsg::Transfer {
+                msg: to_binary(&snip20_base::msg::ExecuteMsg::Transfer {
                     recipient: "ekez".to_string(),
                     amount: Uint128::new(100),
                     memo: None,

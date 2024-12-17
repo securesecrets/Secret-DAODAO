@@ -25,7 +25,6 @@ fn test_instantiate_conflicting_proposal_durations() {
         voting_period: Duration::Height(10),
         min_voting_period: Some(Duration::Height(11)),
         close_proposals_on_execution_failure: true,
-        dao_code_hash: "dao_code_hash".to_string(),
     })
     .build();
 }
@@ -40,7 +39,6 @@ fn test_instantiate_conflicting_duration_types() {
         voting_period: Duration::Height(10),
         min_voting_period: Some(Duration::Time(9)),
         close_proposals_on_execution_failure: true,
-        dao_code_hash: "dao_code_hash".to_string(),
     })
     .build();
 }
@@ -52,7 +50,6 @@ fn test_instantiate_open_til_expiry() {
         voting_period: Duration::Height(10),
         min_voting_period: Some(Duration::Height(10)),
         close_proposals_on_execution_failure: true,
-        dao_code_hash: "dao_code_hash".to_string(),
     })
     .build();
     SuiteBuilder::with_config(UncheckedConfig {
@@ -60,7 +57,6 @@ fn test_instantiate_open_til_expiry() {
         voting_period: Duration::Time(10),
         min_voting_period: Some(Duration::Time(10)),
         close_proposals_on_execution_failure: true,
-        dao_code_hash: "dao_code_hash".to_string(),
     })
     .build();
 }

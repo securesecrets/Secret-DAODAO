@@ -46,10 +46,6 @@ pub struct InstantiateMsg {
     /// During this period an oversight account (`veto.vetoer`) can
     /// veto the proposal.
     pub veto: Option<VetoConfig>,
-
-    // dao code hash
-    pub dao_code_hash: String,
-
     pub query_auth: Option<RawContract>,
 }
 

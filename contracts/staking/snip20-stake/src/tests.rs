@@ -8,7 +8,7 @@ use secret_multi_test::{next_block, App, AppResponse, Contract, ContractWrapper,
 use secret_utils::Duration;
 use secret_utils::Expiration::AtHeight;
 use shade_protocol::basic_staking::Auth;
-use snip20_reference_impl::msg::InitialBalance;
+use snip20_base::msg::InitialBalance;
 use std::borrow::BorrowMut;
 
 use crate::msg::{
@@ -35,9 +35,9 @@ fn contract_staking() -> Box<dyn Contract<Empty>> {
 
 fn contract_snip20() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        snip20_reference_impl::contract::execute,
-        snip20_reference_impl::contract::instantiate,
-        snip20_reference_impl::contract::query,
+        snip20_base::contract::execute,
+        snip20_base::contract::instantiate,
+        snip20_base::contract::query,
     );
     Box::new(contract)
 }
@@ -98,7 +98,7 @@ fn instantiate_query_auth(app: &mut App) -> ContractInfo {
 
 fn instantiate_snip20(app: &mut App, initial_balances: Vec<InitialBalance>) -> ContractInfo {
     let snip20_info = app.store_code(contract_snip20());
-    let msg = snip20_reference_impl::msg::InstantiateMsg {
+    let msg = snip20_base::msg::InstantiateMsg {
         name: String::from("Test"),
         symbol: String::from("TEST"),
         decimals: 6,

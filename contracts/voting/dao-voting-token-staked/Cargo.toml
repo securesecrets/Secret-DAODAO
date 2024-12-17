@@ -46,6 +46,7 @@ schemars ={ workspace = true }
 bincode ={ workspace=true }
 shade-protocol ={ workspace = true}
 query_auth = { workspace = true}
+dao-utils ={ workspace = true}
 
 [dev-dependencies]
 anyhow = { workspace = true }

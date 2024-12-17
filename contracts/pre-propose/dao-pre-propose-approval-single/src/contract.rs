@@ -174,14 +174,12 @@ pub fn execute_approve(
                 &proposal_id,
                 &(proposal.deposit.clone(), proposal.proposer.clone()),
             )?;
-
             let propose_messsage = WasmMsg::Execute {
                 contract_addr: proposal_module.addr.into_string(),
                 code_hash: proposal_module.code_hash,
                 msg: to_binary(&ProposeMessageInternal::Propose(proposal.msg.clone()))?,
                 funds: vec![],
             };
-
             COMPLETED_PROPOSALS.insert(
                 deps.storage,
                 &id,
@@ -215,6 +213,7 @@ pub fn execute_reject(
 ) -> Result<Response, PreProposeError> {
     // Check sender is the approver
     let approver = APPROVER.load(deps.storage)?;
+    println!("In execute Reject");
     if approver != info.sender {
         return Err(PreProposeError::Unauthorized {});
     }
@@ -271,6 +270,7 @@ pub fn execute_update_approver(
 ) -> Result<Response, PreProposeError> {
     // Check sender is the approver
     let approver = APPROVER.load(deps.storage)?;
+    println!("In execute update approver");
     if approver != info.sender {
         return Err(PreProposeError::Unauthorized {});
     }
@@ -292,6 +292,11 @@ pub fn execute_add_approver_hook(
 
     let dao = pre_propose_base.dao.load(deps.storage)?;
     let approver = APPROVER.load(deps.storage)?;
+
+    println!("In execute add approver hook");
+    println!("Info.sender ::::::: {:?}", info.sender);
+    println!("Approver ::::::: {:?}", approver);
+    println!("DAO ::::::: {:?}", dao);
 
     // Check sender is the approver or the parent DAO
     if approver != info.sender && dao.addr != info.sender {
@@ -316,6 +321,8 @@ pub fn execute_remove_approver_hook(
 
     let dao = pre_propose_base.dao.load(deps.storage)?;
     let approver = APPROVER.load(deps.storage)?;
+
+    println!("In execute remove approver hook");
 
     // Check sender is the approver or the parent DAO
     if approver != info.sender && dao.addr != info.sender {
@@ -362,49 +369,70 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             }
             QueryExt::PendingProposals { start_after, limit } => {
                 let mut res: Vec<Proposal> = Vec::new();
-                let mut start = start_after;
+                let max_limit = 50; // Defined a sensible upper limit
+                let limit = limit.unwrap_or(max_limit).min(max_limit);
+
+                // Fetch all pending proposals
                 let binding = &PENDING_PROPOSALS;
                 let iter = binding.iter(deps.storage)?;
+
+                let mut found_start = start_after.is_none();
+
                 for item in iter {
                     let (id, proposal) = item?;
-                    if let Some(start_after) = &start {
-                        if &id == start_after {
-                            // If we found the start point, reset it to start iterating
-                            start = None;
+
+                    // Skip until we find the `start_after` item
+                    if let Some(ref start_id) = start_after {
+                        if &id == start_id {
+                            found_start = true;
+                            continue;
                         }
                     }
-                    if start.is_none() {
+
+                    if found_start {
                         res.push(proposal);
-                        if res.len() >= limit.unwrap_or_default() as usize {
-                            break; // Break out of loop if limit reached
+                        if res.len() >= limit.try_into().unwrap() {
+                            break; // Stop once the limit is reached
                         }
                     }
                 }
+
                 to_binary(&res)
             }
+
             QueryExt::ReversePendingProposals {
                 start_before,
                 limit,
             } => {
                 let mut res: Vec<Proposal> = Vec::new();
-                let mut start = start_before;
+                let max_limit = 50; // Defined a sensible upper limit
+                let limit = limit.unwrap_or(max_limit).min(max_limit);
+
+                // Fetch all pending proposals and iterate in reverse
                 let binding = &PENDING_PROPOSALS;
-                let iter = binding.iter(deps.storage)?.rev(); // Iterate in reverse
+                let iter = binding.iter(deps.storage)?.rev();
+
+                let mut skip_until_found = start_before.is_some();
+
                 for item in iter {
                     let (id, proposal) = item?;
-                    if let Some(start_before) = &start {
-                        if &id == start_before {
-                            // If we found the start point, reset it to start iterating
-                            start = None;
+
+                    // Skip until we find the `start_before` item
+                    if let Some(ref start_id) = start_before {
+                        if &id == start_id {
+                            skip_until_found = false;
+                            continue; // Skip the `start_before` item itself
                         }
                     }
-                    if start.is_none() {
+
+                    if !skip_until_found {
                         res.push(proposal);
-                        if res.len() >= limit.unwrap_or_default() as usize {
-                            break; // Break out of loop if limit reached
+                        if res.len() >= limit.try_into().unwrap() {
+                            break; // Stop once the limit is reached
                         }
                     }
                 }
+
                 to_binary(&res)
             }
 
@@ -413,51 +441,73 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             }
             QueryExt::CompletedProposals { start_after, limit } => {
                 let mut res: Vec<Proposal> = Vec::new();
-                let mut start = start_after;
+                let max_limit = 50; // Defined a sensible upper limit
+                let limit = limit.unwrap_or(max_limit).min(max_limit);
+
+                // Fetch all completed proposals
                 let binding = &COMPLETED_PROPOSALS;
                 let iter = binding.iter(deps.storage)?;
+
+                let mut found_start = start_after.is_none();
+
                 for item in iter {
                     let (id, proposal) = item?;
-                    if let Some(start_after) = &start {
-                        if &id == start_after {
-                            // If we found the start point, reset it to start iterating
-                            start = None;
+
+                    // Skip until we find the `start_after` item
+                    if let Some(ref start_id) = start_after {
+                        if &id == start_id {
+                            found_start = true;
+                            continue; // Skip the `start_after` item itself
                         }
                     }
-                    if start.is_none() {
+
+                    if found_start {
                         res.push(proposal);
-                        if res.len() >= limit.unwrap_or_default() as usize {
-                            break; // Break out of loop if limit reached
+                        if res.len() >= limit.try_into().unwrap() {
+                            break; // Stop once the limit is reached
                         }
                     }
                 }
+
                 to_binary(&res)
             }
+
             QueryExt::ReverseCompletedProposals {
                 start_before,
                 limit,
             } => {
                 let mut res: Vec<Proposal> = Vec::new();
-                let mut start = start_before;
+                let max_limit = 50; // Defined a sensible upper limit
+                let limit = limit.unwrap_or(max_limit).min(max_limit);
+
+                // Fetch all completed proposals and iterate in reverse
                 let binding = &COMPLETED_PROPOSALS;
-                let iter = binding.iter(deps.storage)?.rev(); // Iterate in reverse
+                let iter = binding.iter(deps.storage)?.rev();
+
+                let mut skip_until_found = start_before.is_some();
+
                 for item in iter {
                     let (id, proposal) = item?;
-                    if let Some(start_before) = &start {
-                        if &id == start_before {
-                            // If we found the start point, reset it to start iterating
-                            start = None;
+
+                    // Skip until we find the `start_before` item
+                    if let Some(ref start_id) = start_before {
+                        if &id == start_id {
+                            skip_until_found = false;
+                            continue; // Skip the `start_before` item itself
                         }
                     }
-                    if start.is_none() {
+
+                    if !skip_until_found {
                         res.push(proposal);
-                        if res.len() >= limit.unwrap_or_default() as usize {
-                            break; // Break out of loop if limit reached
+                        if res.len() >= limit.try_into().unwrap() {
+                            break; // Stop once the limit is reached
                         }
                     }
                 }
+
                 to_binary(&res)
             }
+
             QueryExt::CompletedProposalIdForCreatedProposalId { id } => {
                 to_binary(&CREATED_PROPOSAL_TO_COMPLETED_PROPOSAL.get(deps.storage, &id))
             }

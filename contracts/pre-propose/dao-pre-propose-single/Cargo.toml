@@ -29,7 +29,7 @@ secret-utils = { workspace = true }
 cw4-group = { workspace = true }
 cw-denom = { workspace = true }
 dao-interface = { workspace = true }
-snip20-reference-impl ={ workspace = true }
+snip20-base ={ workspace = true }
 dao-proposal-single ={ workspace = true }
 cw-hooks = { workspace = true }
 shade-protocol ={ workspace = true }

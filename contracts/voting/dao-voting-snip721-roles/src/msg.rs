@@ -27,8 +27,6 @@ pub enum NftRolesContract {
     Existing {
         /// Address of an already instantiated snip721-weighted-roles token contract.
         address: String,
-        /// code hash of an already instantiated snip721-weighted-roles token contract.
-        code_hash: String,
     },
     New {
         /// Code ID for snip721 roles  contract.
@@ -64,7 +62,6 @@ pub enum NftRolesContract {
 pub struct InstantiateMsg {
     /// Info about the associated NFT contract
     pub nft_contract: NftRolesContract,
-    pub dao_code_hash: String,
 }
 
 #[cw_serde]

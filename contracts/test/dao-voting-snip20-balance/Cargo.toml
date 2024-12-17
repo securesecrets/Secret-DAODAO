@@ -25,7 +25,7 @@ secret-utils = { workspace = true }
 thiserror = { workspace = true }
 dao-dao-macros = { workspace = true }
 dao-interface = { workspace = true }
-snip20-reference-impl = {  workspace = true}
+snip20-base = {  workspace = true}
 shade-protocol ={ workspace = true }
 secret-toolkit ={ workspace = true }
 

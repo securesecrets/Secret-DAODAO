@@ -6,6 +6,7 @@ use cosmwasm_std::{
 };
 
 use dao_interface::state::AnyContractInfo;
+use dao_utils::query::get_contract_code_hash;
 use dao_voting::reply::TaggedReplyId;
 use dao_voting::voting::{get_total_power, get_voting_power};
 use secret_cw2::set_contract_version;
@@ -35,7 +36,7 @@ pub fn instantiate(
         deps.storage,
         &AnyContractInfo {
             addr: info.sender.clone(),
-            code_hash: msg.dao_code_hash.clone(),
+            code_hash: get_contract_code_hash(deps.querier, info.sender.clone().into()).unwrap_or_default(),
         },
     )?;
     CONFIG.save(deps.storage, &msg.into_checked()?)?;

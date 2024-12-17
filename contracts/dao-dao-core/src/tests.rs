@@ -21,7 +21,7 @@ use secret_multi_test::{
     next_block, App, Contract, ContractInstantiationInfo, ContractWrapper, Executor,
 };
 use secret_utils::{Duration, Expiration};
-use snip20_reference_impl::msg::InitialBalance;
+use snip20_base::msg::InitialBalance;
 use snip721_reference_impl::msg::ReceiverInfo;
 
 use crate::{
@@ -33,9 +33,9 @@ const CREATOR_ADDR: &str = "creator";
 
 fn snip20_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        snip20_reference_impl::contract::execute,
-        snip20_reference_impl::contract::instantiate,
-        snip20_reference_impl::contract::query,
+        snip20_base::contract::execute,
+        snip20_base::contract::instantiate,
+        snip20_base::contract::query,
     );
     Box::new(contract)
 }
@@ -129,7 +129,7 @@ fn create_token_viewing_key(
     contract_info: ContractInfo,
     info: MessageInfo,
 ) -> String {
-    let msg = snip20_reference_impl::msg::ExecuteMsg::CreateViewingKey {
+    let msg = snip20_base::msg::ExecuteMsg::CreateViewingKey {
         entropy: "entropy".to_string(),
         padding: None,
     };
@@ -137,8 +137,8 @@ fn create_token_viewing_key(
         .execute_contract(info.sender, &contract_info, &msg, &[])
         .unwrap();
     let mut viewing_key = String::new();
-    let data: snip20_reference_impl::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
-    if let snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } = data {
+    let data: snip20_base::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
+    if let snip20_base::msg::ExecuteAnswer::CreateViewingKey { key } = data {
         viewing_key = key;
     };
     viewing_key
@@ -160,7 +160,6 @@ fn test_instantiate_with_gov_modules() -> ContractInfo {
             }],
             query_auth: None,
         },
-        dao_code_hash: "dao_code_hash".to_string(),
     };
     let instantiate = InstantiateMsg {
         dao_uri: None,
@@ -188,8 +187,6 @@ fn test_instantiate_with_gov_modules() -> ContractInfo {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
 
     let gov_contract_info = instantiate_gov(&mut app, gov_info, instantiate);
@@ -239,7 +236,6 @@ fn test_instantiate_with_0_gov_modules() {
             }],
             query_auth: None,
         },
-        dao_code_hash: "dao_code_hash".to_string(),
     };
     let instantiate = InstantiateMsg {
         dao_uri: None,
@@ -260,8 +256,6 @@ fn test_instantiate_with_0_gov_modules() {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
     let _ = instantiate_gov(&mut app, gov_info, instantiate);
 }
@@ -294,7 +288,6 @@ fn test_update_config() {
             }],
             query_auth: None,
         },
-        dao_code_hash: "dao_code_hash".to_string(),
     };
     let instantiate = InstantiateMsg {
         dao_uri: None,
@@ -322,8 +315,6 @@ fn test_update_config() {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
 
     let gov_contract_info = instantiate_gov(&mut app, gov_info, instantiate);
@@ -386,7 +377,6 @@ fn test_swap_governance(swaps: Vec<(u32, u32)>) {
             }],
             query_auth: None,
         },
-        dao_code_hash: "dao_code_hash".to_string(),
     };
     let instantiate = InstantiateMsg {
         dao_uri: None,
@@ -414,8 +404,6 @@ fn test_swap_governance(swaps: Vec<(u32, u32)>) {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
 
     let gov_contract_info = instantiate_gov(&mut app, gov_info, instantiate);
@@ -565,8 +553,6 @@ fn test_removed_modules_can_not_execute() {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
 
     let gov_contract_info = app
@@ -752,8 +738,6 @@ fn test_module_already_disabled() {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
 
     let gov_contract_info = app
@@ -866,8 +850,6 @@ fn test_swap_voting_module() {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
 
     let gov_contract_info = app
@@ -992,8 +974,6 @@ fn test_permissions() {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
 
     let gov_contract_info = app
@@ -1051,7 +1031,6 @@ fn do_standard_instantiate(_auto_add: bool, admin: Option<String>) -> (ContractI
     let voting_info = app.store_code(snip20_balances_voting());
     let gov_info = app.store_code(cw_core_contract());
     let snip20_info = app.store_code(snip20_contract());
-    let snip721_info = app.store_code(snip721_contract());
     let query_auth_info = app.store_code(query_auth_contract());
 
     let govmod_instantiate = dao_proposal_sudo::msg::InstantiateMsg {
@@ -1100,8 +1079,6 @@ fn do_standard_instantiate(_auto_add: bool, admin: Option<String>) -> (ContractI
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: snip20_info.code_hash.clone(),
-        snip721_code_hash: snip721_info.code_hash.to_string(),
     };
 
     let gov_contract_info = app
@@ -1834,8 +1811,6 @@ fn test_list_items() {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
 
     let gov_contract_info = app
@@ -1986,8 +1961,6 @@ fn test_instantiate_with_items() {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
 
     // Ensure duplicates are dissallowed.
@@ -2051,7 +2024,7 @@ fn test_snip20_receive_auto_add() {
         .instantiate_contract(
             snip20_info,
             Addr::unchecked(CREATOR_ADDR),
-            &snip20_reference_impl::msg::InstantiateMsg {
+            &snip20_base::msg::InstantiateMsg {
                 name: "DAO".to_string(),
                 symbol: "DAO".to_string(),
                 decimals: 6,
@@ -2105,7 +2078,7 @@ fn test_snip20_receive_auto_add() {
             address: gov_token_info.addr.clone(),
             code_hash: gov_token_info.code_hash.clone(),
         },
-        &snip20_reference_impl::msg::ExecuteMsg::Send {
+        &snip20_base::msg::ExecuteMsg::Send {
             recipient: gov_contract_info.address.clone().to_string(),
             recipient_code_hash: Some(gov_contract_info.code_hash.clone()),
             amount: Uint128::new(1),
@@ -2116,8 +2089,7 @@ fn test_snip20_receive_auto_add() {
             padding: None,
         },
         &[],
-    )
-    .unwrap();
+    )    .unwrap();
 
     let snip20_list: Vec<Addr> = app
         .wrap()
@@ -2697,8 +2669,6 @@ fn test_module_prefixes() {
     let mut app = App::default();
     let govmod_info = app.store_code(sudo_proposal_contract());
     let gov_info = app.store_code(cw_core_contract());
-    let snip20_info = app.store_code(snip20_contract());
-    let snip721_info = app.store_code(snip721_contract());
     let query_auth_info = app.store_code(query_auth_contract());
 
     let govmod_instantiate = dao_proposal_sudo::msg::InstantiateMsg {
@@ -2750,8 +2720,6 @@ fn test_module_prefixes() {
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "Seeed".to_string(),
-        snip20_code_hash: snip20_info.code_hash,
-        snip721_code_hash: snip721_info.code_hash,
     };
 
     let gov_contract_info = app

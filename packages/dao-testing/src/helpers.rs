@@ -12,7 +12,6 @@ use shade_protocol::basic_staking::Auth;
 use crate::contracts::{
     cw4_group_contract, dao_dao_contract, dao_voting_cw4_contract, query_auth_contract,
     snip20_base_contract, snip20_stake_contract, snip20_staked_balances_voting_contract,
-    snip721_base_contract,
 };
 
 const CREATOR_ADDR: &str = "creator";
@@ -148,7 +147,6 @@ pub fn instantiate_with_staked_balances_governance(
     };
 
     let snip20_info = app.store_code(snip20_base_contract());
-    let snip721_info = app.store_code(snip721_base_contract());
     let snip20_stake_info = app.store_code(snip20_stake_contract());
     let staked_balances_voting_info = app.store_code(snip20_staked_balances_voting_contract());
     let core_contract_info = app.store_code(dao_dao_contract());
@@ -177,7 +175,6 @@ pub fn instantiate_with_staked_balances_governance(
                     unstaking_duration: Some(Duration::Height(6)),
                     initial_dao_balance: None,
                 },
-                dao_code_hash: core_contract_info.code_hash.clone(),
                 query_auth: None,
             })
             .unwrap(),
@@ -197,8 +194,6 @@ pub fn instantiate_with_staked_balances_governance(
         query_auth_code_id: query_auth_info.code_id,
         query_auth_code_hash: query_auth_info.code_hash,
         prng_seed: "Seed".into(),
-        snip20_code_hash: snip20_info.code_hash.clone(),
-        snip721_code_hash: snip721_info.code_hash,
     };
 
     let core_info = app
@@ -265,7 +260,7 @@ pub fn instantiate_with_staked_balances_governance(
                 address: token_contract.addr.clone(),
                 code_hash: token_contract.code_hash.clone(),
             },
-            &snip20_reference_impl::msg::ExecuteMsg::Send {
+            &snip20_base::msg::ExecuteMsg::Send {
                 recipient: staking_contract.addr.clone().to_string(),
                 recipient_code_hash: Some(staking_contract.code_hash.clone()),
                 amount,
@@ -303,7 +298,6 @@ pub fn instantiate_with_staking_active_threshold(
     active_threshold: Option<ActiveThreshold>,
 ) -> ContractInfo {
     let snip20_info = app.store_code(snip20_base_contract());
-    let snip721_info = app.store_code(snip721_base_contract());
     let snip20_staking_info = app.store_code(snip20_stake_contract());
     let governance_info = app.store_code(dao_dao_contract());
     let votemod_info = app.store_code(snip20_staked_balances_voting_contract());
@@ -345,7 +339,6 @@ pub fn instantiate_with_staking_active_threshold(
                     initial_dao_balance: None,
                 },
                 active_threshold,
-                dao_code_hash: governance_info.code_hash.clone(),
                 query_auth: None,
             })
             .unwrap(),
@@ -365,8 +358,6 @@ pub fn instantiate_with_staking_active_threshold(
         query_auth_code_id: query_auth.code_id,
         query_auth_code_hash: query_auth.code_hash,
         prng_seed: "Seed".to_string(),
-        snip20_code_hash: snip20_info.code_hash,
-        snip721_code_hash: snip721_info.code_hash,
     };
 
     app.instantiate_contract(
@@ -390,8 +381,6 @@ pub fn instantiate_with_cw4_groups_governance(
     let cw4_info = app.store_code(cw4_group_contract());
     let core_info = app.store_code(dao_dao_contract());
     let votemod_info = app.store_code(dao_voting_cw4_contract());
-    let snip20_info = app.store_code(snip20_base_contract());
-    let snip721_info = app.store_code(snip721_base_contract());
     let query_auth = app.store_code(query_auth_contract());
     let initial_weights = initial_weights.unwrap_or_default();
 
@@ -431,7 +420,6 @@ pub fn instantiate_with_cw4_groups_governance(
                     initial_members: initial_weights,
                     query_auth: None,
                 },
-                dao_code_hash: core_info.code_hash.clone(),
             })
             .unwrap(),
             admin: Some(Admin::CoreModule {}),
@@ -450,8 +438,6 @@ pub fn instantiate_with_cw4_groups_governance(
         query_auth_code_id: query_auth.code_id,
         query_auth_code_hash: query_auth.code_hash,
         prng_seed: "seed".into(),
-        snip20_code_hash: snip20_info.code_hash,
-        snip721_code_hash: snip721_info.code_hash,
     };
 
     let addr = app

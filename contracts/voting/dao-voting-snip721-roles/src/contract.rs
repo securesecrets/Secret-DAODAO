@@ -8,6 +8,7 @@ use cw4::{MemberResponse, TotalWeightResponse};
 use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::AnyContractInfo;
 use dao_snip721_extensions::roles::{ExecuteExt, MetadataExt, QueryExt};
+use dao_utils::query::get_contract_code_hash;
 use secret_cw2::set_contract_version;
 use shade_protocol::basic_staking::Auth;
 
@@ -34,15 +35,15 @@ pub fn instantiate(
         deps.storage,
         &AnyContractInfo {
             addr: info.sender.clone(),
-            code_hash: msg.dao_code_hash,
+            code_hash: get_contract_code_hash(deps.querier, info.sender.clone().into()).unwrap_or_default(),
         },
     )?;
 
     match msg.nft_contract {
-        NftRolesContract::Existing { address, code_hash } => {
+        NftRolesContract::Existing { address } => {
             let config = Config {
                 nft_address: deps.api.addr_validate(&address)?,
-                nft_code_hash: code_hash.clone(),
+                nft_code_hash: get_contract_code_hash(deps.querier, address.clone()).unwrap_or_default(),
             };
             CONFIG.save(deps.storage, &config)?;
 

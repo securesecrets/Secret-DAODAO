@@ -31,7 +31,7 @@ use shade_protocol::query_auth::helpers::{
     authenticate_permit, authenticate_vk, PermitAuthentication,
 };
 use shade_protocol::Contract;
-use snip20_reference_impl::msg::QueryAnswer;
+use snip20_base::msg::QueryAnswer;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:snip20-stake";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -52,7 +52,7 @@ pub fn instantiate(
     // though this provides some protection against mistakes where the
     // wrong address is provided.
     let token_address = deps.api.addr_validate(&msg.token_address)?;
-    let token_info: snip20_reference_impl::msg::QueryAnswer = deps.querier.query_wasm_smart(
+    let token_info: snip20_base::msg::QueryAnswer = deps.querier.query_wasm_smart(
         msg.token_code_hash.clone().unwrap(),
         &token_address,
         &secret_toolkit::snip20::QueryMsg::TokenInfo {},

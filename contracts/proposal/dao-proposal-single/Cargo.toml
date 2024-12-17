@@ -53,7 +53,7 @@ dao-voting-snip721-staked = { workspace = true }
 dao-pre-propose-single = { workspace = true }
 cw-denom = { workspace = true }
 snip20-stake = { workspace = true }
-snip20-reference-impl = { workspace = true }
+snip20-base = { workspace = true }
 snip721-reference-impl = { workspace = true }
 cw4 = { workspace = true }
 cw4-group = { workspace = true }

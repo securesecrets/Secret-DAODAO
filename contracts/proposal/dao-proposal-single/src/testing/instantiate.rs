@@ -16,7 +16,6 @@ use dao_voting::{
     threshold::{ActiveThreshold, PercentageThreshold, Threshold::ThresholdQuorum},
 };
 use dao_voting_cw4::msg::GroupContract;
-use snip721_reference_impl::msg::ReceiverInfo;
 
 use crate::msg::InstantiateMsg;
 
@@ -25,7 +24,6 @@ use super::{
         cw4_group_contract, cw4_voting_contract, cw_core_contract,
         native_staked_balances_voting_contract, proposal_single_contract, query_auth_contract,
         snip20_base_contract, snip20_stake_contract, snip20_staked_balances_voting_contract,
-        snip721_base_contract, snip721_stake_contract,
     },
     execute::create_viewing_key,
     CREATOR_ADDR,
@@ -38,8 +36,6 @@ pub(crate) fn get_pre_propose_info(
 ) -> PreProposeInfo {
     let pre_propose_contract =
         app.store_code(crate::testing::contracts::pre_propose_single_contract());
-    let proposal_single_contract =
-        app.store_code(crate::testing::contracts::proposal_single_contract());
     PreProposeInfo::ModuleMayPropose {
         info: ModuleInstantiateInfo {
             code_id: pre_propose_contract.code_id,
@@ -48,7 +44,6 @@ pub(crate) fn get_pre_propose_info(
                 deposit_info,
                 open_proposal_submission,
                 extension: Empty::default(),
-                proposal_module_code_hash: proposal_single_contract.code_hash.clone(),
             })
             .unwrap(),
             admin: Some(Admin::CoreModule {}),
@@ -59,7 +54,6 @@ pub(crate) fn get_pre_propose_info(
 }
 
 pub(crate) fn get_default_token_dao_proposal_module_instantiate(app: &mut App) -> InstantiateMsg {
-    let dao_info = app.store_code(cw_core_contract());
     InstantiateMsg {
         veto: None,
         threshold: ThresholdQuorum {
@@ -82,7 +76,6 @@ pub(crate) fn get_default_token_dao_proposal_module_instantiate(app: &mut App) -
             false,
         ),
         close_proposal_on_execution_failure: true,
-        dao_code_hash: dao_info.code_hash,
         query_auth: None,
     }
 }
@@ -91,7 +84,6 @@ pub(crate) fn get_default_token_dao_proposal_module_instantiate(app: &mut App) -
 pub(crate) fn get_default_non_token_dao_proposal_module_instantiate(
     app: &mut App,
 ) -> InstantiateMsg {
-    let dao_info = app.store_code(cw_core_contract());
 
     InstantiateMsg {
         veto: None,
@@ -105,170 +97,8 @@ pub(crate) fn get_default_non_token_dao_proposal_module_instantiate(
         allow_revoting: false,
         pre_propose_info: get_pre_propose_info(app, None, false),
         close_proposal_on_execution_failure: true,
-        dao_code_hash: dao_info.code_hash,
         query_auth: None,
     }
-}
-
-pub(crate) fn _instantiate_with_staked_snip721_governance(
-    app: &mut App,
-    proposal_module_instantiate: InstantiateMsg,
-    initial_balances: Option<Vec<InitialBalance>>,
-) -> ContractInfo {
-    let proposal_module_info = app.store_code(proposal_single_contract());
-    let query_auth = app.store_code(query_auth_contract());
-    let snip20_info = app.store_code(snip20_base_contract());
-
-    let initial_balances = initial_balances.unwrap_or_else(|| {
-        vec![InitialBalance {
-            address: CREATOR_ADDR.to_string(),
-            amount: Uint128::new(100_000_000),
-        }]
-    });
-
-    let initial_balances: Vec<InitialBalance> = {
-        let mut already_seen = vec![];
-        initial_balances
-            .into_iter()
-            .filter(|InitialBalance { address, amount: _ }| {
-                if already_seen.contains(address) {
-                    false
-                } else {
-                    already_seen.push(address.clone());
-                    true
-                }
-            })
-            .collect()
-    };
-
-    let snip721_info = app.store_code(snip721_base_contract());
-    let snip721_stake_info = app.store_code(snip721_stake_contract());
-    let core_info = app.store_code(cw_core_contract());
-
-    let nft_contract_info = app
-        .instantiate_contract(
-            snip721_info.clone(),
-            Addr::unchecked("ekez"),
-            &snip721_reference_impl::msg::InstantiateMsg {
-                symbol: "token".to_string(),
-                name: "ekez token best token".to_string(),
-                admin: Some("ekez".to_string()),
-                entropy: "entropy".to_string(),
-                royalty_info: None,
-                config: None,
-                post_init_callback: None,
-            },
-            &[],
-            "nft-staking",
-            None,
-        )
-        .unwrap();
-
-    let instantiate_core = dao_interface::msg::InstantiateMsg {
-        admin: None,
-        name: "DAO DAO".to_string(),
-        description: "A DAO that builds DAOs".to_string(),
-        dao_uri: None,
-        image_url: None,
-        voting_module_instantiate_info: ModuleInstantiateInfo {
-            code_id: snip721_stake_info.code_id,
-            code_hash: snip721_stake_info.code_hash.clone(),
-            msg: to_binary(&dao_voting_snip721_staked::msg::InstantiateMsg {
-                unstaking_duration: None,
-                nft_contract: dao_voting_snip721_staked::msg::NftContract::Existing {
-                    address: nft_contract_info.address.clone().to_string(),
-                    code_hash: nft_contract_info.code_hash.clone(),
-                },
-                active_threshold: None,
-                dao_code_hash: core_info.code_hash.clone(),
-                query_auth: None,
-            })
-            .unwrap(),
-            admin: None,
-            funds: vec![],
-            label: "DAO DAO voting module".to_string(),
-        },
-        proposal_modules_instantiate_info: vec![ModuleInstantiateInfo {
-            code_id: proposal_module_info.code_id,
-            code_hash: proposal_module_info.code_hash.clone(),
-            msg: to_binary(&proposal_module_instantiate).unwrap(),
-            admin: Some(Admin::CoreModule {}),
-            funds: vec![],
-            label: "DAO DAO governance module.".to_string(),
-        }],
-        initial_items: None,
-        query_auth_code_id: query_auth.code_id,
-        query_auth_code_hash: query_auth.code_hash,
-        prng_seed: "seed".to_string(),
-        snip20_code_hash: snip20_info.code_hash,
-        snip721_code_hash: snip721_info.code_hash.clone(),
-    };
-
-    let core_contract_info = app
-        .instantiate_contract(
-            core_info.clone(),
-            Addr::unchecked(CREATOR_ADDR),
-            &instantiate_core,
-            &[],
-            "DAO DAO",
-            None,
-        )
-        .unwrap();
-
-    let core_state: dao_interface::query::DumpStateResponse = app
-        .wrap()
-        .query_wasm_smart(
-            core_contract_info.code_hash.clone(),
-            core_contract_info.address.clone(),
-            &dao_interface::msg::QueryMsg::DumpState {},
-        )
-        .unwrap();
-    let staking_addr = core_state.voting_module;
-    let staking_code_hash = core_state.voting_module_code_hash;
-
-    for InitialBalance { address, amount } in initial_balances {
-        for i in 0..amount.u128() {
-            app.execute_contract(
-                Addr::unchecked("ekez"),
-                &nft_contract_info.clone(),
-                &snip721_reference_impl::msg::ExecuteMsg::MintNft {
-                    token_id: format!("{address}_{i}").into(),
-                    owner: Some(address.clone()),
-                    public_metadata: None,
-                    private_metadata: None,
-                    serial_number: None,
-                    royalty_info: None,
-                    transferable: Some(true),
-                    memo: None,
-                    padding: None,
-                },
-                &[],
-            )
-            .unwrap();
-            app.execute_contract(
-                Addr::unchecked(address.clone()),
-                &nft_contract_info.clone(),
-                &snip721_reference_impl::msg::ExecuteMsg::SendNft {
-                    contract: staking_addr.to_string(),
-                    token_id: format!("{address}_{i}"),
-                    msg: Some(to_binary("").unwrap()),
-                    receiver_info: Some(ReceiverInfo {
-                        recipient_code_hash: staking_code_hash.clone(),
-                        also_implements_batch_receive_nft: None,
-                    }),
-                    memo: None,
-                    padding: None,
-                },
-                &[],
-            )
-            .unwrap();
-        }
-    }
-
-    // Update the block so that staked balances appear.
-    app.update_block(|block| block.height += 1);
-
-    core_contract_info
 }
 
 pub(crate) fn instantiate_with_native_staked_balances_governance(
@@ -320,7 +150,6 @@ pub(crate) fn instantiate_with_native_staked_balances_governance(
                 },
                 unstaking_duration: None,
                 active_threshold: None,
-                dao_code_hash: core_info.code_hash.clone(),
                 query_auth: None,
             })
             .unwrap(),
@@ -340,8 +169,6 @@ pub(crate) fn instantiate_with_native_staked_balances_governance(
         query_auth_code_id: query_auth.code_id,
         query_auth_code_hash: query_auth.code_hash,
         prng_seed: "seeed".to_string(),
-        snip20_code_hash: "".to_string(),
-        snip721_code_hash: "".to_string(),
     };
 
     let core_contract_info = app
@@ -476,7 +303,6 @@ pub(crate) fn instantiate_with_staked_balances_governance(
                     unstaking_duration: Some(Duration::Height(6)),
                     initial_dao_balance: None,
                 },
-                dao_code_hash: core_info.code_hash.clone(),
                 query_auth: None,
             })
             .unwrap(),
@@ -496,8 +322,6 @@ pub(crate) fn instantiate_with_staked_balances_governance(
         query_auth_code_id: query_auth.code_id,
         query_auth_code_hash: query_auth.code_hash,
         prng_seed: "seed".to_string(),
-        snip20_code_hash: snip20_info.code_hash.clone(),
-        snip721_code_hash: "".to_string(),
     };
 
     let core_contract_info = app
@@ -565,7 +389,7 @@ pub(crate) fn instantiate_with_staked_balances_governance(
                 address: token_contract.addr.clone(),
                 code_hash: token_contract.code_hash.clone(),
             },
-            &snip20_reference_impl::msg::ExecuteMsg::Send {
+            &snip20_base::msg::ExecuteMsg::Send {
                 amount,
                 msg: Some(
                     to_binary(&snip20_stake::msg::ReceiveMsg::Stake {
@@ -637,7 +461,6 @@ pub(crate) fn instantiate_with_staking_active_threshold(
                     staking_code_hash: snip20_staking_info.code_hash.clone(),
                 },
                 active_threshold,
-                dao_code_hash: core_info.code_hash.clone(),
                 query_auth: None,
             })
             .unwrap(),
@@ -657,8 +480,6 @@ pub(crate) fn instantiate_with_staking_active_threshold(
         query_auth_code_id: query_auth.code_id,
         query_auth_code_hash: query_auth.code_hash,
         prng_seed: "seed".into(),
-        snip20_code_hash: "todo!()".to_string(),
-        snip721_code_hash: "todo!()".to_string(),
     };
 
     app.instantiate_contract(
@@ -726,7 +547,6 @@ pub(crate) fn instantiate_with_cw4_groups_governance(
                     cw4_group_code_hash: cw4_info.code_hash,
                     query_auth: None,
                 },
-                dao_code_hash: core_info.code_hash.clone(),
             })
             .unwrap(),
             admin: Some(Admin::CoreModule {}),
@@ -745,8 +565,6 @@ pub(crate) fn instantiate_with_cw4_groups_governance(
         query_auth_code_id: query_auth.code_id,
         query_auth_code_hash: query_auth.code_hash,
         prng_seed: "todo!()".to_string(),
-        snip20_code_hash: "todo!()".to_string(),
-        snip721_code_hash: "todo!()".to_string(),
     };
 
     let addr = app

@@ -24,6 +24,7 @@ dao-voting ={ workspace = true }
 cw4 ={ workspace = true }
 dao-snip721-extensions = { workspace = true }
 snip721-roles-impl ={ workspace = true }
+snip20-base ={ workspace = true }
 anybuf = { workspace = true }
 dao-interface ={ workspace = true}
 

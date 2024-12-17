@@ -10,6 +10,7 @@ use dao_hooks::nft_stake::{stake_nft_hook_msgs, unstake_nft_hook_msgs};
 use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::AnyContractInfo;
 use dao_interface::{nft::NftFactoryCallback, voting::IsActiveResponse};
+use dao_utils::query::get_contract_code_hash;
 use dao_voting::duration::validate_duration;
 use dao_voting::threshold::{
     assert_valid_absolute_count_threshold, assert_valid_percentage_threshold, ActiveThreshold,
@@ -89,7 +90,7 @@ pub fn instantiate(
         deps.storage,
         &AnyContractInfo {
             addr: info.sender.clone(),
-            code_hash: msg.dao_code_hash,
+            code_hash: get_contract_code_hash(deps.querier, info.sender.clone().into()).unwrap_or_default(),
         },
     )?;
 
@@ -107,11 +108,10 @@ pub fn instantiate(
                 // NFT contracts. For new NFT contracts, we will check this in the reply.
                 if let NftContract::Existing {
                     ref address,
-                    ref code_hash,
                 } = msg.nft_contract
                 {
                     let nft_supply: snip721::NumTokens = deps.querier.query_wasm_smart(
-                        code_hash,
+                        get_contract_code_hash(deps.querier, address.to_string()).unwrap_or_default(),
                         address,
                         &snip721::Snip721QueryMsg::NumTokens { viewer: None },
                     )?;
@@ -131,11 +131,11 @@ pub fn instantiate(
     StakedNftsTotalStore::save(deps.storage, env.block.height, Uint128::zero())?;
 
     match msg.nft_contract {
-        NftContract::Existing { address, code_hash } => {
+        NftContract::Existing { address } => {
             let config = Config {
                 nft_address: deps.api.addr_validate(&address)?,
                 unstaking_duration: msg.unstaking_duration,
-                nft_code_hash: code_hash.clone(),
+                nft_code_hash: get_contract_code_hash(deps.querier, address.clone()).unwrap_or_default(),
                 query_auth: msg
                     .query_auth
                     .unwrap_or_default()

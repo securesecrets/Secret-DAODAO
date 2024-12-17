@@ -16,7 +16,7 @@ use secret_multi_test::{
     next_block, App, Contract, ContractInstantiationInfo, ContractWrapper, Executor,
 };
 use shade_protocol::{basic_staking::Auth, utils::asset::RawContract};
-use snip20_reference_impl::msg::{InitConfig, InitialBalance as Snip20InitialBalance, QueryAnswer};
+use snip20_base::msg::{InitConfig, InitialBalance as Snip20InitialBalance, QueryAnswer};
 
 use crate::{
     contract::{migrate, CONTRACT_NAME, CONTRACT_VERSION},
@@ -55,9 +55,9 @@ fn contract_query_auth() -> Box<dyn Contract<Empty>> {
 
 fn snip20_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        snip20_reference_impl::contract::execute,
-        snip20_reference_impl::contract::instantiate,
-        snip20_reference_impl::contract::query,
+        snip20_base::contract::execute,
+        snip20_base::contract::instantiate,
+        snip20_base::contract::query,
     );
     Box::new(contract)
 }
@@ -128,7 +128,7 @@ fn stake_tokens(
     auth: Auth,
     amount: u128,
 ) {
-    let msg = snip20_reference_impl::msg::ExecuteMsg::Send {
+    let msg = snip20_base::msg::ExecuteMsg::Send {
         recipient: staking_addr.to_string(),
         recipient_code_hash: Some(staking_code_hash),
         amount: Uint128::new(amount),
@@ -168,7 +168,7 @@ fn create_viewing_key(app: &mut App, contract_info: ContractInfo, sender: &str) 
 }
 
 fn create_snip20_viewing_key(app: &mut App, contract_info: ContractInfo, sender: &str) -> String {
-    let msg = snip20_reference_impl::msg::ExecuteMsg::CreateViewingKey {
+    let msg = snip20_base::msg::ExecuteMsg::CreateViewingKey {
         entropy: "entropy".to_string(),
         padding: None,
     };
@@ -176,8 +176,8 @@ fn create_snip20_viewing_key(app: &mut App, contract_info: ContractInfo, sender:
         .execute_contract(Addr::unchecked(sender), &contract_info, &msg, &[])
         .unwrap();
     let mut viewing_key = String::new();
-    let data: snip20_reference_impl::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
-    if let snip20_reference_impl::msg::ExecuteAnswer::CreateViewingKey { key } = data {
+    let data: snip20_base::msg::ExecuteAnswer = from_binary(&res.data.unwrap()).unwrap();
+    if let snip20_base::msg::ExecuteAnswer::CreateViewingKey { key } = data {
         viewing_key = key;
     }
     viewing_key
@@ -210,7 +210,6 @@ fn test_instantiate_zero_supply() {
                 initial_dao_balance: Some(Uint128::zero()),
             },
             active_threshold: None,
-            dao_code_hash: "".into(),
             query_auth: None,
         },
     );
@@ -240,7 +239,6 @@ fn test_instantiate_no_balances() {
                 initial_dao_balance: Some(Uint128::zero()),
             },
             active_threshold: None,
-            dao_code_hash: "".into(),
             query_auth: None,
         },
     );
@@ -276,7 +274,6 @@ fn test_instantiate_zero_active_threshold_count() {
                 count: Uint128::new(0),
             }),
             query_auth: None,
-            dao_code_hash: "".into(),
         },
     );
 }
@@ -309,7 +306,6 @@ fn test_contract_info() {
             },
             active_threshold: None,
             query_auth: None,
-            dao_code_hash: "".into(),
         },
     );
 
@@ -397,7 +393,6 @@ fn test_new_snip20() {
                 &query_auth_info.address.clone().to_string(),
                 &query_auth_info.code_hash.clone(),
             )),
-            dao_code_hash: "".into(),
         },
     );
 
@@ -429,7 +424,7 @@ fn test_new_snip20() {
         .query_wasm_smart(
             snip20token_info.code_hash.clone(),
             snip20token_info.addr.clone(),
-            &snip20_reference_impl::msg::QueryMsg::TokenInfo {},
+            &snip20_base::msg::QueryMsg::TokenInfo {},
         )
         .unwrap();
     if let QueryAnswer::TokenInfo {
@@ -460,7 +455,7 @@ fn test_new_snip20() {
         .query_wasm_smart(
             snip20token_info.code_hash.clone(),
             snip20token_info.addr.clone(),
-            &snip20_reference_impl::msg::QueryMsg::Minters {},
+            &snip20_base::msg::QueryMsg::Minters {},
         )
         .unwrap();
     if let QueryAnswer::Minters { minters } = res {
@@ -492,7 +487,7 @@ fn test_new_snip20() {
         .query_wasm_smart(
             snip20token_info.code_hash.clone(),
             snip20token_info.addr.clone(),
-            &snip20_reference_impl::msg::QueryMsg::Balance {
+            &snip20_base::msg::QueryMsg::Balance {
                 address: DAO_ADDR.to_string(),
                 key: token_viewing_key.clone(),
             },
@@ -648,7 +643,7 @@ fn test_existing_snip20_new_staking() {
         .instantiate_contract(
             snip20_info,
             Addr::unchecked(CREATOR_ADDR),
-            &snip20_reference_impl::msg::InstantiateMsg {
+            &snip20_base::msg::InstantiateMsg {
                 name: "DAO DAO".to_string(),
                 symbol: "DAO".to_string(),
                 decimals: 3,
@@ -676,7 +671,6 @@ fn test_existing_snip20_new_staking() {
         InstantiateMsg {
             token_info: crate::msg::Snip20TokenInfo::Existing {
                 address: snip20token_info.address.clone().to_string(),
-                code_hash: snip20token_info.code_hash.clone(),
                 staking_contract: StakingInfo::New {
                     staking_code_id: staking_info.code_id,
                     staking_code_hash: staking_info.code_hash.clone(),
@@ -689,7 +683,6 @@ fn test_existing_snip20_new_staking() {
                 &query_auth_info.address.into(),
                 &query_auth_info.code_hash,
             )),
-            dao_code_hash: "".into(),
         },
     );
 
@@ -721,7 +714,7 @@ fn test_existing_snip20_new_staking() {
         .query_wasm_smart(
             snip20token_info.code_hash.clone(),
             snip20token_info.addr.clone(),
-            &snip20_reference_impl::msg::QueryMsg::TokenInfo {},
+            &snip20_base::msg::QueryMsg::TokenInfo {},
         )
         .unwrap();
     if let QueryAnswer::TokenInfo {
@@ -752,7 +745,7 @@ fn test_existing_snip20_new_staking() {
         .query_wasm_smart(
             snip20token_info.code_hash.clone(),
             snip20token_info.addr.clone(),
-            &snip20_reference_impl::msg::QueryMsg::Minters {},
+            &snip20_base::msg::QueryMsg::Minters {},
         )
         .unwrap();
     if let QueryAnswer::Minters { minters } = res {
@@ -900,7 +893,7 @@ fn test_existing_snip20_existing_staking() {
         .instantiate_contract(
             snip20_info.clone(),
             Addr::unchecked(CREATOR_ADDR),
-            &snip20_reference_impl::msg::InstantiateMsg {
+            &snip20_base::msg::InstantiateMsg {
                 name: "DAO DAO".to_string(),
                 symbol: "DAO".to_string(),
                 decimals: 3,
@@ -928,7 +921,6 @@ fn test_existing_snip20_existing_staking() {
         InstantiateMsg {
             token_info: crate::msg::Snip20TokenInfo::Existing {
                 address: snip20token_info.address.clone().to_string(),
-                code_hash: snip20token_info.code_hash.clone(),
                 staking_contract: StakingInfo::New {
                     staking_code_id: staking_info.code_id,
                     staking_code_hash: staking_info.code_hash.clone(),
@@ -937,7 +929,6 @@ fn test_existing_snip20_existing_staking() {
                 },
             },
             active_threshold: None,
-            dao_code_hash: "".into(),
             query_auth: Some(RawContract::new(
                 &query_auth_info.address.clone().into(),
                 &query_auth_info.code_hash.clone(),
@@ -974,7 +965,7 @@ fn test_existing_snip20_existing_staking() {
         .query_wasm_smart(
             snip20token_info.code_hash.clone(),
             snip20token_info.addr.clone(),
-            &snip20_reference_impl::msg::QueryMsg::TokenInfo {},
+            &snip20_base::msg::QueryMsg::TokenInfo {},
         )
         .unwrap();
     if let QueryAnswer::TokenInfo {
@@ -1005,10 +996,8 @@ fn test_existing_snip20_existing_staking() {
         InstantiateMsg {
             token_info: crate::msg::Snip20TokenInfo::Existing {
                 address: snip20token_info.addr.clone().to_string(),
-                code_hash: snip20token_info.code_hash.clone(),
                 staking_contract: StakingInfo::Existing {
                     staking_contract_address: staking_info.addr.clone().to_string(),
-                    staking_contract_code_hash: staking_info.code_hash.clone(),
                 },
             },
             active_threshold: None,
@@ -1016,7 +1005,6 @@ fn test_existing_snip20_existing_staking() {
                 &query_auth_info.address.clone().into(),
                 &query_auth_info.code_hash.clone(),
             )),
-            dao_code_hash: "".into(),
         },
     );
 
@@ -1133,7 +1121,7 @@ fn test_existing_snip20_existing_staking() {
         .instantiate_contract(
             snip20_info,
             Addr::unchecked(CREATOR_ADDR),
-            &snip20_reference_impl::msg::InstantiateMsg {
+            &snip20_base::msg::InstantiateMsg {
                 name: "DAO DAO MISMATCH".to_string(),
                 symbol: "DAOM".to_string(),
                 decimals: 3,
@@ -1162,10 +1150,8 @@ fn test_existing_snip20_existing_staking() {
         &InstantiateMsg {
             token_info: crate::msg::Snip20TokenInfo::Existing {
                 address: different_token.address.to_string(),
-                code_hash: different_token.code_hash,
                 staking_contract: StakingInfo::Existing {
                     staking_contract_address: staking_info.addr.to_string(),
-                    staking_contract_code_hash: staking_info.code_hash,
                 },
             },
             active_threshold: None,
@@ -1173,7 +1159,6 @@ fn test_existing_snip20_existing_staking() {
                 &query_auth_info.address.clone().into(),
                 &query_auth_info.code_hash.clone(),
             )),
-            dao_code_hash: "".into(),
         },
         &[],
         "voting module",
@@ -1203,7 +1188,7 @@ fn test_different_heights() {
         .instantiate_contract(
             snip20_info,
             Addr::unchecked(CREATOR_ADDR),
-            &snip20_reference_impl::msg::InstantiateMsg {
+            &snip20_base::msg::InstantiateMsg {
                 name: "DAO DAO".to_string(),
                 symbol: "DAO".to_string(),
                 decimals: 3,
@@ -1231,7 +1216,6 @@ fn test_different_heights() {
         InstantiateMsg {
             token_info: crate::msg::Snip20TokenInfo::Existing {
                 address: snip20token_info.address.clone().to_string(),
-                code_hash: snip20token_info.code_hash.clone(),
                 staking_contract: StakingInfo::New {
                     staking_code_id: staking_info.code_id,
                     staking_code_hash: staking_info.code_hash.clone(),
@@ -1240,7 +1224,6 @@ fn test_different_heights() {
                 },
             },
             active_threshold: None,
-            dao_code_hash: "".into(),
             query_auth: Some(RawContract::new(
                 &query_auth_info.address.to_string(),
                 &query_auth_info.code_hash,
@@ -1493,7 +1476,6 @@ fn test_active_threshold_absolute_count() {
             active_threshold: Some(ActiveThreshold::AbsoluteCount {
                 count: Uint128::new(100),
             }),
-            dao_code_hash: "".into(),
             query_auth: Some(RawContract::new(
                 &query_auth_info.address.to_string(),
                 &query_auth_info.code_hash,
@@ -1598,7 +1580,6 @@ fn test_active_threshold_percent() {
             active_threshold: Some(ActiveThreshold::Percentage {
                 percent: Decimal::percent(20),
             }),
-            dao_code_hash: "".into(),
             query_auth: Some(RawContract::new(
                 &query_auth_info.address.to_string(),
                 &query_auth_info.code_hash,
@@ -1703,7 +1684,6 @@ fn test_active_threshold_percent_rounds_up() {
             active_threshold: Some(ActiveThreshold::Percentage {
                 percent: Decimal::percent(50),
             }),
-            dao_code_hash: "".into(),
             query_auth: Some(RawContract::new(
                 &query_auth_info.address.to_string(),
                 &query_auth_info.code_hash,
@@ -1814,7 +1794,6 @@ fn test_active_threshold_none() {
             },
             active_threshold: None,
             query_auth: None,
-            dao_code_hash: "".into(),
         },
     );
 
@@ -1858,7 +1837,6 @@ fn test_update_active_threshold() {
             },
             active_threshold: None,
             query_auth: None,
-            dao_code_hash: "".into(),
         },
     );
 
@@ -1943,7 +1921,6 @@ fn test_active_threshold_percentage_gt_100() {
                 percent: Decimal::percent(120),
             }),
             query_auth: None,
-            dao_code_hash: "".into(),
         },
     );
 }
@@ -1978,7 +1955,6 @@ fn test_active_threshold_percentage_lte_0() {
             active_threshold: Some(ActiveThreshold::Percentage {
                 percent: Decimal::percent(0),
             }),
-            dao_code_hash: "".into(),
             query_auth: None,
         },
     );
@@ -2015,7 +1991,6 @@ fn test_active_threshold_absolute_count_invalid() {
                 count: Uint128::new(10000),
             }),
             query_auth: None,
-            dao_code_hash: "".into(),
         },
     );
 }

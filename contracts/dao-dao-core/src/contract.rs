@@ -1,8 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply,
-    Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128,
+    from_binary, from_slice, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdError, StdResult, SubMsg, SubMsgResult, Uint128
 };
 use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::AnyContractInfo;
@@ -21,6 +20,7 @@ use dao_interface::{
 };
 use dao_utils::msg::GroupContract;
 use dao_utils::msg::NftRolesContract;
+use dao_utils::query::get_contract_code_hash;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 use secret_toolkit::{serialization::Json, storage::Keymap, utils::HandleCallback};
@@ -28,13 +28,13 @@ use secret_utils::Duration;
 use shade_protocol::basic_staking::Auth;
 use shade_protocol::utils::asset::RawContract;
 use shade_protocol::Contract;
-use snip20_reference_impl::msg::ExecuteAnswer;
+use snip20_base::msg::ExecuteAnswer;
 
 use crate::query_auth_init::QueryAuthInstantiateMsg;
 use crate::state::{
     ACTIVE_PROPOSAL_MODULE_COUNT, ADMIN, CONFIG, ITEMS, NOMINATED_ADMIN, PAUSED, PROPOSAL_MODULES,
-    QUERY_AUTH, REPLY_IDS, SNIP20_CODE_HASH, SNIP20_LIST, SNIP721_CODE_HASH, SNIP721_LIST,
-    SUBDAO_LIST, TOKEN_VIEWING_KEY, TOTAL_PROPOSAL_MODULE_COUNT, VOTING_MODULE,
+    QUERY_AUTH, REPLY_IDS, SNIP20_LIST, SNIP721_LIST, SUBDAO_LIST, TOKEN_VIEWING_KEY,
+    TOTAL_PROPOSAL_MODULE_COUNT, VOTING_MODULE,
 };
 use crate::{error::ContractError, snip20_msg};
 
@@ -79,7 +79,6 @@ pub fn instantiate(
         ReplyEvent::InstantiateQueryAuth {
             voting_module_instantiate_info: msg.voting_module_instantiate_info.clone(),
             proposal_modules_instantiate_info: msg.proposal_modules_instantiate_info,
-            code_hash: msg.query_auth_code_hash.clone(),
         },
     )?;
 
@@ -108,8 +107,6 @@ pub fn instantiate(
 
     TOTAL_PROPOSAL_MODULE_COUNT.save(deps.storage, &0)?;
     ACTIVE_PROPOSAL_MODULE_COUNT.save(deps.storage, &0)?;
-    SNIP20_CODE_HASH.save(deps.storage, &msg.snip20_code_hash)?;
-    SNIP721_CODE_HASH.save(deps.storage, &msg.snip721_code_hash)?;
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
@@ -342,12 +339,7 @@ pub fn execute_update_voting_module(
     }
 
     let wasm = module.clone().to_cosmos_msg(env.contract.address);
-    let reply_id = REPLY_IDS.add_event(
-        deps.storage,
-        ReplyEvent::VotingModuleInstantiate {
-            code_hash: module.code_hash,
-        },
-    )?;
+    let reply_id = REPLY_IDS.add_event(deps.storage, ReplyEvent::VotingModuleInstantiate {})?;
     let submessage = SubMsg::reply_on_success(wasm, reply_id);
 
     Ok(Response::default()
@@ -400,12 +392,7 @@ pub fn execute_update_proposal_modules(
         .map(|info| {
             let wasm = info.clone().into_wasm_msg(env.contract.address.clone());
             let reply_id = REPLY_IDS
-                .add_event(
-                    deps.storage,
-                    ReplyEvent::ProposalModuleInstantiate {
-                        code_hash: info.code_hash,
-                    },
-                )
+                .add_event(deps.storage, ReplyEvent::ProposalModuleInstantiate {})
                 .unwrap();
             SubMsg::reply_on_success(wasm, reply_id)
         })
@@ -462,8 +449,8 @@ pub fn execute_update_snip20_list(
         let viewing_key = TOKEN_VIEWING_KEY
             .get(deps.storage, addr)
             .unwrap_or_default();
-        let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
-        let _info: snip20_reference_impl::msg::QueryAnswer = deps.querier.query_wasm_smart(
+        let snip20_code_hash = get_contract_code_hash(deps.querier, addr.to_string())?;
+        let _info: snip20_base::msg::QueryAnswer = deps.querier.query_wasm_smart(
             snip20_code_hash,
             addr,
             &secret_toolkit::snip20::QueryMsg::Balance {
@@ -487,7 +474,7 @@ pub fn execute_update_snip721_list(
         return Err(ContractError::Unauthorized {});
     }
     do_update_addr_list(deps, &SNIP721_LIST, to_add, to_remove, |addr, deps| {
-        let snip721_code_hash = SNIP721_CODE_HASH.load(deps.storage)?;
+        let snip721_code_hash = get_contract_code_hash(deps.querier, addr.to_string())?;
         let _info: secret_toolkit::snip721::query::ContractInfo = deps.querier.query_wasm_smart(
             snip721_code_hash,
             addr,
@@ -567,8 +554,7 @@ pub fn execute_receive_snip20(
     sender: Addr,
     _wrapper: Snip20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-    println!("here");
-    let code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
+    let code_hash = get_contract_code_hash(deps.querier, sender.to_string())?;
     let viewing_key = TOKEN_VIEWING_KEY
         .get(deps.storage, &sender)
         .unwrap_or_default();
@@ -994,21 +980,21 @@ pub fn query_cw20_balances(
     let balances: StdResult<Vec<Snip20BalanceResponse>> = res
         .into_iter()
         .map(|addr| {
-            let snip20_code_hash = SNIP20_CODE_HASH.load(deps.storage)?;
+            let snip20_code_hash = get_contract_code_hash(deps.querier, addr.clone())?;
             let viewing_key = TOKEN_VIEWING_KEY
                 .get(deps.storage, &deps.api.addr_validate(&addr)?)
                 .unwrap_or_default();
             let mut balance_amount = Uint128::zero();
-            let balance: snip20_reference_impl::msg::QueryAnswer = deps.querier.query_wasm_smart(
+            let balance: snip20_base::msg::QueryAnswer = deps.querier.query_wasm_smart(
                 snip20_code_hash.clone(),
                 addr.clone(),
-                &snip20_reference_impl::msg::QueryMsg::Balance {
+                &snip20_base::msg::QueryMsg::Balance {
                     address: env.contract.address.to_string(),
                     key: viewing_key,
                 },
             )?;
             match balance {
-                snip20_reference_impl::msg::QueryAnswer::Balance { amount } => {
+                snip20_base::msg::QueryAnswer::Balance { amount } => {
                     balance_amount = amount;
                 }
                 _ => (),
@@ -1101,10 +1087,11 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
 pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
     let reply_event = REPLY_IDS.get_event(deps.storage, msg.id)?;
     match reply_event {
-        ReplyEvent::ProposalModuleInstantiate { code_hash } => match msg.result {
+        ReplyEvent::ProposalModuleInstantiate {} => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
                 let address = parse_reply_address_from_event(res.clone());
+                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
 
                 let total_module_count = TOTAL_PROPOSAL_MODULE_COUNT.load(deps.storage)?;
 
@@ -1140,11 +1127,11 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                     .add_messages(callback_msgs))
             }
         },
-        ReplyEvent::VotingModuleInstantiate { code_hash } => match msg.result {
+        ReplyEvent::VotingModuleInstantiate {} => match msg.result {
             SubMsgResult::Err(err) => Err(ContractError::Std(StdError::GenericErr { msg: err })),
             SubMsgResult::Ok(res) => {
                 let address = parse_reply_address_from_event(res.clone());
-
+                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
                 let voting_module = VotingModuleInfo {
                     code_hash,
                     addr: deps.api.addr_validate(&address.clone())?,
@@ -1168,24 +1155,27 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
         ReplyEvent::Snip20ModuleCreateViewingKey { contract_address } => match msg.result {
             SubMsgResult::Ok(res) => {
                 let token_addr = deps.api.addr_validate(&contract_address)?;
-                let data: snip20_reference_impl::msg::ExecuteAnswer =
-                    from_binary(&res.data.unwrap())?;
-                let mut viewing_key = String::new();
-                if let ExecuteAnswer::CreateViewingKey { key } = data {
-                    viewing_key = key;
-                }
-                TOKEN_VIEWING_KEY.insert(deps.storage, &token_addr, &viewing_key)?;
+                let raw_data = res.data.ok_or_else(|| StdError::generic_err("No data returned"))?;
+        
+                // Extract JSON payload starting from the '{' character
+                let json_data = &raw_data.0[raw_data.0.iter().position(|&b| b == b'{').unwrap_or(0)..];
+                let key = match from_slice::<ExecuteAnswer>(json_data)? {
+                    ExecuteAnswer::CreateViewingKey { key } => key,
+                    _ => return Err(ContractError::Std(StdError::generic_err("Unexpected response type"))),
+                };
+        
+                TOKEN_VIEWING_KEY.insert(deps.storage, &token_addr, &key)?;
                 Ok(Response::new().add_attribute("action", "create_token_viewing_key"))
             }
-            SubMsgResult::Err(_) => Err(ContractError::TokenExecuteError {}),
+            SubMsgResult::Err(_) => Err(ContractError::Std(StdError::generic_err("Token execution error"))),
         },
         ReplyEvent::InstantiateQueryAuth {
             voting_module_instantiate_info,
             proposal_modules_instantiate_info,
-            code_hash,
         } => match msg.result {
             SubMsgResult::Ok(res) => {
                 let address = parse_reply_address_from_event(res);
+                let code_hash = get_contract_code_hash(deps.querier, address.clone())?;
                 let msg = update_query_auth(
                     voting_module_instantiate_info.clone(),
                     RawContract {
@@ -1194,12 +1184,8 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                     },
                     env.contract.address.clone().to_string(),
                 )?;
-                let reply_id = REPLY_IDS.add_event(
-                    deps.storage,
-                    ReplyEvent::VotingModuleInstantiate {
-                        code_hash: voting_module_instantiate_info.code_hash,
-                    },
-                )?;
+                let reply_id =
+                    REPLY_IDS.add_event(deps.storage, ReplyEvent::VotingModuleInstantiate {})?;
                 let vote_module_msg: SubMsg<Empty> = SubMsg::reply_on_success(msg, reply_id);
 
                 let proposal_module_msgs: Vec<SubMsg<Empty>> = proposal_modules_instantiate_info
@@ -1216,12 +1202,7 @@ pub fn reply(deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractEr
                         .unwrap();
 
                         let reply_id = REPLY_IDS
-                            .add_event(
-                                deps.storage,
-                                ReplyEvent::ProposalModuleInstantiate {
-                                    code_hash: info.code_hash,
-                                },
-                            )
+                            .add_event(deps.storage, ReplyEvent::ProposalModuleInstantiate {})
                             .unwrap();
                         SubMsg::reply_on_success(msg, reply_id)
                     })
@@ -1318,7 +1299,7 @@ pub(crate) fn update_query_auth(
     }
 
     //Dao voting snip20 balance
-    if let Ok(msg) = from_binary::<dao_voting_snip20_balance::msg::InstantiateMsg>(&info.msg) {
+    if let Ok(msg) = from_binary::<dao_utils::msg::DaoVotingSnip20BalanceInstantiateMsg>(&info.msg) {
         return msg.to_cosmos_msg(Some(admin), info.label, info.code_id, info.code_hash, None);
     }
 

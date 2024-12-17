@@ -41,9 +41,7 @@ fn setup_test(sender: &str) -> CommonTest {
         RawContract {
             address: query_auth.clone().address.to_string(),
             code_hash: query_auth.clone().code_hash,
-        },
-        "dao_dao_code_hash".to_string(),
-    );
+        }    );
     let proposal_multiple_contract_info = app
         .instantiate_contract(
             proposal_module_contract_info,

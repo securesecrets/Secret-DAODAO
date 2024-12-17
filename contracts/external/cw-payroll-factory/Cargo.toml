@@ -28,11 +28,11 @@ cw-vesting = { workspace = true, features = ["library"] }
 secret-utils = { workspace = true }
 serde ={ workspace = true }
 schemars ={ workspace = true }
-snip20-reference-impl  = { workspace = true}
+snip20-base  = { workspace = true}
 secret-toolkit ={ workspace = true }
 dao-interface ={ workspace = true }
 
 [dev-dependencies]
 secret-multi-test = { workspace = true }
-snip20-reference-impl  = { workspace = true}
+snip20-base  = { workspace = true}
 wynd-utils = { workspace = true }

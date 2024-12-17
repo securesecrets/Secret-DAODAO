@@ -33,13 +33,13 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, PreProposeError> {
+    println!("In instantiate and sender is {}", info.sender);
     // This contract does not handle deposits or have open submissions
     // Here we hardcode the pre-propose-base instantiate message
     let base_instantiate_msg = BaseInstantiateMsg {
         deposit_info: None,
         open_proposal_submission: false,
         extension: Empty {},
-        proposal_module_code_hash: msg.proposal_module_code_hash,
     };
     // Default pre-propose-base instantiation
     let resp = PrePropose::default().instantiate(
@@ -113,6 +113,7 @@ pub fn execute_propose(
 ) -> Result<Response, PreProposeError> {
     // Check that this is coming from the expected approval contract
     let approval_contract = PRE_PROPOSE_APPROVAL_CONTRACT.load(deps.storage)?;
+    println!("In execute propose approver");
     if info.sender != approval_contract.addr {
         return Err(PreProposeError::Unauthorized {});
     }
@@ -213,6 +214,8 @@ pub fn execute_reset_approver(
 ) -> Result<Response, PreProposeError> {
     // Check that this is coming from the DAO.
     let dao = PrePropose::default().dao.load(deps.storage)?;
+    println!("In execute reset approver");
+
     if info.sender != dao.addr {
         return Err(PreProposeError::Unauthorized {});
     }

@@ -15,7 +15,7 @@ pub enum TokenInfo {
         name: String,
         symbol: String,
         decimals: u8,
-        initial_balances: Vec<snip20_reference_impl::msg::InitialBalance>,
+        initial_balances: Vec<snip20_base::msg::InitialBalance>,
     },
 }
 

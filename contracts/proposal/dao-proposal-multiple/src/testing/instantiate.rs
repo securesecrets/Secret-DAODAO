@@ -8,7 +8,6 @@ use shade_protocol::utils::asset::RawContract;
 
 pub(crate) fn get_default_token_dao_proposal_module_instantiate(
     query_auth: RawContract,
-    dao_code_hash: String,
 ) -> InstantiateMsg {
     InstantiateMsg {
         veto: None,
@@ -21,7 +20,6 @@ pub(crate) fn get_default_token_dao_proposal_module_instantiate(
         allow_revoting: false,
         pre_propose_info: PreProposeInfo::AnyoneMayPropose {},
         close_proposal_on_execution_failure: true,
-        dao_code_hash,
         query_auth: Some(query_auth),
     }
 }

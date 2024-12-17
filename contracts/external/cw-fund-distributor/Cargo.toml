@@ -21,7 +21,7 @@ cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 secret-storage-plus = { workspace = true }
 secret-cw2 = { workspace = true }
-snip20-reference-impl = { workspace = true }
+snip20-base = { workspace = true }
 thiserror = { workspace = true }
 secret-utils = { workspace = true }
 dao-voting-snip20-staked = { workspace = true }
@@ -36,4 +36,4 @@ shade-protocol ={ workspace = true }
 [dev-dependencies]
 dao-dao-core = { workspace = true, features = ["library"] }
 secret-multi-test = { workspace = true }
-snip20-reference-impl = { workspace = true}
+snip20-base = { workspace = true}

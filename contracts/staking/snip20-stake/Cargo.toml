@@ -38,7 +38,7 @@ secret-storage-plus = { workspace = true}
 secret-cw-controllers = { workspace = true }
 secret-cw2 = { workspace = true }
 
-snip20-reference-impl = { workspace = true }
+snip20-base = { workspace = true }
 
 subtle = { version = "2.2.3", default-features = false }
 base64 = "0.12.3"

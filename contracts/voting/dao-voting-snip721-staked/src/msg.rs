@@ -12,8 +12,6 @@ pub enum NftContract {
     Existing {
         /// Address of an already instantiated snip721 or sg721 token contract.
         address: String,
-        /// code hash of an already instantiated snip721 or sg721 token contract.
-        code_hash: String,
     },
     /// Creates a new NFT collection used for staking and governance.
     New {
@@ -46,9 +44,6 @@ pub struct InstantiateMsg {
     /// The number or percentage of tokens that must be staked
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
-
-    pub dao_code_hash: String,
-
     pub query_auth: Option<RawContract>,
 }
 

@@ -8,6 +8,7 @@ use cw4::{MemberListResponse, MemberResponse, TotalWeightResponse};
 use dao_interface::replies::parse_reply_address_from_event;
 // use cw4_group::msg::InstantiateMsg as Cw4GroupInstantiateMsg;
 use dao_interface::state::AnyContractInfo;
+use dao_utils::query::get_contract_code_hash;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 use shade_protocol::basic_staking::Auth;
@@ -34,7 +35,7 @@ pub fn instantiate(
     DAO.save(
         deps.storage,
         &AnyContractInfo {
-            code_hash: msg.dao_code_hash,
+            code_hash: get_contract_code_hash(deps.querier, info.sender.clone().into_string()).unwrap_or_default(),
             addr: info.sender.clone(),
         },
     )?;
@@ -106,8 +107,9 @@ pub fn instantiate(
                 .add_attribute("action", "instantiate")
                 .add_submessage(sub_msg))
         }
-        GroupContract::Existing { address, code_hash } => {
+        GroupContract::Existing { address } => {
             let group_contract = deps.api.addr_validate(&address.clone())?;
+            let code_hash = get_contract_code_hash(deps.querier, group_contract.clone().into_string()).unwrap_or_default();
 
             // Validate valid group contract that has at least one member.
             let res: MemberListResponse = deps.querier.query_wasm_smart(

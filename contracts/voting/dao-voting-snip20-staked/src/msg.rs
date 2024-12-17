@@ -15,8 +15,6 @@ pub enum StakingInfo {
     Existing {
         /// Address of an already instantiated staking contract.
         staking_contract_address: String,
-        /// code hash of an already instantiated staking contract.
-        staking_contract_code_hash: String,
     },
     New {
         /// Code ID for staking contract to instantiate.
@@ -38,8 +36,6 @@ pub enum Snip20TokenInfo {
     Existing {
         /// Address of an already instantiated cw20 token contract.
         address: String,
-        /// Code hash of an already instantiated cw20 token contract.
-        code_hash: String,
         /// Information about the staking contract to use.
         staking_contract: StakingInfo,
     },
@@ -66,7 +62,6 @@ pub struct InstantiateMsg {
     /// The number or percentage of tokens that must be staked
     /// for the DAO to be active
     pub active_threshold: Option<ActiveThreshold>,
-    pub dao_code_hash: String,
     pub query_auth: Option<RawContract>,
 }
 

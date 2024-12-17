@@ -1,4 +1,4 @@
-use crate::state::{AnyContractInfo, Config};
+use crate::state::Config;
 use crate::{query::SubDao, state::ModuleInstantiateInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Uint128};
@@ -51,8 +51,6 @@ pub struct InstantiateMsg {
     pub query_auth_code_id: u64,
     pub query_auth_code_hash: String,
     pub prng_seed: String,
-    pub snip20_code_hash: String,
-    pub snip721_code_hash: String,
 }
 
 /// Snip20ReceiveMsg should be de/serialized under `Receive()` variant in a HandleMsg
@@ -255,7 +253,7 @@ pub enum QueryMsg {
     /// Returns the total voting power at a given block height.
     #[returns(crate::voting::TotalPowerAtHeightResponse)]
     TotalPowerAtHeight { height: Option<u64> },
-    #[returns(AnyContractInfo)]
+    #[returns(crate::state::AnyContractInfo)]
     QueryAuthInfo {},
 }
 

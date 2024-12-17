@@ -24,7 +24,7 @@ cosmwasm-std = { workspace = true }
 secret-multi-test = { workspace = true }
 secret-utils = { workspace = true }
 secret-cw2 = { workspace = true }
-snip20-reference-impl = { workspace = true }
+snip20-base = { workspace = true }
 cw4 = { workspace = true }
 cw4-group = { workspace = true }
 rand = { workspace = true }

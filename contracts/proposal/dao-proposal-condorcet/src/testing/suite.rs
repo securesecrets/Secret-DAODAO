@@ -37,7 +37,6 @@ impl Default for SuiteBuilder {
                 voting_period: Duration::Time(60 * 60 * 24 * 7),
                 min_voting_period: Some(Duration::Time(60 * 60 * 24)),
                 close_proposals_on_execution_failure: true,
-                dao_code_hash: "dao_code_hash".to_string(),
             },
             with_proposal: None,
             with_voters: vec![("sender".to_string(), 10)],

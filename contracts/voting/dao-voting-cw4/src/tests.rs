@@ -150,7 +150,6 @@ fn setup_test_case(app: &mut App) -> (ContractInfo, ContractInfo) {
                         &query_auth.code_hash.clone().to_string(),
                     )),
                 },
-                dao_code_hash: "todo!()".into(),
             },
         ),
         query_auth,
@@ -173,7 +172,6 @@ fn test_instantiate() {
             initial_members: [].into(),
             query_auth: None,
         },
-        dao_code_hash: "".to_string(),
     };
     let _err = app
         .instantiate_contract(
@@ -207,7 +205,6 @@ fn test_instantiate() {
             ],
             query_auth: None,
         },
-        dao_code_hash: "".to_string(),
     };
     let _err = app
         .instantiate_contract(
@@ -265,9 +262,7 @@ pub fn test_instantiate_existing_contract() {
             &InstantiateMsg {
                 group_contract: GroupContract::Existing {
                     address: cw4_contract_info.address.clone().to_string(),
-                    code_hash: cw4_contract_info.code_hash.clone(),
                 },
-                dao_code_hash: "todo!()".into(),
             },
             &[],
             "voting module",
@@ -304,9 +299,7 @@ pub fn test_instantiate_existing_contract() {
     let msg = InstantiateMsg {
         group_contract: GroupContract::Existing {
             address: cw4_contract_info.address.clone().to_string(),
-            code_hash: cw4_contract_info.code_hash.clone(),
         },
-        dao_code_hash: "".into(),
     };
     let _err = app
         .instantiate_contract(
@@ -396,10 +389,10 @@ fn test_contract_info() {
         )
         .unwrap();
     assert_eq!(
-        dao_contract,
+        dao_contract.clone(),
         AnyContractInfo {
             addr: Addr::unchecked(DAO_ADDR),
-            code_hash: "todo!()".into(),
+            code_hash: dao_contract.code_hash,
         }
     );
 }
@@ -909,7 +902,6 @@ fn test_duplicate_member() {
             ],
             query_auth: None,
         },
-        dao_code_hash: "".into(),
     };
     // Previous versions voting power was 100, due to no dedup.
     // Now we error

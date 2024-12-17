@@ -16,12 +16,13 @@ use dao_interface::msg::InitialBalance;
 use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::AnyContractInfo;
 use dao_interface::voting::IsActiveResponse;
+use dao_utils::query::get_contract_code_hash;
 use dao_voting::threshold::ActiveThreshold;
 use dao_voting::threshold::ActiveThresholdResponse;
 use secret_cw2::{get_contract_version, set_contract_version, ContractVersion};
 use secret_toolkit::utils::InitCallback;
 use shade_protocol::basic_staking::Auth;
-use snip20_reference_impl::msg::QueryAnswer;
+use snip20_base::msg::QueryAnswer;
 use std::convert::TryInto;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:dao-voting-snip20-staked";
@@ -48,7 +49,7 @@ pub fn instantiate(
         deps.storage,
         &AnyContractInfo {
             addr: info.sender.clone(),
-            code_hash: msg.dao_code_hash,
+            code_hash: get_contract_code_hash(deps.querier, info.sender.clone().to_string()).unwrap_or_default(),
         },
     )?;
 
@@ -64,10 +65,10 @@ pub fn instantiate(
     match msg.token_info {
         Snip20TokenInfo::Existing {
             address,
-            code_hash,
             staking_contract,
         } => {
             let address = deps.api.addr_validate(&address)?;
+            let code_hash = get_contract_code_hash(deps.querier, address.clone().into()).unwrap_or_default();
             let token_contract = AnyContractInfo {
                 addr: address.clone(),
                 code_hash: code_hash.clone(),
@@ -86,10 +87,10 @@ pub fn instantiate(
             match staking_contract {
                 StakingInfo::Existing {
                     staking_contract_address,
-                    staking_contract_code_hash,
                 } => {
                     let staking_contract_address =
                         deps.api.addr_validate(&staking_contract_address)?;
+                    let staking_contract_code_hash = get_contract_code_hash(deps.querier, staking_contract_address.clone().into()).unwrap_or_default();
                     let staking_contract = AnyContractInfo {
                         addr: staking_contract_address.clone(),
                         code_hash: staking_contract_code_hash.clone(),

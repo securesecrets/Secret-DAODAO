@@ -7,7 +7,7 @@ use cosmwasm_std::{
 use dao_interface::replies::parse_reply_address_from_event;
 use dao_interface::state::AnyContractInfo;
 use secret_cw2::set_contract_version;
-use snip20_reference_impl::msg::QueryAnswer;
+use snip20_base::msg::QueryAnswer;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TokenInfo};
@@ -67,7 +67,7 @@ pub fn instantiate(
                 return Err(ContractError::InitialBalancesError {});
             }
 
-            let init_msg = snip20_reference_impl::msg::InstantiateMsg {
+            let init_msg = snip20_base::msg::InstantiateMsg {
                 name,
                 symbol,
                 decimals,
@@ -149,10 +149,10 @@ pub fn query_voting_power_at_height(
     let token = TOKEN.load(deps.storage)?;
     let address = deps.api.addr_validate(&address)?;
     let mut balance_amount = Uint128::zero();
-    let balance: snip20_reference_impl::msg::QueryAnswer = deps.querier.query_wasm_smart(
+    let balance: snip20_base::msg::QueryAnswer = deps.querier.query_wasm_smart(
         token.code_hash,
         token.addr,
-        &snip20_reference_impl::msg::QueryMsg::Balance {
+        &snip20_base::msg::QueryMsg::Balance {
             address: address.to_string(),
             key,
         },
@@ -170,10 +170,10 @@ pub fn query_voting_power_at_height(
 pub fn query_total_power_at_height(deps: Deps, env: Env) -> StdResult<Binary> {
     let token = TOKEN.load(deps.storage)?;
     let mut supply = Uint128::zero();
-    let info: snip20_reference_impl::msg::QueryAnswer = deps.querier.query_wasm_smart(
+    let info: snip20_base::msg::QueryAnswer = deps.querier.query_wasm_smart(
         token.code_hash,
         token.addr,
-        &snip20_reference_impl::msg::QueryMsg::TokenInfo {},
+        &snip20_base::msg::QueryMsg::TokenInfo {},
     )?;
     if let QueryAnswer::TokenInfo { total_supply, .. } = info {
         supply = total_supply.unwrap_or_default();

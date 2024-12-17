@@ -59,7 +59,6 @@ pub(crate) fn setup_test(initial_nfts: Vec<NftMintMsg>) -> CommonTest {
                         &query_auth.code_hash.clone(),
                     )),
                 },
-                dao_code_hash: "".into(),
             },
             &[],
             "snip721_voting",

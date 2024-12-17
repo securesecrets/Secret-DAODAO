@@ -32,6 +32,7 @@ secret-toolkit ={ workspace = true }
 secret-cw-controllers ={ workspace = true }
 shade-protocol ={ workspace = true }
 query_auth ={ workspace = true }
+dao-utils ={ workspace = true}
 
 [dev-dependencies]
 cosmwasm-schema = { workspace = true }

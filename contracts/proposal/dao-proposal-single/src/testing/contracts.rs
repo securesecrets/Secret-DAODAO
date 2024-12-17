@@ -5,9 +5,9 @@ use secret_multi_test::{Contract, ContractWrapper};
 
 pub(crate) fn snip20_base_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        snip20_reference_impl::contract::execute,
-        snip20_reference_impl::contract::instantiate,
-        snip20_reference_impl::contract::query,
+        snip20_base::contract::execute,
+        snip20_base::contract::instantiate,
+        snip20_base::contract::query,
     );
     Box::new(contract)
 }
@@ -17,15 +17,6 @@ pub(crate) fn cw4_group_contract() -> Box<dyn Contract<Empty>> {
         cw4_group::contract::execute,
         cw4_group::contract::instantiate,
         cw4_group::contract::query,
-    );
-    Box::new(contract)
-}
-
-pub(crate) fn snip721_base_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        snip721_reference_impl::contract::execute,
-        snip721_reference_impl::contract::instantiate,
-        snip721_reference_impl::contract::query,
     );
     Box::new(contract)
 }
@@ -74,15 +65,6 @@ pub(crate) fn native_staked_balances_voting_contract() -> Box<dyn Contract<Empty
         dao_voting_token_staked::contract::execute,
         dao_voting_token_staked::contract::instantiate,
         dao_voting_token_staked::contract::query,
-    );
-    Box::new(contract)
-}
-
-pub(crate) fn snip721_stake_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        dao_voting_snip721_staked::contract::execute,
-        dao_voting_snip721_staked::contract::instantiate,
-        dao_voting_snip721_staked::contract::query,
     );
     Box::new(contract)
 }
